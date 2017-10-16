@@ -5,3 +5,4 @@ authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>"]
 
 [dependencies]
 bn = "0.4.3"
+rand = "0.3"
