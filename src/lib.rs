@@ -1,15 +1,23 @@
+// Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
 extern crate bn;
+extern crate rand;
 use std::collections::LinkedList;
 use std::string::String;
+use bn::*;
+use rand::Rng;
 
 pub struct AbePublicKey
 {
-    _pkey: f32
+    _g1: bn::G1,
+    _g2: bn::G2,
+    _e: bn::Gt,
+    _g1_beta: bn::G1,
+    _g2_beta: bn::G2
 }
 
 pub struct AbeMasterKey
 {
-    _msk: f32
+    _msk: bn::Fr
 }
 
 pub struct AbeSecretKey
@@ -17,13 +25,26 @@ pub struct AbeSecretKey
     _sk: f32
 }
 
-pub fn abe_setup () -> (Option<AbePublicKey>,Option<AbeMasterKey>)
+pub fn abe_setup () -> (AbePublicKey, AbeMasterKey)
 {
-    let pk = AbePublicKey { _pkey: 0.0 };
-    let msk = AbeMasterKey { _msk: 0.0 };
-
-    
-    return (None, None);
+    // random number generator
+    let rng = &mut rand::thread_rng();
+    // generate random values for alpha and beta
+    let rnd_alpha = Fr::random(rng);
+    let rnd_beta = Fr::random(rng);
+    // generator of group G1:g1 and generator of group G2: g2
+    let g1 = G1::one();
+    let g2 = G2::one();
+    // calculate g1^b and g2^b
+    let g1_beta = g1 * rnd_beta;
+    let g2_beta = g2 * rnd_beta;
+    // calculate pairing
+    let e = pairing(g1, g2).pow(rnd_alpha);
+    // now generate PK from calculated values
+    let pk = AbePublicKey { _g1: g1, _g2: g2, _e: e, _g1_beta: g1_beta, _g2_beta: g2_beta };
+    // now generate MSK from calculated values
+    let msk = AbeMasterKey { _msk: rnd_alpha };
+    return (pk, msk);
 }
 
 pub fn abe_keygen (pk: &AbePublicKey,
