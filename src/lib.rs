@@ -100,20 +100,15 @@ mod tests {
     #[test]
     fn test_setup() {
         let (pk,msk) = abe_setup ();
-        assert!(!pk.is_none());
-        assert!(!msk.is_none());
     }
     fn test_keygen() {
-        //let (pk,msk) = abe_setup ();
+        let (pk,msk) = abe_setup ();
         let mut attrs: LinkedList<String> = LinkedList::new();
         attrs.push_back(String::from("a1"));
         attrs.push_back(String::from("a2"));
         attrs.push_back(String::from("a3"));
-        match abe_setup () {
-            (Some(pk),Some(msk)) => { let sk = abe_keygen (&pk,&msk,&attrs);
-                                     assert!(!sk.is_none()); },
-            _ => assert!(false)
-        }
+        let sk = abe_keygen (&pk,&msk,&attrs);
+        assert!(!sk.is_none());
         //assert_ne!(None, sk);
     }
 }
