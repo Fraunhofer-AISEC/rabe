@@ -101,6 +101,7 @@ mod tests {
     fn test_setup() {
         let (pk,msk) = abe_setup ();
     }
+    #[test]
     fn test_keygen() {
         let (pk,msk) = abe_setup ();
         let mut attrs: LinkedList<String> = LinkedList::new();
