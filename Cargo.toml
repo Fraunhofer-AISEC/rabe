@@ -1,0 +1,7 @@
+[package]
+name = "rabe"
+version = "0.1.0"
+authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>"]
+
+[dependencies]
+bn = "0.4.3"
