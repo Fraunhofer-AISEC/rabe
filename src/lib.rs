@@ -4,7 +4,7 @@ extern crate rand;
 use std::collections::LinkedList;
 use std::string::String;
 use bn::*;
-use rand::Rng;
+//use rand::Rng;
 
 pub struct AbePublicKey
 {
@@ -90,10 +90,27 @@ pub fn abe_keygen (pk: &AbePublicKey,
 }
 
 pub fn abe_encrypt (pk: &AbePublicKey,
-                    policy: String,
+                    tags: &LinkedList<String>,
                     plaintext: &Vec<u8>,
                     ciphertext: &mut Vec<u8>) -> bool
 {
+    // random number generator
+    let rng = &mut rand::thread_rng();
+
+    // generate s1,s2
+    let s1 = Fr::random(rng);
+    let s2 = Fr::random(rng);
+
+    // calculate ct0
+    let h1s1 = pk._h1 * s1;
+    let h2s2 = pk._h2 * s2;
+    let hs1s2 = pk._h * (s1 + s2);
+
+    let ct0 = (h1s1, h2s2, hs1s2);
+
+    for tag in tags.iter() {
+        //TODO calculate ct_tag_x; x in [3]
+    }
     return true;
 }
 
