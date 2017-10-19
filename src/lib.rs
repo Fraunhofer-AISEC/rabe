@@ -8,16 +8,25 @@ use rand::Rng;
 
 pub struct AbePublicKey
 {
-    _g1: bn::G1,
-    _g2: bn::G2,
-    _e: bn::Gt,
-    _g1_beta: bn::G1,
-    _g2_beta: bn::G2
+    _h: bn::G2,
+    _h1: bn::G2,
+    _h2: bn::G2,
+    _t1: bn::Gt,
+    _t2: bn::Gt
 }
 
 pub struct AbeMasterKey
 {
-    _msk: bn::Fr
+
+    _g: bn::G1,
+    _h: bn::G2,
+    _a1: bn::Fr,
+    _a2: bn::Fr,
+    _b1: bn::Fr,
+    _b2: bn::Fr,
+    _g_b1: bn::G1,
+    _g_b2: bn::G1,
+    _g_b3: bn::G1
 }
 
 pub struct AbeSecretKey
@@ -29,21 +38,42 @@ pub fn abe_setup () -> (AbePublicKey, AbeMasterKey)
 {
     // random number generator
     let rng = &mut rand::thread_rng();
-    // generate random values for alpha and beta
-    let rnd_alpha = Fr::random(rng);
-    let rnd_beta = Fr::random(rng);
-    // generator of group G1:g1 and generator of group G2: g2
-    let g1 = G1::one();
-    let g2 = G2::one();
-    // calculate g1^b and g2^b
-    let g1_beta = g1 * rnd_beta;
-    let g2_beta = g2 * rnd_beta;
-    // calculate pairing
-    let e = pairing(g1, g2).pow(rnd_alpha);
-    // now generate PK from calculated values
-    let pk = AbePublicKey { _g1: g1, _g2: g2, _e: e, _g1_beta: g1_beta, _g2_beta: g2_beta };
-    // now generate MSK from calculated values
-    let msk = AbeMasterKey { _msk: rnd_alpha };
+    // generator of group G1: g and generator of group G2: h
+    let g = G1::one();
+    let h = G2::one();
+    // generate a1,a2 from Z*_p (* means it must not be null, can we be sure?)
+    let a1 = Fr::random(rng);
+    let a2 = Fr::random(rng);
+    // generate d1,d2,d3 from Z_p
+    let d1 = Fr::random(rng);
+    let d2 = Fr::random(rng);
+    let d3 = Fr::random(rng);
+    // calculate h^a1 and h^a2
+    let h1 = h * a1;
+    let h2 = h * a2;
+
+    // calculate pairing for T1 and T2
+    let t1 = pairing (g, h).pow(d1 * a1 + d3);
+    let t2 = pairing (g, h).pow(d2 * a2 + d3);
+
+    let pk = AbePublicKey { _h: h, _h1: h1, _h2: h2, _t1: t1, _t2: t2};
+
+    // generate b1,b2 from Z*_p (*means it must not be null, can we be sure?)
+    let b1 = Fr::random(rng);
+    let b2 = Fr::random(rng);
+
+    // calculate g^d1, g^d2, g^d3
+    let g_b1 = g * d1;
+    let g_b2 = g * d2;
+    let g_b3 = g * d3;
+    let msk = AbeMasterKey { _g: g, _h: h,
+                             _a1: a1, _a2: a2,
+                             _b1: b1, _b2: b2,
+                             _g_b1: g_b1,
+                             _g_b2: g_b2,
+                             _g_b3: g_b3};
+
+
     return (pk, msk);
 }
 
@@ -51,6 +81,8 @@ pub fn abe_keygen (pk: &AbePublicKey,
                    msk: &AbeMasterKey,
                    attributes: &LinkedList<String>) -> Option<AbeSecretKey>
 {
+    // random number generator
+    //generate random t
     for str in attributes.iter() {
         print!("{}", str);
     }
