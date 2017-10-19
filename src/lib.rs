@@ -4,6 +4,7 @@ extern crate rand;
 use std::collections::LinkedList;
 use std::string::String;
 use bn::*;
+use sha3::{Digest, Sha3_256};
 //use rand::Rng;
 
 pub struct AbePublicKey
@@ -87,6 +88,19 @@ pub fn abe_keygen (pk: &AbePublicKey,
         print!("{}", str);
     }
     return None;
+}
+
+fn bn_hash (str: String)
+{
+    //Precomp. TODO make constants
+    let sqrt3 = 3.0.sqrt();
+    let j = (-1 + sqrt3) / 2;
+    let mut hasher = Sha3_256::default();
+    
+    hasher.input(str);
+    let t = BigEndian::read_i32(hasher.result());
+    //Main computation
+
 }
 
 pub fn abe_encrypt (pk: &AbePublicKey,
