@@ -3,6 +3,7 @@ extern crate bn;
 extern crate rand;
 extern crate sha3;
 extern crate byteorder;
+
 use std::collections::LinkedList;
 use std::string::String;
 use bn::*;
@@ -41,6 +42,10 @@ pub struct AbeSecretKey {
     _ski: Vec<AbeSecretKeyAttribute>,
 }
 
+pub struct MSP {
+    _M: Vec<Vec<bn::Fr>>,
+}
+
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // random number generator
     let rng = &mut rand::thread_rng();
@@ -57,11 +62,10 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // calculate h^a1 and h^a2
     let h1 = h * a1;
     let h2 = h * a2;
-
     // calculate pairing for T1 and T2
     let t1 = pairing(g, h).pow(d1 * a1 + d3);
     let t2 = pairing(g, h).pow(d2 * a2 + d3);
-
+    // set values of PK
     let pk = AbePublicKey {
         _h: h,
         _h1: h1,
@@ -69,15 +73,14 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
         _t1: t1,
         _t2: t2,
     };
-
     // generate b1,b2 from Z*_p (*means it must not be null, can we be sure?)
     let b1 = Fr::random(rng);
     let b2 = Fr::random(rng);
-
     // calculate g^d1, g^d2, g^d3
     let g_b1 = g * d1;
     let g_b2 = g * d2;
     let g_b3 = g * d3;
+    // set values of MSK
     let msk = AbeMasterKey {
         _g: g,
         _h: h,
@@ -89,16 +92,62 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
         _g_d2: g_b2,
         _g_d3: g_b3,
     };
+    // return pk and msk
     return (pk, msk);
 }
 
 pub fn abe_keygen(
-    pk: &AbePublicKey,
     msk: &AbeMasterKey,
+    msp: &MSP,
     attributes: &LinkedList<String>,
 ) -> Option<AbeSecretKey> {
     // random number generator
-    //generate random t
+    let rng = &mut rand::thread_rng();
+    // generate random r1 and r2
+    let r1 = Fr::random(rng);
+    let r2 = Fr::random(rng);
+    // and compute sk0
+    let _sk0_1 = msk._h * (msk._b1 * r1);
+    let _sk0_2 = msk._h * (msk._b2 * r2);
+    let _sk0_3 = msk._h * (r1 + r2);
+    // msp matrix M with size n1xn2
+    let n1 = msp._M.len();
+    let n2 = msp._M[0].len();
+    let mut sgimaPrime: Vec<bn::Fr> = Vec::new();
+    // generate 2..n1 random sigma' values
+    for x in 2..n2 {
+        sgimaPrime.push(Fr::random(rng))
+    }
+    // sk_i data structure
+    let mut sk_i: Vec<Vec<bn::G1>> = Vec::new();
+
+    // for all i=1,...n1 compute
+    for i in 1..n1 {
+        // sk_i data structure
+        let mut sk_it: Vec<bn::G1> = Vec::new();
+
+        // pick random sigma
+        let sigma = Fr::random(rng);
+
+        let sk_i1 = G1::one();
+        let sk_i2 = G1::one();
+        let sk_i3 = G1::one();
+
+        sk_it.push(sk_i1);
+        sk_it.push(sk_i2);
+        sk_it.push(sk_i3);
+
+        sk_i.push(sk_it);
+    }
+
+
+
+    // now generate sk key
+    /*let sk = AbeSecretKey {
+        _sk0: [_sk0_1, _sk0_2, _sk0_3].to_Vec(),
+        _ski: [],
+    };*/
+
     for str in attributes.iter() {
         print!("{}", str);
     }
@@ -115,7 +164,6 @@ fn bn_hash(str: String) {
     let hash = hasher.result();
     let t = BigEndian::read_i32(&hash);
     //Main computation
-
 }
 
 pub fn abe_encrypt(
