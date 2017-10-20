@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>"]
 
 [dependencies]
+byteorder = "1.1.0"
 bn = "0.4.3"
 rand = "0.3"
 sha3 = "0.6"
