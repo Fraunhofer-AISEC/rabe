@@ -106,38 +106,43 @@ pub fn abe_keygen(
     // generate random r1 and r2
     let r1 = Fr::random(rng);
     let r2 = Fr::random(rng);
-    // and compute sk0
-    let _sk0_1 = msk._h * (msk._b1 * r1);
-    let _sk0_2 = msk._h * (msk._b2 * r2);
-    let _sk0_3 = msk._h * (r1 + r2);
     // msp matrix M with size n1xn2
     let n1 = msp._M.len();
     let n2 = msp._M[0].len();
+    // data structure for random sigma' values
     let mut sgimaPrime: Vec<bn::Fr> = Vec::new();
     // generate 2..n1 random sigma' values
-    for x in 2..n2 {
+    for i in 2..n2 {
         sgimaPrime.push(Fr::random(rng))
     }
-    // sk_i data structure
-    let mut sk_i: Vec<Vec<bn::G1>> = Vec::new();
-
+    // and compute sk0
+    let sk_0 = (
+        msk._h * (msk._b1 * r1),
+        msk._h * (msk._b2 * r2),
+        msk._h * (r1 + r2),
+    );
     // for all i=1,...n1 compute
     for i in 1..n1 {
         // sk_i data structure
-        let mut sk_it: Vec<bn::G1> = Vec::new();
-
+        let mut sk_i: Vec<Vec<bn::G1>> = Vec::new();
+        // sk_i_{1,2,3} data structure
+        let mut sk_i_t: Vec<bn::G1> = Vec::new();
         // pick random sigma
         let sigma = Fr::random(rng);
+        // calculate sk_{i,3}
+        let mut sk_i3 = G1::one();
+        for j in 2..n2 {
+            sk_i3 = sk_i3 + ((msk._g * -sgimaPrime[j]) * msp._M[i][j]);
+        }
+        sk_i3 = sk_i3 + (msk._g_d3 * msp._M[i][0]) + (msk._g * (-sigma));
+        // calculate sk_{i,1} and sk_{i,2}
+        let sk_i1 = (msk._g * (sigma * msk._a1.inverse().unwrap())) + (msk._g_d1 * msp._M[i][0]);
+        let sk_i2 = (msk._g * (sigma * msk._a2.inverse().unwrap())) + (msk._g_d2 * msp._M[i][0]);
 
-        let sk_i1 = G1::one();
-        let sk_i2 = G1::one();
-        let sk_i3 = G1::one();
-
-        sk_it.push(sk_i1);
-        sk_it.push(sk_i2);
-        sk_it.push(sk_i3);
-
-        sk_i.push(sk_it);
+        sk_i_t.push(sk_i1);
+        sk_i_t.push(sk_i2);
+        sk_i_t.push(sk_i3);
+        sk_i.push(sk_i_t);
     }
 
 
@@ -154,18 +159,6 @@ pub fn abe_keygen(
     return None;
 }
 
-fn bn_hash(str: String) {
-    //Precomp. TODO make constants
-    let sqrt3 = 3.0_f64.sqrt();
-    let j = (-1_f64 + sqrt3) / 2_f64;
-    let mut hasher = Sha3_256::default();
-
-    hasher.input(str.as_bytes());
-    let hash = hasher.result();
-    let t = BigEndian::read_i32(&hash);
-    //Main computation
-}
-
 pub fn abe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
@@ -174,19 +167,16 @@ pub fn abe_encrypt(
 ) -> bool {
     // random number generator
     let rng = &mut rand::thread_rng();
-
     // generate s1,s2
     let s1 = Fr::random(rng);
     let s2 = Fr::random(rng);
-
     // calculate ct0
     let h1s1 = pk._h1 * s1;
     let h2s2 = pk._h2 * s2;
     let hs1s2 = pk._h * (s1 + s2);
-
     let ct0 = (h1s1, h2s2, hs1s2);
-
     for tag in tags.iter() {
+        for i in 1..3 {}
         //TODO calculate ct_tag_x; x in [3]
     }
     return true;
@@ -199,6 +189,20 @@ pub fn abe_decrypt(
     plaintext: &mut Vec<u8>,
 ) -> bool {
     return true;
+}
+
+
+
+fn bn_hash(str: String) {
+    //Precomp. TODO make constants
+    let sqrt3 = 3.0_f64.sqrt();
+    let j = (-1_f64 + sqrt3) / 2_f64;
+    let mut hasher = Sha3_256::default();
+
+    hasher.input(str.as_bytes());
+    let hash = hasher.result();
+    let t = BigEndian::read_i32(&hash);
+    //Main computation
 }
 
 pub fn abe_public_key_serialize(pk: &AbePublicKey, pk_serialized: &mut Vec<u8>) -> bool {
