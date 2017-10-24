@@ -4,8 +4,10 @@ version = "0.1.0"
 authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>"]
 
 [dependencies]
-byteorder = "1.1.0"
 bn = "0.4.3"
 rand = "0.3"
-tiny-keccak = "1.3"
-rustc-serialize = "*"
+rust-crypto = "0.2"
+rustc-serialize = "~0.3.19"
+byteorder = "~0.5.3"
+bincode = "*"
+num-bigint = "0.1.40"

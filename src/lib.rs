@@ -2,15 +2,24 @@
 extern crate bn;
 extern crate rand;
 extern crate byteorder;
-extern crate tiny_keccak;
+extern crate crypto;
+extern crate bincode;
+extern crate rustc_serialize;
+extern crate num_bigint;
 
 use std::collections::LinkedList;
 use std::string::String;
 use std::str;
+use std::i64;
+use num_bigint::{BigInt, Sign};
 use bn::*;
-use tiny_keccak::Keccak;
+use crypto::digest::Digest;
+use crypto::sha2::Sha256;
+use rustc_serialize::{Encodable, Decodable};
+use rustc_serialize::hex::{FromHex, ToHex};
 //use byteorder::{ByteOrder, BigEndian};
 //use rand::Rng;
+
 
 pub struct AbePublicKey {
     _h: bn::G2,
@@ -50,7 +59,7 @@ pub struct AbeSecretKey {
 }
 
 pub struct MSP {
-    _M: Vec<Vec<bn::Fr>>,
+    _m: Vec<Vec<bn::Fr>>,
 }
 
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
@@ -114,8 +123,8 @@ pub fn abe_keygen(
     let r1 = Fr::random(rng);
     let r2 = Fr::random(rng);
     // msp matrix M with size n1xn2
-    let n1 = msp._M.len();
-    let n2 = msp._M[0].len();
+    let n1 = msp._m.len();
+    let n2 = msp._m[0].len();
     // data structure for random sigma' values
     let mut sgima_prime: Vec<bn::Fr> = Vec::new();
     // generate 2..n1 random sigma' values
@@ -139,14 +148,14 @@ pub fn abe_keygen(
         // calculate sk_{i,3}
         let mut sk_i3 = G1::one();
         for j in 2..n2 {
-            sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp._M[i][j]);
+            sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp._m[i][j]);
         }
-        sk_i3 = sk_i3 + (msk._g_d3 * msp._M[i][0]) + (msk._g * (-sigma));
+        sk_i3 = sk_i3 + (msk._g_d3 * msp._m[i][0]) + (msk._g * (-sigma));
         // calculate sk_{i,1} and sk_{i,2}
         //let h1 = element_from_hash();
 
-        let sk_i1 = (msk._g * (sigma * msk._a1.inverse().unwrap())) + (msk._g_d1 * msp._M[i][0]);
-        let sk_i2 = (msk._g * (sigma * msk._a2.inverse().unwrap())) + (msk._g_d2 * msp._M[i][0]);
+        let sk_i1 = (msk._g * (sigma * msk._a1.inverse().unwrap())) + (msk._g_d1 * msp._m[i][0]);
+        let sk_i2 = (msk._g * (sigma * msk._a2.inverse().unwrap())) + (msk._g_d2 * msp._m[i][0]);
 
 
         sk_i_t.push(sk_i1);
@@ -167,14 +176,14 @@ pub fn abe_keygen(
 }
 
 pub fn element_from_hash(text: &String) -> bn::G1 {
-    // create a SHA3-256 object
-    let mut sha3 = Keccak::new_sha3_256();
+    // create a SHA256 object
+    // todo: replace this with sha3
+    let mut sha = Sha256::new();
     // update sha with message
-    sha3.update(text.as_bytes());
-    let mut res: [u8; 32] = [0; 32];
-    sha3.finalize(&mut res);
-    println!("SHA3 Result: {:?}", res);
-    return G1::one() * Fr::from_str("1234").unwrap();
+    sha.input_str(text);
+    let i = BigInt::parse_bytes(sha.result_str().as_bytes(), 16).unwrap();
+    println!("SHA3 Result: {:?}", i.to_str_radix(10));
+    return G1::one() * Fr::from_str(&i.to_str_radix(10)).unwrap();
 }
 
 pub fn abe_encrypt(
@@ -230,6 +239,22 @@ mod tests {
     use AbeMasterKey;
     use std::collections::LinkedList;
     use std::string::String;
+    use bn::*;
+    use bincode::SizeLimit::Infinite;
+    use bincode::rustc_serialize::{encode, decode};
+    use rustc_serialize::{Encodable, Decodable};
+    use rustc_serialize::hex::{FromHex, ToHex};
+
+
+    pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
+        encode(&obj, Infinite).ok().map(|e| e.to_hex())
+    }
+
+    pub fn from_hex<S: Decodable>(s: &str) -> Option<S> {
+        let s = s.from_hex().unwrap();
+        decode(&s).ok()
+    }
+
 
     #[test]
     fn it_works() {
@@ -247,7 +272,20 @@ mod tests {
         let point1 = element_from_hash(&s1);
         let point2 = element_from_hash(&s2);
         let point3 = element_from_hash(&s3);
-        //println!("{:?}", point1);
+        let str1: String = into_hex(point1).unwrap();
+        let str2: String = into_hex(point2).unwrap();
+        let str3: String = into_hex(point3).unwrap();
+        println!("Point1: {:?}", str1);
+        println!("Point2: {:?}", str2);
+        println!("Point3: {:?}", str3);
+
+        assert_eq!(
+            from_hex::<G1>(
+                "04095adb3ec3e516d99f65b347890d31218460b4b1348951292063c805ae1d46982a542c7c37b8f6734a78ab229d32460c8a75d9ab000c0a91075f252e7d0769aa",
+            ),
+            point1
+        );
+
     }
     #[test]
     fn test_keygen() {
