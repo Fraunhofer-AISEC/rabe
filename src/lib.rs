@@ -14,7 +14,7 @@ use std::i64;
 use num_bigint::{BigInt, Sign};
 use bn::*;
 use crypto::digest::Digest;
-use crypto::sha2::Sha256;
+use crypto::sha3::Sha3;
 use rustc_serialize::{Encodable, Decodable};
 use rustc_serialize::hex::{FromHex, ToHex};
 //use byteorder::{ByteOrder, BigEndian};
@@ -178,7 +178,7 @@ pub fn abe_keygen(
 pub fn hash_to_element(data: &[u8]) -> bn::G1 {
     // create a SHA256 object
     // todo: replace this with sha3
-    let mut sha = Sha256::new();
+    let mut sha = Sha3::sha3_256();
     // update sha with message
     sha.input(data);
     let i = BigInt::parse_bytes(sha.result_str().as_bytes(), 16).unwrap();
@@ -273,7 +273,7 @@ mod tests {
         println!("Expected: {:?}", expected_str);
 
         assert_eq!(
-            "04095adb3ec3e516d99f65b347890d31218460b4b1348951292063c805ae1d46982a542c7c37b8f6734a78ab229d32460c8a75d9ab000c0a91075f252e7d0769aa", 
+            "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
             into_hex(point1).unwrap()
         );
 
