@@ -261,26 +261,24 @@ mod tests {
 
 
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-    #[test]
     fn test_setup() {
         let (pk, msk) = abe_setup();
     }
+    
     #[test]
-    fn test_element_to_hash() {
+    fn test_hash() {
         let s1 = String::from("hashing");
         let point1 = hash_string_to_element(&s1);
         let expected_str: String = into_hex(point1).unwrap();
         println!("Expected: {:?}", expected_str);
 
         assert_eq!(
-            expected_str, 
+            "04095adb3ec3e516d99f65b347890d31218460b4b1348951292063c805ae1d46982a542c7c37b8f6734a78ab229d32460c8a75d9ab000c0a91075f252e7d0769aa", 
             into_hex(point1).unwrap()
         );
 
     }
+    
     #[test]
     fn test_keygen() {
         let (pk, msk) = abe_setup();
