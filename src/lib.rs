@@ -175,15 +175,19 @@ pub fn abe_keygen(
     return None;
 }
 
-pub fn element_from_hash(text: &String) -> bn::G1 {
+pub fn hash_to_element(data: &[u8]) -> bn::G1 {
     // create a SHA256 object
     // todo: replace this with sha3
     let mut sha = Sha256::new();
     // update sha with message
-    sha.input_str(text);
+    sha.input(data);
     let i = BigInt::parse_bytes(sha.result_str().as_bytes(), 16).unwrap();
     println!("SHA3 Result: {:?}", i.to_str_radix(10));
     return G1::one() * Fr::from_str(&i.to_str_radix(10)).unwrap();
+}
+
+pub fn hash_string_to_element(text: &String) -> bn::G1 {
+  return hash_to_element(text.as_bytes());
 }
 
 pub fn abe_encrypt(
@@ -199,9 +203,9 @@ pub fn abe_encrypt(
     let mut _ct_yl: Vec<AbeAttribute> = Vec::new();
     for _tag in tags.iter() {
         let _attribute = AbeAttribute {
-            _a1: element_from_hash(_tag),
-            _a2: element_from_hash(_tag),
-            _a3: element_from_hash(_tag),
+            _a1: hash_string_to_element(_tag),
+            _a2: hash_string_to_element(_tag),
+            _a3: hash_string_to_element(_tag),
         };
         _ct_yl.push(_attribute);
     }
@@ -234,7 +238,7 @@ pub fn abe_public_key_deserialize(pk_data: &Vec<u8>) -> Option<AbePublicKey> {
 mod tests {
     use abe_setup;
     use abe_keygen;
-    use element_from_hash;
+    use hash_string_to_element;
     use AbePublicKey;
     use AbeMasterKey;
     use std::collections::LinkedList;
@@ -267,23 +271,13 @@ mod tests {
     #[test]
     fn test_element_to_hash() {
         let s1 = String::from("hashing");
-        let s2 = String::from("to an");
-        let s3 = String::from("element");
-        let point1 = element_from_hash(&s1);
-        let point2 = element_from_hash(&s2);
-        let point3 = element_from_hash(&s3);
-        let str1: String = into_hex(point1).unwrap();
-        let str2: String = into_hex(point2).unwrap();
-        let str3: String = into_hex(point3).unwrap();
-        println!("Point1: {:?}", str1);
-        println!("Point2: {:?}", str2);
-        println!("Point3: {:?}", str3);
+        let point1 = hash_string_to_element(&s1);
+        let expected_str: String = into_hex(point1).unwrap();
+        println!("Expected: {:?}", expected_str);
 
         assert_eq!(
-            from_hex::<G1>(
-                "04095adb3ec3e516d99f65b347890d31218460b4b1348951292063c805ae1d46982a542c7c37b8f6734a78ab229d32460c8a75d9ab000c0a91075f252e7d0769aa",
-            ),
-            point1
+            expected_str, 
+            into_hex(point1).unwrap()
         );
 
     }
