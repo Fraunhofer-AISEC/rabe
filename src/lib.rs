@@ -1,4 +1,9 @@
-// Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
+#[macro_use]
+extern crate serde_derive;
+
+extern crate serde;
+extern crate serde_json;
+
 extern crate bn;
 extern crate rand;
 extern crate byteorder;
@@ -19,7 +24,9 @@ use crypto::sha3::Sha3;
 //use byteorder::{ByteOrder, BigEndian};
 //use rand::Rng;
 
+// Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
 
+#[derive(Serialize, Deserialize)]
 pub struct AbePublicKey {
     _h: bn::G2,
     _h1: bn::G2,
@@ -28,12 +35,14 @@ pub struct AbePublicKey {
     _t2: bn::Gt,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct AbeCiphertext {
     _ct_0: (bn::G2, bn::G2, bn::G2),
     _ct_prime: bn::Gt,
     _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct AbeMasterKey {
     _g: bn::G1,
     _h: bn::G2,
@@ -46,13 +55,16 @@ pub struct AbeMasterKey {
     _g_d3: bn::G1,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct AbeSecretKey {
     _sk0: (bn::G2, bn::G2, bn::G2),
     _ski: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct MSP {
     _m: Vec<Vec<bn::Fr>>,
+    _pi: Vec<String>,
 }
 
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
@@ -130,8 +142,6 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
     let mut sk_i: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
     // for all i=1,...n1 compute
     for i in 1..n1 {
-        // sk_i_{1,2,3} data structure
-        let mut sk_i_t: Vec<bn::G1> = Vec::new();
         // pick random sigma
         let sigma = Fr::random(rng);
         // calculate sk_{i,3}
@@ -193,8 +203,16 @@ pub fn hash_to_element(data: &[u8]) -> bn::G1 {
     return G1::one() * Fr::from_str(&i.to_str_radix(10)).unwrap();
 }
 
+
 pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
+}
+
+pub fn policy_to_msp(data: &[u8]) -> MSP {
+    // now generate sk key
+    let mut _values: Vec<Vec<bn::Fr>> = Vec::new();
+    let _msp = MSP { _m: _values };
+    return _msp;
 }
 
 pub fn abe_encrypt(
