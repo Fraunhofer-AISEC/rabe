@@ -255,8 +255,8 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) -> bo
     }
 }
 
-pub fn policy_to_msp(data: &[u8], mut msp: &mut MSP) -> bool {
-    let pol = serde_json::from_str(str::from_utf8(data).unwrap()).unwrap();
+pub fn policy_to_msp(policy: String, mut msp: &mut MSP) -> bool {
+    let pol = serde_json::from_str(&policy).unwrap();
     let mut v: Vec<bn::Fr> = Vec::new();
     v.push (bn::Fr::one());
     let mut c = 1;
@@ -361,7 +361,7 @@ mod tests {
     }
     #[test]
     fn test_to_msp() {
-        let policy = r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#;
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
         let mut _values: Vec<Vec<Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
         let mut _msp = MSP {
@@ -379,7 +379,7 @@ mod tests {
             deg: 3
         };
         assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
-        assert!(policy_to_msp(policy.as_bytes(), &mut _msp));
+        assert!(policy_to_msp(policy, &mut _msp));
         for i in 0..4 {
             let p = &_msp.m[i];
             let p_test = &_msp_test.m[i];
