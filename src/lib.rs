@@ -1,5 +1,6 @@
-#[macro_use]
-extern crate serde_derive;
+// no serde traits until now
+//#[macro_use]
+//extern crate serde_derive;
 
 extern crate serde;
 extern crate serde_json;
@@ -26,7 +27,6 @@ use crypto::sha3::Sha3;
 
 // Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
 
-#[derive(Serialize, Deserialize)]
 pub struct AbePublicKey {
     _h: bn::G2,
     _h1: bn::G2,
@@ -35,14 +35,12 @@ pub struct AbePublicKey {
     _t2: bn::Gt,
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct AbeCiphertext {
     _ct_0: (bn::G2, bn::G2, bn::G2),
     _ct_prime: bn::Gt,
     _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct AbeMasterKey {
     _g: bn::G1,
     _h: bn::G2,
@@ -55,13 +53,11 @@ pub struct AbeMasterKey {
     _g_d3: bn::G1,
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct AbeSecretKey {
     _sk0: (bn::G2, bn::G2, bn::G2),
     _ski: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct MSP {
     _m: Vec<Vec<bn::Fr>>,
     _pi: Vec<String>,
@@ -211,7 +207,11 @@ pub fn hash_string_to_element(text: &String) -> bn::G1 {
 pub fn policy_to_msp(data: &[u8]) -> MSP {
     // now generate sk key
     let mut _values: Vec<Vec<bn::Fr>> = Vec::new();
-    let _msp = MSP { _m: _values };
+    let mut _attributes: Vec<String> = Vec::new();
+    let _msp = MSP {
+        _m: _values,
+        _pi: _attributes,
+    };
     return _msp;
 }
 
