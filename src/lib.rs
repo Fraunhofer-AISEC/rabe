@@ -59,8 +59,9 @@ pub struct AbeSecretKey {
 }
 
 pub struct MSP {
-    _m: Vec<Vec<bn::Fr>>,
-    _pi: Vec<String>,
+    m: Vec<Vec<i32>>,
+    pi: Vec<String>,
+    deg: usize
 }
 
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
@@ -120,8 +121,8 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
     let r1 = Fr::random(rng);
     let r2 = Fr::random(rng);
     // msp matrix M with size n1xn2
-    let n1 = msp._m.len();
-    let n2 = msp._m[0].len();
+    let n1 = msp.m.len();
+    let n2 = msp.m[0].len();
     // data structure for random sigma' values
     let mut sgima_prime: Vec<bn::Fr> = Vec::new();
     // generate 2..n1 random sigma' values
@@ -143,9 +144,9 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
         // calculate sk_{i,3}
         let mut sk_i3 = G1::one();
         for j in 2..n2 {
-            sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp._m[i][j]);
+            sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp.m[i][j]);
         }
-        sk_i3 = sk_i3 + (msk._g_d3 * msp._m[i][0]) + (msk._g * (-sigma));
+        sk_i3 = sk_i3 + (msk._g_d3 * msp.m[i][0]) + (msk._g * (-sigma));
         // calculate sk_{i,1} and sk_{i,2}
         let mut sk_i1 = G1::one();
         let mut sk_i2 = G1::one();
@@ -155,26 +156,25 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
                       (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
                       (hash_to_element(b"todo") * ((r1 + r2) * msk._a1.inverse().unwrap())) +
                       (msk._g * (-sgima_prime[j] * msk._a1.inverse().unwrap()))) *
-                     msp._m[i][j]);
+                     msp.m[i][j]);
             sk_i2 = sk_i2 +
                 (((hash_to_element(b"todo") * (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
                       (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
                       (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
                       (msk._g * (-sgima_prime[j] * msk._a2.inverse().unwrap()))) *
-                     msp._m[i][j]);
+                     msp.m[i][j]);
         }
         sk_i1 = sk_i1 + (hash_to_element(b"todo") * (msk._b1 * r1 * msk._a1.inverse().unwrap())) +
             (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
             (hash_to_element(b"todo") * ((r1 + r2) * msk._a1.inverse().unwrap())) +
             (msk._g * (sigma * msk._a1.inverse().unwrap())) +
-            (msk._g_d1 * msp._m[i][0]);
+            (msk._g_d1 * msp.m[i][0]);
 
         sk_i2 = sk_i2 + (hash_to_element(b"todo") * (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
             (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
             (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
             (msk._g * (sigma * msk._a2.inverse().unwrap())) +
-            (msk._g_d2 * msp._m[i][0]);
-
+            (msk._g_d2 * msp.m[i][0]);
         sk_i.push((sk_i1, sk_i2, sk_i3));
     }
     // now generate sk key
@@ -204,22 +204,75 @@ pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
 }
 
-pub fn policy_to_msp(data: &[u8]) -> MSP {
+fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<i32>, c: &mut usize) {
+    let mut v_tmp_left = Vec::new();
+    let mut v_tmp_right = v.clone();
+    
+   if *p == serde_json::Value::Null {
+       println!("Error passed null!");
+       return;
+   }
+
+    //Leaf
+    if (p["ATT"] != serde_json::Value::Null) {
+        msp.m.insert(0, v_tmp_right);
+        match p["ATT"].as_str() {
+          Some(s) => msp.pi.insert(0, String::from(s)),
+          None => println!("ERROR attribute value"),
+        }
+        if (msp.deg < *c) {
+            msp.deg = *c;
+        }
+        return;
+    }
+
+
+    if (p["OR"] != serde_json::Value::Null) {
+        println!("found OR");
+        v_tmp_left = v.clone();
+    } else {
+        println!("found AND");
+        *c = *c + 1;
+        v_tmp_right.resize(*c - 1, 0);
+        v_tmp_right.push(1);
+        v_tmp_left.resize(*c - 1 , 0);
+        v_tmp_left.push(-1);
+    }
+
+    if (p["OR"] != serde_json::Value::Null) {
+        lw(msp, &p["OR"][0], v_tmp_right, c);
+        lw(msp, &p["OR"][1], v_tmp_left, c);
+    } else {
+        lw(msp, &p["AND"][0], v_tmp_right, c);
+        lw(msp, &p["AND"][1], v_tmp_left, c);
+    }
+}
+
+pub fn policy_to_msp(data: &[u8], mut msp: &mut MSP) -> bool {
     // now generate sk key
-    let mut _values: Vec<Vec<bn::Fr>> = Vec::new();
+    /*let mut _values: Vec<Vec<bn::Fr>> = Vec::new();
     let mut _attributes: Vec<String> = Vec::new();
-    let _msp = MSP {
-        _m: _values,
-        _pi: _attributes,
-    };
-    return _msp;
+    let mut _msp = MSP {
+        m: _values,
+        pi: _attributes,
+        deg: 1
+    };*/
+    let pol = serde_json::from_str(str::from_utf8(data).unwrap()).unwrap();
+    let mut v: Vec<i32> = Vec::new();
+    v.push (1);
+    let mut c = 1;
+    lw (&mut msp, &pol, v, &mut c);
+    for mut p in &mut msp.m {
+      p.resize(msp.deg, 0);
+    }
+    return true;
 }
 
 pub fn abe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
     plaintext: bn::Gt,
-) -> Option<AbeCiphertext> {
+    ) -> Option<AbeCiphertext> {
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate s1,s2
@@ -231,7 +284,7 @@ pub fn abe_encrypt(
             hash_string_to_element(_tag),
             hash_string_to_element(_tag),
             hash_string_to_element(_tag),
-        );
+            );
         _ct_yl.push(_attribute);
     }
     let ct = AbeCiphertext {
@@ -247,7 +300,7 @@ pub fn abe_decrypt(
     sk: &AbeSecretKey,
     ciphertext: &Vec<u8>,
     plaintext: &mut Vec<u8>,
-) -> bool {
+    ) -> bool {
     return true;
 }
 
@@ -264,8 +317,11 @@ mod tests {
     use abe_setup;
     use abe_keygen;
     use hash_string_to_element;
+    use policy_to_msp;
     use AbePublicKey;
     use AbeMasterKey;
+    use MSP;
+    use Fr;
     use std::collections::LinkedList;
     use std::string::String;
     use bn::*;
@@ -299,10 +355,28 @@ mod tests {
         assert_eq!(
             "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
             into_hex(point1).unwrap()
-        );
+            );
 
     }
-
+    #[test]
+    fn test_to_msp() {
+        let policy = r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#;
+        let mut _values: Vec<Vec<i32>> = Vec::new();
+        let mut _attributes: Vec<String> = Vec::new();
+        let mut _msp = MSP {
+            m: _values,
+            pi: _attributes,
+            deg: 1
+        };
+        policy_to_msp(policy.as_bytes(), &mut _msp);
+        for p in _msp.m {
+            print!("(");
+            for x in &p {
+                print!("{}", x);
+            }
+            println!(")");
+        }
+    }
     #[test]
     fn test_keygen() {
         let (pk, msk) = abe_setup();
