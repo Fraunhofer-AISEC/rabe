@@ -27,6 +27,14 @@ use crypto::sha3::Sha3;
 
 // Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
 
+/**
+ * TODO
+ * - Put everything in a module (?)
+ * - Encrypt/Decrypt
+ * - Serialization
+ *
+ */
+
 pub struct AbePublicKey {
     _h: bn::G2,
     _h1: bn::G2,
@@ -59,9 +67,9 @@ pub struct AbeSecretKey {
 }
 
 pub struct MSP {
-    m: Vec<Vec<bn::Fr>>,
-    pi: Vec<String>,
-    deg: usize
+    _m: Vec<Vec<bn::Fr>>,
+    _pi: Vec<String>,
+    _deg: usize
 }
 
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
@@ -114,6 +122,7 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     return (pk, msk);
 }
 
+//TODO can input here be malformed? Then we should return Option<AbeSecretKey>
 pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>) -> AbeSecretKey {
     // random number generator
     let rng = &mut rand::thread_rng();
@@ -121,8 +130,8 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
     let r1 = Fr::random(rng);
     let r2 = Fr::random(rng);
     // msp matrix M with size n1xn2
-    let n1 = msp.m.len();
-    let n2 = msp.m[0].len();
+    let n1 = msp._m.len();
+    let n2 = msp._m[0].len();
     // data structure for random sigma' values
     let mut sgima_prime: Vec<bn::Fr> = Vec::new();
     // generate 2..n1 random sigma' values
@@ -144,9 +153,9 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
         // calculate sk_{i,3}
         let mut sk_i3 = G1::one();
         for j in 2..n2 {
-            sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp.m[i][j]);
+            sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp._m[i][j]);
         }
-        sk_i3 = sk_i3 + (msk._g_d3 * msp.m[i][0]) + (msk._g * (-sigma));
+        sk_i3 = sk_i3 + (msk._g_d3 * msp._m[i][0]) + (msk._g * (-sigma));
         // calculate sk_{i,1} and sk_{i,2}
         let mut sk_i1 = G1::one();
         let mut sk_i2 = G1::one();
@@ -156,25 +165,25 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
                       (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
                       (hash_to_element(b"todo") * ((r1 + r2) * msk._a1.inverse().unwrap())) +
                       (msk._g * (-sgima_prime[j] * msk._a1.inverse().unwrap()))) *
-                     msp.m[i][j]);
+                     msp._m[i][j]);
             sk_i2 = sk_i2 +
                 (((hash_to_element(b"todo") * (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
                       (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
                       (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
                       (msk._g * (-sgima_prime[j] * msk._a2.inverse().unwrap()))) *
-                     msp.m[i][j]);
+                     msp._m[i][j]);
         }
         sk_i1 = sk_i1 + (hash_to_element(b"todo") * (msk._b1 * r1 * msk._a1.inverse().unwrap())) +
             (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
             (hash_to_element(b"todo") * ((r1 + r2) * msk._a1.inverse().unwrap())) +
             (msk._g * (sigma * msk._a1.inverse().unwrap())) +
-            (msk._g_d1 * msp.m[i][0]);
+            (msk._g_d1 * msp._m[i][0]);
 
         sk_i2 = sk_i2 + (hash_to_element(b"todo") * (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
             (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
             (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
             (msk._g * (sigma * msk._a2.inverse().unwrap())) +
-            (msk._g_d2 * msp.m[i][0]);
+            (msk._g_d2 * msp._m[i][0]);
         sk_i.push((sk_i1, sk_i2, sk_i3));
     }
     // now generate sk key
@@ -200,7 +209,7 @@ pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
 }
 
-fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) -> bool {
+fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();
     
@@ -211,46 +220,45 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) -> bo
 
     //Leaf
     if p["ATT"] != serde_json::Value::Null {
-        msp.m.insert(0, v_tmp_right);
+        msp._m.insert(0, v_tmp_right);
         match p["ATT"].as_str() {
-          Some(s) => msp.pi.insert(0, String::from(s)),
+          Some(s) => msp._pi.insert(0, String::from(s)),
           None => println!("ERROR attribute value"),
-        }
-        if msp.deg < *c {
-            msp.deg = *c;
         }
         return true;
     }
 
-
-    if p["OR"] != serde_json::Value::Null {
-        v_tmp_left = v.clone();
-    } else if p["AND"] != serde_json::Value::Null {
-        *c = *c + 1;
-        v_tmp_right.resize(*c - 1, bn::Fr::zero());
-        v_tmp_right.push(bn::Fr::one());
-        v_tmp_left.resize(*c - 1 , bn::Fr::zero());
-        v_tmp_left.push(bn::Fr::zero() - bn::Fr::one());
-    } else {
-        println!("Policy invalid. No AND or OR found");
-        return false;
-    }
 
     if p["OR"].is_array() {
         if p["OR"].as_array().unwrap().len() != 2 {
             println!("Invalid policy. Number of arguments under OR != 2");
             return false;
         }
-        return lw(msp, &p["OR"][0], v_tmp_right, c) &&
-            lw(msp, &p["OR"][1], v_tmp_left, c);
+        v_tmp_left = v.clone();
+        
+        return lw(msp, &p["OR"][0], v_tmp_right) &&
+            lw(msp, &p["OR"][1], v_tmp_left);
     } else if p["AND"].is_array() {
         if p["AND"].as_array().unwrap().len() != 2 {
             println!("Invalid policy. Number of arguments under AND != 2");
             return false;
         }
-        return lw(msp, &p["AND"][0], v_tmp_right, c) &&
-            lw(msp, &p["AND"][1], v_tmp_left, c);
+        let left = &p["AND"][0];
+        if left["OR"] != serde_json::Value::Null {
+            println!("Invalid policy. Not in DNF");
+            return false;
+        }
+        msp._deg += 1;
+        v_tmp_right.resize(msp._deg - 1, bn::Fr::zero());
+        v_tmp_right.push(bn::Fr::one());
+        v_tmp_left.resize(msp._deg - 1 , bn::Fr::zero());
+        v_tmp_left.push(bn::Fr::zero() - bn::Fr::one());
+
+        return lw(msp, &p["AND"][0], v_tmp_right) &&
+            lw(msp, &p["AND"][1], v_tmp_left);
+
     } else {
+        println!("Policy invalid. No AND or OR found");
         return false;
     }
 }
@@ -259,25 +267,43 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) -> bo
 /**
  * BEWARE: policy must be in DNF!
  */
-pub fn policy_to_msp(policy: String, mut msp: &mut MSP) -> bool {
-    let pol = serde_json::from_str(&policy).unwrap();
-    let mut v: Vec<bn::Fr> = Vec::new();
-    v.push (bn::Fr::one());
-    let mut c = 1;
-    if lw (&mut msp, &pol, v, &mut c) {
-        for p in &mut msp.m {
-            p.resize(msp.deg, bn::Fr::zero());
+pub fn policy_to_msp(policy: String) -> Option<MSP> {
+    match serde_json::from_str(&policy) {
+        Err(_) => {
+            println!("Error parsing policy");
+            return None;
+        },
+        Ok(pol) => {
+
+            let mut v: Vec<bn::Fr> = Vec::new();
+            let mut _values: Vec<Vec<Fr>> = Vec::new();
+            let mut _attributes: Vec<String> = Vec::new();
+            let mut msp = MSP {
+                _m: _values,
+                _pi: _attributes,
+                _deg: 1
+            };
+
+            v.push (bn::Fr::one());
+            if lw (&mut msp, &pol, v) {
+                for p in &mut msp._m {
+                    p.resize(msp._deg, bn::Fr::zero());
+                }
+                return Some(msp);
+            }
+            return None;
         }
-        return true;
     }
-    return false;
 }
 
 pub fn abe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
-    plaintext: bn::Gt,
-    ) -> Option<AbeCiphertext> {
+    plaintext: bn::Gt) -> Option<AbeCiphertext> {
+
+    if tags.is_empty() {
+        return None;
+    }
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate s1,s2
@@ -297,24 +323,18 @@ pub fn abe_encrypt(
         _ct_prime: (pk._t1.pow(s1) * pk._t1.pow(s2) * plaintext),
         _ct_y: _ct_yl,
     };
-    return None;
+    return Some(ct);
 }
 
 pub fn abe_decrypt(
     pk: &AbePublicKey,
     sk: &AbeSecretKey,
-    ciphertext: &Vec<u8>,
-    plaintext: &mut Vec<u8>,
-    ) -> bool {
-    return true;
-}
-
-pub fn abe_public_key_serialize(pk: &AbePublicKey, pk_serialized: &mut Vec<u8>) -> bool {
-    return true;
-}
-
-pub fn abe_public_key_deserialize(pk_data: &Vec<u8>) -> Option<AbePublicKey> {
-    return None;
+    ciphertext: &Vec<u8>) -> Option<Vec<u8>> {
+    if 0 == ciphertext.len() {
+        return None;
+    }
+    let plaintext: Vec<u8> = Vec::new();
+    return Some(plaintext);
 }
 
 #[cfg(test)]
@@ -368,37 +388,29 @@ mod tests {
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
         let mut _values: Vec<Vec<Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
-        let mut _msp = MSP {
-            m: _values,
-            pi: _attributes,
-            deg: 1
-        };
         let p1 = vec![Fr::zero(), Fr::zero(), Fr::zero() - Fr::one()];
         let p2 = vec![Fr::one(), Fr::zero(), Fr::one()];
         let p3 = vec![Fr::zero(), Fr::zero() - Fr::one(), Fr::zero()];
         let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
         let mut _msp_test = MSP {
-            m: vec![p1,p2,p3,p4],
-            pi: vec![String::from("A"),String::from("B"),String::from("A"),String::from("C")],
-            deg: 3
+            _m: vec![p1,p2,p3,p4],
+            _pi: vec![String::from("A"),String::from("B"),String::from("A"),String::from("C")],
+            _deg: 3
         };
         assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
-        assert!(policy_to_msp(policy, &mut _msp));
-        for i in 0..4 {
-            let p = &_msp.m[i];
-            let p_test = &_msp_test.m[i];
-            for j in 0..3 {
-                assert!(p[j] == p_test[j]);
+        match policy_to_msp (policy) {
+            None => assert!(false),
+            Some(_msp) => {
+                for i in 0..4 {
+                    let p = &_msp._m[i];
+                    let p_test = &_msp_test._m[i];
+                    for j in 0..3 {
+                        assert!(p[j] == p_test[j]);
+                    }
+                }
+                assert!(_msp_test._deg == _msp._deg);
             }
         }
-        assert!(_msp_test.deg == _msp.deg);
-        /*for p in _msp.m {
-            print!("|");
-            for x in &p {
-                print!("{}|", into_hex(x).unwrap());
-            }
-            println!("\n");
-        }*/
     }
     #[test]
     fn test_keygen() {
