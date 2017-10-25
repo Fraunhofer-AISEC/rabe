@@ -59,7 +59,7 @@ pub struct AbeSecretKey {
 }
 
 pub struct MSP {
-    m: Vec<Vec<i32>>,
+    m: Vec<Vec<bn::Fr>>,
     pi: Vec<String>,
     deg: usize
 }
@@ -189,13 +189,9 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
 }
 
 pub fn hash_to_element(data: &[u8]) -> bn::G1 {
-    // create a SHA256 object
-    // todo: replace this with sha3
     let mut sha = Sha3::sha3_256();
-    // update sha with message
     sha.input(data);
     let i = BigInt::parse_bytes(sha.result_str().as_bytes(), 16).unwrap();
-    println!("SHA3 Result: {:?}", i.to_str_radix(10));
     return G1::one() * Fr::from_str(&i.to_str_radix(10)).unwrap();
 }
 
@@ -204,7 +200,7 @@ pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
 }
 
-fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<i32>, c: &mut usize) {
+fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) {
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();
     
@@ -233,10 +229,10 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<i32>, c: &mut usize) {
     } else {
         println!("found AND");
         *c = *c + 1;
-        v_tmp_right.resize(*c - 1, 0);
-        v_tmp_right.push(1);
-        v_tmp_left.resize(*c - 1 , 0);
-        v_tmp_left.push(-1);
+        v_tmp_right.resize(*c - 1, bn::Fr::zero());
+        v_tmp_right.push(bn::Fr::one());
+        v_tmp_left.resize(*c - 1 , bn::Fr::zero());
+        v_tmp_left.push(bn::Fr::zero() - bn::Fr::one());
     }
 
     if (p["OR"] != serde_json::Value::Null) {
@@ -249,21 +245,13 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<i32>, c: &mut usize) {
 }
 
 pub fn policy_to_msp(data: &[u8], mut msp: &mut MSP) -> bool {
-    // now generate sk key
-    /*let mut _values: Vec<Vec<bn::Fr>> = Vec::new();
-    let mut _attributes: Vec<String> = Vec::new();
-    let mut _msp = MSP {
-        m: _values,
-        pi: _attributes,
-        deg: 1
-    };*/
     let pol = serde_json::from_str(str::from_utf8(data).unwrap()).unwrap();
-    let mut v: Vec<i32> = Vec::new();
-    v.push (1);
+    let mut v: Vec<bn::Fr> = Vec::new();
+    v.push (bn::Fr::one());
     let mut c = 1;
     lw (&mut msp, &pol, v, &mut c);
     for mut p in &mut msp.m {
-      p.resize(msp.deg, 0);
+      p.resize(msp.deg, bn::Fr::zero());
     }
     return true;
 }
@@ -361,20 +349,21 @@ mod tests {
     #[test]
     fn test_to_msp() {
         let policy = r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#;
-        let mut _values: Vec<Vec<i32>> = Vec::new();
+        let mut _values: Vec<Vec<Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
         let mut _msp = MSP {
             m: _values,
             pi: _attributes,
             deg: 1
         };
+        assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
         policy_to_msp(policy.as_bytes(), &mut _msp);
         for p in _msp.m {
-            print!("(");
+            print!("|");
             for x in &p {
-                print!("{}", x);
+                print!("{}|", into_hex(x).unwrap());
             }
-            println!(")");
+            println!("\n");
         }
     }
     #[test]
