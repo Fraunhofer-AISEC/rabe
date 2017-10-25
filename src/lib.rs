@@ -267,34 +267,40 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
 /**
  * BEWARE: policy must be in DNF!
  */
-pub fn policy_to_msp(policy: String) -> Option<MSP> {
+pub fn json_to_msp(json: &serde_json::Value) -> Option<MSP> {
+    let mut v: Vec<bn::Fr> = Vec::new();
+    let mut _values: Vec<Vec<Fr>> = Vec::new();
+    let mut _attributes: Vec<String> = Vec::new();
+    let mut msp = MSP {
+        _m: _values,
+        _pi: _attributes,
+        _deg: 1
+    };
+
+    v.push (bn::Fr::one());
+    if lw (&mut msp, json, v) {
+        for p in &mut msp._m {
+            p.resize(msp._deg, bn::Fr::zero());
+        }
+        return Some(msp);
+    }
+    return None;
+}
+
+pub fn string_to_msp(policy: String) -> Option<MSP> {
     match serde_json::from_str(&policy) {
         Err(_) => {
             println!("Error parsing policy");
             return None;
         },
         Ok(pol) => {
-
-            let mut v: Vec<bn::Fr> = Vec::new();
-            let mut _values: Vec<Vec<Fr>> = Vec::new();
-            let mut _attributes: Vec<String> = Vec::new();
-            let mut msp = MSP {
-                _m: _values,
-                _pi: _attributes,
-                _deg: 1
-            };
-
-            v.push (bn::Fr::one());
-            if lw (&mut msp, &pol, v) {
-                for p in &mut msp._m {
-                    p.resize(msp._deg, bn::Fr::zero());
-                }
-                return Some(msp);
-            }
-            return None;
+            return json_to_msp(&pol);
         }
     }
 }
+
+
+
 
 pub fn abe_encrypt(
     pk: &AbePublicKey,
@@ -342,7 +348,7 @@ mod tests {
     use abe_setup;
     use abe_keygen;
     use hash_string_to_element;
-    use policy_to_msp;
+    use string_to_msp;
     use AbePublicKey;
     use AbeMasterKey;
     use MSP;
@@ -398,7 +404,7 @@ mod tests {
             _deg: 3
         };
         assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
-        match policy_to_msp (policy) {
+        match string_to_msp (policy) {
             None => assert!(false),
             Some(_msp) => {
                 for i in 0..4 {
