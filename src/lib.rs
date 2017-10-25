@@ -10,13 +10,12 @@ extern crate num_bigint;
 use std::collections::LinkedList;
 use std::string::String;
 use std::str;
-use std::i64;
-use num_bigint::{BigInt, Sign};
+use num_bigint::BigInt;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use rustc_serialize::{Encodable, Decodable};
-use rustc_serialize::hex::{FromHex, ToHex};
+//use rustc_serialize::{Encodable, Decodable};
+//use rustc_serialize::hex::{FromHex, ToHex};
 //use byteorder::{ByteOrder, BigEndian};
 //use rand::Rng;
 
@@ -29,16 +28,10 @@ pub struct AbePublicKey {
     _t2: bn::Gt,
 }
 
-pub struct AbeAttribute {
-    _a1: bn::G1,
-    _a2: bn::G1,
-    _a3: bn::G1,
-}
-
 pub struct AbeCiphertext {
     _ct_0: (bn::G2, bn::G2, bn::G2),
     _ct_prime: bn::Gt,
-    _ct_y: Vec<AbeAttribute>,
+    _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
 pub struct AbeMasterKey {
@@ -54,8 +47,8 @@ pub struct AbeMasterKey {
 }
 
 pub struct AbeSecretKey {
-    _sk0: Vec<bn::G2>,
-    _ski: Vec<AbeAttribute>,
+    _sk0: (bn::G2, bn::G2, bn::G2),
+    _ski: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
 pub struct MSP {
@@ -112,11 +105,7 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     return (pk, msk);
 }
 
-pub fn abe_keygen(
-    msk: &AbeMasterKey,
-    msp: &MSP,
-    attributes: &LinkedList<String>,
-) -> Option<AbeSecretKey> {
+pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>) -> AbeSecretKey {
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate random r1 and r2
@@ -137,10 +126,10 @@ pub fn abe_keygen(
         msk._h * (msk._b2 * r2),
         msk._h * (r1 + r2),
     );
+    // sk_i data structure
+    let mut sk_i: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
     // for all i=1,...n1 compute
     for i in 1..n1 {
-        // sk_i data structure
-        let mut sk_i: Vec<Vec<bn::G1>> = Vec::new();
         // sk_i_{1,2,3} data structure
         let mut sk_i_t: Vec<bn::G1> = Vec::new();
         // pick random sigma
@@ -152,27 +141,45 @@ pub fn abe_keygen(
         }
         sk_i3 = sk_i3 + (msk._g_d3 * msp._m[i][0]) + (msk._g * (-sigma));
         // calculate sk_{i,1} and sk_{i,2}
-        //let h1 = element_from_hash();
+        let mut sk_i1 = G1::one();
+        let mut sk_i2 = G1::one();
+        for j in 2..n2 {
+            sk_i1 = sk_i1 +
+                (((hash_to_element(b"todo") * (msk._b1 * r1 * msk._a1.inverse().unwrap())) +
+                      (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
+                      (hash_to_element(b"todo") * ((r1 + r2) * msk._a1.inverse().unwrap())) +
+                      (msk._g * (-sgima_prime[j] * msk._a1.inverse().unwrap()))) *
+                     msp._m[i][j]);
+            sk_i2 = sk_i2 +
+                (((hash_to_element(b"todo") * (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
+                      (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
+                      (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
+                      (msk._g * (-sgima_prime[j] * msk._a2.inverse().unwrap()))) *
+                     msp._m[i][j]);
+        }
+        sk_i1 = sk_i1 + (hash_to_element(b"todo") * (msk._b1 * r1 * msk._a1.inverse().unwrap())) +
+            (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
+            (hash_to_element(b"todo") * ((r1 + r2) * msk._a1.inverse().unwrap())) +
+            (msk._g * (sigma * msk._a1.inverse().unwrap())) +
+            (msk._g_d1 * msp._m[i][0]);
 
-        let sk_i1 = (msk._g * (sigma * msk._a1.inverse().unwrap())) + (msk._g_d1 * msp._m[i][0]);
-        let sk_i2 = (msk._g * (sigma * msk._a2.inverse().unwrap())) + (msk._g_d2 * msp._m[i][0]);
+        sk_i2 = sk_i2 + (hash_to_element(b"todo") * (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
+            (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
+            (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
+            (msk._g * (sigma * msk._a2.inverse().unwrap())) +
+            (msk._g_d2 * msp._m[i][0]);
 
-
-        sk_i_t.push(sk_i1);
-        sk_i_t.push(sk_i2);
-        sk_i_t.push(sk_i3);
-        sk_i.push(sk_i_t);
+        sk_i.push((sk_i1, sk_i2, sk_i3));
     }
     // now generate sk key
-    /*let sk = AbeSecretKey {
-        _sk0: [_sk0_1, _sk0_2, _sk0_3].to_Vec(),
-        _ski: [],
-    };*/
-
+    let sk = AbeSecretKey {
+        _sk0: _sk_0,
+        _ski: sk_i,
+    };
     for str in attributes.iter() {
-        print!("{}", str);
+        print!("attribute: {}", str);
     }
-    return None;
+    return sk;
 }
 
 pub fn hash_to_element(data: &[u8]) -> bn::G1 {
@@ -187,7 +194,7 @@ pub fn hash_to_element(data: &[u8]) -> bn::G1 {
 }
 
 pub fn hash_string_to_element(text: &String) -> bn::G1 {
-  return hash_to_element(text.as_bytes());
+    return hash_to_element(text.as_bytes());
 }
 
 pub fn abe_encrypt(
@@ -200,13 +207,13 @@ pub fn abe_encrypt(
     // generate s1,s2
     let s1 = Fr::random(rng);
     let s2 = Fr::random(rng);
-    let mut _ct_yl: Vec<AbeAttribute> = Vec::new();
+    let mut _ct_yl: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
     for _tag in tags.iter() {
-        let _attribute = AbeAttribute {
-            _a1: hash_string_to_element(_tag),
-            _a2: hash_string_to_element(_tag),
-            _a3: hash_string_to_element(_tag),
-        };
+        let _attribute: (bn::G1, bn::G1, bn::G1) = (
+            hash_string_to_element(_tag),
+            hash_string_to_element(_tag),
+            hash_string_to_element(_tag),
+        );
         _ct_yl.push(_attribute);
     }
     let ct = AbeCiphertext {
@@ -264,21 +271,20 @@ mod tests {
     fn test_setup() {
         let (pk, msk) = abe_setup();
     }
-    
+
     #[test]
     fn test_hash() {
         let s1 = String::from("hashing");
         let point1 = hash_string_to_element(&s1);
         let expected_str: String = into_hex(point1).unwrap();
-        println!("Expected: {:?}", expected_str);
-
+        println!("Expected: {:?}", expected_str); // print msg's during test: "cargo test -- --nocapture"
         assert_eq!(
             "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
             into_hex(point1).unwrap()
         );
 
     }
-    
+
     #[test]
     fn test_keygen() {
         let (pk, msk) = abe_setup();
