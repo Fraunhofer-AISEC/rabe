@@ -216,7 +216,7 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) -> bo
           Some(s) => msp.pi.insert(0, String::from(s)),
           None => println!("ERROR attribute value"),
         }
-        if (msp.deg < *c) {
+        if msp.deg < *c {
             msp.deg = *c;
         }
         return true;
@@ -224,15 +224,16 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) -> bo
 
 
     if p["OR"] != serde_json::Value::Null {
-        println!("found OR");
         v_tmp_left = v.clone();
-    } else {
-        println!("found AND");
+    } else if p["AND"] != serde_json::Value::Null {
         *c = *c + 1;
         v_tmp_right.resize(*c - 1, bn::Fr::zero());
         v_tmp_right.push(bn::Fr::one());
         v_tmp_left.resize(*c - 1 , bn::Fr::zero());
         v_tmp_left.push(bn::Fr::zero() - bn::Fr::one());
+    } else {
+        println!("Policy invalid. No AND or OR found");
+        return false;
     }
 
     if p["OR"].is_array() {
@@ -260,7 +261,7 @@ pub fn policy_to_msp(data: &[u8], mut msp: &mut MSP) -> bool {
     v.push (bn::Fr::one());
     let mut c = 1;
     if lw (&mut msp, &pol, v, &mut c) {
-        for mut p in &mut msp.m {
+        for p in &mut msp.m {
             p.resize(msp.deg, bn::Fr::zero());
         }
         return true;
@@ -351,7 +352,7 @@ mod tests {
         let s1 = String::from("hashing");
         let point1 = hash_string_to_element(&s1);
         let expected_str: String = into_hex(point1).unwrap();
-        println!("Expected: {:?}", expected_str); // print msg's during test: "cargo test -- --nocapture"
+        //println!("Expected: {:?}", expected_str); // print msg's during test: "cargo test -- --nocapture"
         assert_eq!(
             "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
             into_hex(point1).unwrap()
