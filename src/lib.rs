@@ -200,17 +200,17 @@ pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
 }
 
-fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) {
+fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) -> bool {
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();
     
    if *p == serde_json::Value::Null {
        println!("Error passed null!");
-       return;
+       return false;
    }
 
     //Leaf
-    if (p["ATT"] != serde_json::Value::Null) {
+    if p["ATT"] != serde_json::Value::Null {
         msp.m.insert(0, v_tmp_right);
         match p["ATT"].as_str() {
           Some(s) => msp.pi.insert(0, String::from(s)),
@@ -219,11 +219,11 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) {
         if (msp.deg < *c) {
             msp.deg = *c;
         }
-        return;
+        return true;
     }
 
 
-    if (p["OR"] != serde_json::Value::Null) {
+    if p["OR"] != serde_json::Value::Null {
         println!("found OR");
         v_tmp_left = v.clone();
     } else {
@@ -235,12 +235,22 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) {
         v_tmp_left.push(bn::Fr::zero() - bn::Fr::one());
     }
 
-    if (p["OR"] != serde_json::Value::Null) {
-        lw(msp, &p["OR"][0], v_tmp_right, c);
-        lw(msp, &p["OR"][1], v_tmp_left, c);
+    if p["OR"].is_array() {
+        if p["OR"].as_array().unwrap().len() != 2 {
+            println!("Invalid policy. Number of arguments under OR != 2");
+            return false;
+        }
+        return lw(msp, &p["OR"][0], v_tmp_right, c) &&
+            lw(msp, &p["OR"][1], v_tmp_left, c);
+    } else if p["AND"].is_array() {
+        if p["AND"].as_array().unwrap().len() != 2 {
+            println!("Invalid policy. Number of arguments under AND != 2");
+            return false;
+        }
+        return lw(msp, &p["AND"][0], v_tmp_right, c) &&
+            lw(msp, &p["AND"][1], v_tmp_left, c);
     } else {
-        lw(msp, &p["AND"][0], v_tmp_right, c);
-        lw(msp, &p["AND"][1], v_tmp_left, c);
+        return false;
     }
 }
 
@@ -249,11 +259,13 @@ pub fn policy_to_msp(data: &[u8], mut msp: &mut MSP) -> bool {
     let mut v: Vec<bn::Fr> = Vec::new();
     v.push (bn::Fr::one());
     let mut c = 1;
-    lw (&mut msp, &pol, v, &mut c);
-    for mut p in &mut msp.m {
-      p.resize(msp.deg, bn::Fr::zero());
+    if lw (&mut msp, &pol, v, &mut c) {
+        for mut p in &mut msp.m {
+            p.resize(msp.deg, bn::Fr::zero());
+        }
+        return true;
     }
-    return true;
+    return false;
 }
 
 pub fn abe_encrypt(
@@ -356,15 +368,32 @@ mod tests {
             pi: _attributes,
             deg: 1
         };
+        let p1 = vec![Fr::zero(), Fr::zero(), Fr::zero() - Fr::one()];
+        let p2 = vec![Fr::one(), Fr::zero(), Fr::one()];
+        let p3 = vec![Fr::zero(), Fr::zero() - Fr::one(), Fr::zero()];
+        let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
+        let mut _msp_test = MSP {
+            m: vec![p1,p2,p3,p4],
+            pi: vec![String::from("A"),String::from("B"),String::from("A"),String::from("C")],
+            deg: 3
+        };
         assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
-        policy_to_msp(policy.as_bytes(), &mut _msp);
-        for p in _msp.m {
+        assert!(policy_to_msp(policy.as_bytes(), &mut _msp));
+        for i in 0..4 {
+            let p = &_msp.m[i];
+            let p_test = &_msp_test.m[i];
+            for j in 0..3 {
+                assert!(p[j] == p_test[j]);
+            }
+        }
+        assert!(_msp_test.deg == _msp.deg);
+        /*for p in _msp.m {
             print!("|");
             for x in &p {
                 print!("{}|", into_hex(x).unwrap());
             }
             println!("\n");
-        }
+        }*/
     }
     #[test]
     fn test_keygen() {
