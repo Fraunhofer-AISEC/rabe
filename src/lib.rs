@@ -255,6 +255,10 @@ fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>, c: &mut usize) -> bo
     }
 }
 
+
+/**
+ * BEWARE: policy must be in DNF!
+ */
 pub fn policy_to_msp(policy: String, mut msp: &mut MSP) -> bool {
     let pol = serde_json::from_str(&policy).unwrap();
     let mut v: Vec<bn::Fr> = Vec::new();
