@@ -250,14 +250,29 @@ pub fn abe_encrypt(
 }
 
 pub fn abe_decrypt(
-    pk: &AbePublicKey,
     sk: &AbeSecretKey,
-    ciphertext: &Vec<u8>) -> Option<Vec<u8>> {
-    if 0 == ciphertext.len() {
-        return None;
+    ct: &AbeCiphertext) -> Option<bn::Gt> {
+    let mut ct_1 = bn::G1::one();
+    let mut ct_2 = bn::G1::one();
+    let mut ct_3 = bn::G1::one();
+    let mut sk_1 = bn::G1::one();
+    let mut sk_2 = bn::G1::one();
+    let mut sk_3 = bn::G1::one();
+    for ct_i in ct._ct_y.iter() {
+        ct_1 = ct_1 + ct_i.0;
+        ct_2 = ct_2 + ct_i.1;
+        ct_3 = ct_3 + ct_i.2;
     }
-    let plaintext: Vec<u8> = Vec::new();
-    return Some(plaintext);
+    for sk_i in sk._ski.iter() {
+        sk_1 = sk_1 + sk_i.0;
+        sk_2 = sk_2 + sk_i.1;
+        sk_3 = sk_3 + sk_i.2;
+    }
+
+    let num = ct._ct_prime * pairing (ct_1, sk._sk0.0) * pairing (ct_2, sk._sk0.1) * pairing (ct_3, sk._sk0.2);
+    let den = pairing (sk_1, ct._ct_0.0) * pairing (sk_2, ct._ct_0.1) * pairing (sk_3, ct._ct_0.2);
+
+    return Some(num * den.inverse());
 }
 
 #[cfg(test)]
