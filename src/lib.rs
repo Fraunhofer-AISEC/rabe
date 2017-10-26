@@ -38,16 +38,16 @@ mod policy;
  *
  */
 
-//#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbePublicKey {
     _h: bn::G2,
     _h1: bn::G2,
     _h2: bn::G2,
-    _t1: bn::Gt,
-    _t2: bn::Gt,
+    _t1: Gt,
+    _t2: Gt,
 }
 
-//#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbeCiphertext {
     _ct_0: (bn::G2, bn::G2, bn::G2),
     _ct_prime: bn::Gt,
