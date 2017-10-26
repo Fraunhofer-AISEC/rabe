@@ -24,7 +24,7 @@ use crypto::sha3::Sha3;
 //use rustc_serialize::hex::{FromHex, ToHex};
 //use byteorder::{ByteOrder, BigEndian};
 //use rand::Rng;
-use policy::KpAbePolicy;
+use policy::AbePolicy;
 
 mod policy;
 
@@ -71,9 +71,9 @@ pub struct AbeSecretKey {
 
 
 
-impl KpAbePolicy {
-    pub fn from_string(policy: String) -> Option<KpAbePolicy> { policy::string_to_msp(policy) }
-    pub fn from_json(json: &serde_json::Value) -> Option<KpAbePolicy> { policy::json_to_msp(json) }
+impl AbePolicy {
+    pub fn from_string(policy: String) -> Option<AbePolicy> { policy::string_to_msp(policy) }
+    pub fn from_json(json: &serde_json::Value) -> Option<AbePolicy> { policy::json_to_msp(json) }
 }
 
 
@@ -128,7 +128,7 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
 }
 
 //TODO can input here be malformed? Then we should return Option<AbeSecretKey>
-pub fn abe_keygen(msk: &AbeMasterKey, msp: &KpAbePolicy, attributes: &LinkedList<String>) -> AbeSecretKey {
+pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy, attributes: &LinkedList<String>) -> AbeSecretKey {
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate random r1 and r2
@@ -264,7 +264,7 @@ mod tests {
     use hash_string_to_element;
     use AbePublicKey;
     use AbeMasterKey;
-    use KpAbePolicy;
+    use AbePolicy;
     use Fr;
     use std::collections::LinkedList;
     use std::string::String;
@@ -311,13 +311,13 @@ mod tests {
         let p2 = vec![Fr::one(), Fr::zero(), Fr::one()];
         let p3 = vec![Fr::zero(), Fr::zero() - Fr::one(), Fr::zero()];
         let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
-        let mut _msp_test = KpAbePolicy {
+        let mut _msp_test = AbePolicy {
             _m: vec![p1,p2,p3,p4],
             _pi: vec![String::from("A"),String::from("B"),String::from("A"),String::from("C")],
             _deg: 3
         };
         assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
-        match KpAbePolicy::from_string (policy) {
+        match AbePolicy::from_string (policy) {
             None => assert!(false),
             Some(_msp) => {
                 for i in 0..4 {

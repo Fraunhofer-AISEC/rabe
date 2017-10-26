@@ -6,13 +6,13 @@ extern crate bn;
 use std::string::String;
 use bn::*;
 
-pub struct KpAbePolicy {
+pub struct AbePolicy {
     pub _m: Vec<Vec<bn::Fr>>,
     pub _pi: Vec<String>,
     pub _deg: usize
 }
 
-fn lw(msp: &mut KpAbePolicy, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
+fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();
     
@@ -70,11 +70,11 @@ fn lw(msp: &mut KpAbePolicy, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
 /**
  * BEWARE: policy must be in DNF!
  */
-pub fn json_to_msp(json: &serde_json::Value) -> Option<KpAbePolicy> {
+pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
     let mut v: Vec<bn::Fr> = Vec::new();
     let mut _values: Vec<Vec<Fr>> = Vec::new();
     let mut _attributes: Vec<String> = Vec::new();
-    let mut msp = KpAbePolicy {
+    let mut msp = AbePolicy {
         _m: _values,
         _pi: _attributes,
         _deg: 1
@@ -90,7 +90,7 @@ pub fn json_to_msp(json: &serde_json::Value) -> Option<KpAbePolicy> {
     return None;
 }
 
-pub fn string_to_msp(policy: String) -> Option<KpAbePolicy> {
+pub fn string_to_msp(policy: String) -> Option<AbePolicy> {
     match serde_json::from_str(&policy) {
         Err(_) => {
             println!("Error parsing policy");
