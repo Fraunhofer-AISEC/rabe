@@ -149,17 +149,24 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
         // calculate sk_{i,1} and sk_{i,2}
         let mut sk_i1 = G1::one();
         let mut sk_i2 = G1::one();
+        // at first calculate the product for sk_i1 and sk_i2
         for j in 2..n2 {
             sk_i1 = sk_i1 +
-                (((hash_to_element(b"todo") * (msk._b1 * r1 * msk._a1.inverse().unwrap())) +
-                      (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
-                      (hash_to_element(b"todo") * ((r1 + r2) * msk._a1.inverse().unwrap())) +
+                (((hash_to_element(generate_hash(&j.to_string(), 1, 1).as_bytes()) *
+                       (msk._b1 * r1 * msk._a1.inverse().unwrap())) +
+                      (hash_to_element(generate_hash(&j.to_string(), 2, 1).as_bytes()) *
+                           (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
+                      (hash_to_element(generate_hash(&j.to_string(), 3, 1).as_bytes()) *
+                           ((r1 + r2) * msk._a1.inverse().unwrap())) +
                       (msk._g * (-sgima_prime[j] * msk._a1.inverse().unwrap()))) *
                      msp._m[i][j]);
             sk_i2 = sk_i2 +
-                (((hash_to_element(b"todo") * (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
-                      (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
-                      (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
+                (((hash_to_element(generate_hash(&j.to_string(), 1, 2).as_bytes()) *
+                       (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
+                      (hash_to_element(generate_hash(&j.to_string(), 2, 2).as_bytes()) *
+                           (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
+                      (hash_to_element(generate_hash(&j.to_string(), 3, 2).as_bytes()) *
+                           ((r1 + r2) * msk._a2.inverse().unwrap())) +
                       (msk._g * (-sgima_prime[j] * msk._a2.inverse().unwrap()))) *
                      msp._m[i][j]);
         }
@@ -186,6 +193,14 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
         print!("attribute: {}", str);
     }
     return sk;
+}
+
+pub fn generate_hash(text: &String, j: u32, t: u32) -> String {
+    let mut _combined: String = text.to_owned();
+    let borrowed_string: &str = "world";
+
+    _combined.push_str(j.to_string());
+    return String::from("asd");
 }
 
 pub fn hash_to_element(data: &[u8]) -> bn::G1 {
