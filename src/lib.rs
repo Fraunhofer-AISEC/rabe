@@ -24,6 +24,9 @@ use crypto::sha3::Sha3;
 //use rustc_serialize::hex::{FromHex, ToHex};
 //use byteorder::{ByteOrder, BigEndian};
 //use rand::Rng;
+use policy::KpAbePolicy;
+
+mod policy;
 
 // Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
 
@@ -66,11 +69,13 @@ pub struct AbeSecretKey {
     _ski: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
-pub struct MSP {
-    _m: Vec<Vec<bn::Fr>>,
-    _pi: Vec<String>,
-    _deg: usize
+
+
+impl KpAbePolicy {
+    pub fn from_string(policy: String) -> Option<KpAbePolicy> { policy::string_to_msp(policy) }
+    pub fn from_json(json: &serde_json::Value) -> Option<KpAbePolicy> { policy::json_to_msp(json) }
 }
+
 
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // random number generator
@@ -123,7 +128,7 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
 }
 
 //TODO can input here be malformed? Then we should return Option<AbeSecretKey>
-pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>) -> AbeSecretKey {
+pub fn abe_keygen(msk: &AbeMasterKey, msp: &KpAbePolicy, attributes: &LinkedList<String>) -> AbeSecretKey {
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate random r1 and r2
@@ -209,97 +214,6 @@ pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
 }
 
-fn lw(msp: &mut MSP, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
-    let mut v_tmp_left = Vec::new();
-    let mut v_tmp_right = v.clone();
-    
-   if *p == serde_json::Value::Null {
-       println!("Error passed null!");
-       return false;
-   }
-
-    //Leaf
-    if p["ATT"] != serde_json::Value::Null {
-        msp._m.insert(0, v_tmp_right);
-        match p["ATT"].as_str() {
-          Some(s) => msp._pi.insert(0, String::from(s)),
-          None => println!("ERROR attribute value"),
-        }
-        return true;
-    }
-
-
-    if p["OR"].is_array() {
-        if p["OR"].as_array().unwrap().len() != 2 {
-            println!("Invalid policy. Number of arguments under OR != 2");
-            return false;
-        }
-        v_tmp_left = v.clone();
-        
-        return lw(msp, &p["OR"][0], v_tmp_right) &&
-            lw(msp, &p["OR"][1], v_tmp_left);
-    } else if p["AND"].is_array() {
-        if p["AND"].as_array().unwrap().len() != 2 {
-            println!("Invalid policy. Number of arguments under AND != 2");
-            return false;
-        }
-        let left = &p["AND"][0];
-        if left["OR"] != serde_json::Value::Null {
-            println!("Invalid policy. Not in DNF");
-            return false;
-        }
-        msp._deg += 1;
-        v_tmp_right.resize(msp._deg - 1, bn::Fr::zero());
-        v_tmp_right.push(bn::Fr::one());
-        v_tmp_left.resize(msp._deg - 1 , bn::Fr::zero());
-        v_tmp_left.push(bn::Fr::zero() - bn::Fr::one());
-
-        return lw(msp, &p["AND"][0], v_tmp_right) &&
-            lw(msp, &p["AND"][1], v_tmp_left);
-
-    } else {
-        println!("Policy invalid. No AND or OR found");
-        return false;
-    }
-}
-
-
-/**
- * BEWARE: policy must be in DNF!
- */
-pub fn json_to_msp(json: &serde_json::Value) -> Option<MSP> {
-    let mut v: Vec<bn::Fr> = Vec::new();
-    let mut _values: Vec<Vec<Fr>> = Vec::new();
-    let mut _attributes: Vec<String> = Vec::new();
-    let mut msp = MSP {
-        _m: _values,
-        _pi: _attributes,
-        _deg: 1
-    };
-
-    v.push (bn::Fr::one());
-    if lw (&mut msp, json, v) {
-        for p in &mut msp._m {
-            p.resize(msp._deg, bn::Fr::zero());
-        }
-        return Some(msp);
-    }
-    return None;
-}
-
-pub fn string_to_msp(policy: String) -> Option<MSP> {
-    match serde_json::from_str(&policy) {
-        Err(_) => {
-            println!("Error parsing policy");
-            return None;
-        },
-        Ok(pol) => {
-            return json_to_msp(&pol);
-        }
-    }
-}
-
-
 
 
 pub fn abe_encrypt(
@@ -348,10 +262,9 @@ mod tests {
     use abe_setup;
     use abe_keygen;
     use hash_string_to_element;
-    use string_to_msp;
     use AbePublicKey;
     use AbeMasterKey;
-    use MSP;
+    use KpAbePolicy;
     use Fr;
     use std::collections::LinkedList;
     use std::string::String;
@@ -398,13 +311,13 @@ mod tests {
         let p2 = vec![Fr::one(), Fr::zero(), Fr::one()];
         let p3 = vec![Fr::zero(), Fr::zero() - Fr::one(), Fr::zero()];
         let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
-        let mut _msp_test = MSP {
+        let mut _msp_test = KpAbePolicy {
             _m: vec![p1,p2,p3,p4],
             _pi: vec![String::from("A"),String::from("B"),String::from("A"),String::from("C")],
             _deg: 3
         };
         assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
-        match string_to_msp (policy) {
+        match KpAbePolicy::from_string (policy) {
             None => assert!(false),
             Some(_msp) => {
                 for i in 0..4 {
