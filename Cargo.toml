@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>"]
 
 [dependencies]
-bn = "0.4.3"
+bn = { git = "https://github.com/schanzen/bn.git" }
 rand = "0.3"
 rust-crypto = "0.2"
 rustc-serialize = "~0.3.19"
