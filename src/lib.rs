@@ -321,7 +321,6 @@ pub fn abe_encrypt(
             return Some(ct);
         }
     }
-    return None;
 }
 
 // Decrypts a buffer with the given key and iv using
@@ -358,12 +357,13 @@ fn decrypt_aes(encrypted_data: &[u8], key: &[u8], iv: &[u8]) -> Result<Vec<u8>, 
 pub fn abe_decrypt(
     sk: &AbeSecretKey,
     ct: &AbeCiphertext) -> Option<Vec<u8>> {
-    let mut ct_1 = bn::G1::one();
-    let mut ct_2 = bn::G1::one();
-    let mut ct_3 = bn::G1::one();
-    let mut sk_1 = bn::G1::one();
-    let mut sk_2 = bn::G1::one();
-    let mut sk_3 = bn::G1::one();
+    //TODO not sure of this should be zero or one
+    let mut ct_1 = bn::G1::zero();
+    let mut ct_2 = bn::G1::zero();
+    let mut ct_3 = bn::G1::zero();
+    let mut sk_1 = bn::G1::zero();
+    let mut sk_2 = bn::G1::zero();
+    let mut sk_3 = bn::G1::zero();
     for ct_i in ct._ct_y.iter() {
         ct_1 = ct_1 + ct_i.0;
         ct_2 = ct_2 + ct_i.1;
@@ -390,8 +390,6 @@ pub fn abe_decrypt(
             return Some (decrypt_aes(&ct._ciphertext[..], &key, &ct._iv).ok().unwrap());
         }
     }
-
-    return None;
 }
 
 #[cfg(test)]
