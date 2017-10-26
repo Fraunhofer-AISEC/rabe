@@ -24,9 +24,21 @@ use crypto::sha3::Sha3;
 //use rustc_serialize::hex::{FromHex, ToHex};
 //use byteorder::{ByteOrder, BigEndian};
 //use rand::Rng;
+use policy::AbePolicy;
+
+mod policy;
 
 // Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
 
+/**
+ * TODO
+ * - Put everything in a module (?)
+ * - Encrypt/Decrypt
+ * - Serialization, bn::Gt is not serializable :(((
+ *
+ */
+
+//#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbePublicKey {
     _h: bn::G2,
     _h1: bn::G2,
@@ -35,12 +47,14 @@ pub struct AbePublicKey {
     _t2: bn::Gt,
 }
 
+//#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbeCiphertext {
     _ct_0: (bn::G2, bn::G2, bn::G2),
     _ct_prime: bn::Gt,
     _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbeMasterKey {
     _g: bn::G1,
     _h: bn::G2,
@@ -58,10 +72,13 @@ pub struct AbeSecretKey {
     _ski: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
-pub struct MSP {
-    _m: Vec<Vec<bn::Fr>>,
-    _pi: Vec<String>,
+
+
+impl AbePolicy {
+    pub fn from_string(policy: String) -> Option<AbePolicy> { policy::string_to_msp(policy) }
+    pub fn from_json(json: &serde_json::Value) -> Option<AbePolicy> { policy::json_to_msp(json) }
 }
+
 
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // random number generator
@@ -113,7 +130,8 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     return (pk, msk);
 }
 
-pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>) -> AbeSecretKey {
+//TODO can input here be malformed? Then we should return Option<AbeSecretKey>
+pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy, attributes: &LinkedList<String>) -> AbeSecretKey {
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate random r1 and r2
@@ -181,7 +199,6 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &MSP, attributes: &LinkedList<String>
             (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
             (msk._g * (sigma * msk._a2.inverse().unwrap())) +
             (msk._g_d2 * msp._m[i][0]);
-
         sk_i.push((sk_i1, sk_i2, sk_i3));
     }
     // now generate sk key
@@ -204,13 +221,9 @@ pub fn generate_hash(text: &String, j: u32, t: u32) -> String {
 }
 
 pub fn hash_to_element(data: &[u8]) -> bn::G1 {
-    // create a SHA256 object
-    // todo: replace this with sha3
     let mut sha = Sha3::sha3_256();
-    // update sha with message
     sha.input(data);
     let i = BigInt::parse_bytes(sha.result_str().as_bytes(), 16).unwrap();
-    println!("SHA3 Result: {:?}", i.to_str_radix(10));
     return G1::one() * Fr::from_str(&i.to_str_radix(10)).unwrap();
 }
 
@@ -219,22 +232,16 @@ pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
 }
 
-pub fn policy_to_msp(data: &[u8]) -> MSP {
-    // now generate sk key
-    let mut _values: Vec<Vec<bn::Fr>> = Vec::new();
-    let mut _attributes: Vec<String> = Vec::new();
-    let _msp = MSP {
-        _m: _values,
-        _pi: _attributes,
-    };
-    return _msp;
-}
+
 
 pub fn abe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
-    plaintext: bn::Gt,
-) -> Option<AbeCiphertext> {
+    plaintext: bn::Gt) -> Option<AbeCiphertext> {
+
+    if tags.is_empty() {
+        return None;
+    }
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate s1,s2
@@ -246,7 +253,7 @@ pub fn abe_encrypt(
             hash_string_to_element(_tag),
             hash_string_to_element(_tag),
             hash_string_to_element(_tag),
-        );
+            );
         _ct_yl.push(_attribute);
     }
     let ct = AbeCiphertext {
@@ -254,24 +261,18 @@ pub fn abe_encrypt(
         _ct_prime: (pk._t1.pow(s1) * pk._t1.pow(s2) * plaintext),
         _ct_y: _ct_yl,
     };
-    return None;
+    return Some(ct);
 }
 
 pub fn abe_decrypt(
     pk: &AbePublicKey,
     sk: &AbeSecretKey,
-    ciphertext: &Vec<u8>,
-    plaintext: &mut Vec<u8>,
-) -> bool {
-    return true;
-}
-
-pub fn abe_public_key_serialize(pk: &AbePublicKey, pk_serialized: &mut Vec<u8>) -> bool {
-    return true;
-}
-
-pub fn abe_public_key_deserialize(pk_data: &Vec<u8>) -> Option<AbePublicKey> {
-    return None;
+    ciphertext: &Vec<u8>) -> Option<Vec<u8>> {
+    if 0 == ciphertext.len() {
+        return None;
+    }
+    let plaintext: Vec<u8> = Vec::new();
+    return Some(plaintext);
 }
 
 #[cfg(test)]
@@ -281,6 +282,8 @@ mod tests {
     use hash_string_to_element;
     use AbePublicKey;
     use AbeMasterKey;
+    use AbePolicy;
+    use Fr;
     use std::collections::LinkedList;
     use std::string::String;
     use bn::*;
@@ -310,14 +313,42 @@ mod tests {
         let s1 = String::from("hashing");
         let point1 = hash_string_to_element(&s1);
         let expected_str: String = into_hex(point1).unwrap();
-        println!("Expected: {:?}", expected_str); // print msg's during test: "cargo test -- --nocapture"
+        //println!("Expected: {:?}", expected_str); // print msg's during test: "cargo test -- --nocapture"
         assert_eq!(
             "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
             into_hex(point1).unwrap()
-        );
+            );
 
     }
-
+    #[test]
+    fn test_to_msp() {
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
+        let mut _values: Vec<Vec<Fr>> = Vec::new();
+        let mut _attributes: Vec<String> = Vec::new();
+        let p1 = vec![Fr::zero(), Fr::zero(), Fr::zero() - Fr::one()];
+        let p2 = vec![Fr::one(), Fr::zero(), Fr::one()];
+        let p3 = vec![Fr::zero(), Fr::zero() - Fr::one(), Fr::zero()];
+        let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
+        let mut _msp_test = AbePolicy {
+            _m: vec![p1,p2,p3,p4],
+            _pi: vec![String::from("A"),String::from("B"),String::from("A"),String::from("C")],
+            _deg: 3
+        };
+        assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
+        match AbePolicy::from_string (policy) {
+            None => assert!(false),
+            Some(_msp) => {
+                for i in 0..4 {
+                    let p = &_msp._m[i];
+                    let p_test = &_msp_test._m[i];
+                    for j in 0..3 {
+                        assert!(p[j] == p_test[j]);
+                    }
+                }
+                assert!(_msp_test._deg == _msp._deg);
+            }
+        }
+    }
     #[test]
     fn test_keygen() {
         let (pk, msk) = abe_setup();
