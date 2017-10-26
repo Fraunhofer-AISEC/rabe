@@ -34,10 +34,11 @@ mod policy;
  * TODO
  * - Put everything in a module (?)
  * - Encrypt/Decrypt
- * - Serialization
+ * - Serialization, bn::Gt is not serializable :(((
  *
  */
 
+//#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbePublicKey {
     _h: bn::G2,
     _h1: bn::G2,
@@ -46,12 +47,14 @@ pub struct AbePublicKey {
     _t2: bn::Gt,
 }
 
+//#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbeCiphertext {
     _ct_0: (bn::G2, bn::G2, bn::G2),
     _ct_prime: bn::Gt,
     _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbeMasterKey {
     _g: bn::G1,
     _h: bn::G2,
