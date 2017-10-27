@@ -4,7 +4,6 @@
 
 extern crate serde;
 extern crate serde_json;
-
 extern crate bn;
 extern crate rand;
 extern crate byteorder;
@@ -15,7 +14,6 @@ extern crate num_bigint;
 
 use std::collections::LinkedList;
 use std::string::String;
-use std::str;
 use num_bigint::BigInt;
 use bn::*;
 use crypto::digest::Digest;
@@ -149,10 +147,10 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
     let n1 = msp._m.len();
     let n2 = msp._m[0].len();
     // data structure for random sigma' values
-    let mut sgima_prime: Vec<bn::Fr> = Vec::new();
+    let mut sigma_prime: Vec<bn::Fr> = Vec::new();
     // generate 2..n1 random sigma' values
-    for _i in 2..n2 {
-        sgima_prime.push(Fr::random(rng))
+    for _i in 2..(n2 + 1) {
+        sigma_prime.push(Fr::random(rng))
     }
     // and compute sk0
     let _sk_0 = (
@@ -163,14 +161,14 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
     // sk_i data structure
     let mut sk_i: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
     // for all i=1,...n1 compute
-    for i in 1..n1 {
+    for i in 1..(n1 + 1) {
         // vec to collect triples in loop
-        let mut sk_triple: Vec<(bn::G1)> = Vec::new();
+        let mut sk_i_temp: Vec<(bn::G1)> = Vec::new();
         // pick random sigma
         let sigma = Fr::random(rng);
         // calculate sk_{i,1} and sk_{i,2}
         let mut sk_it = G1::one();
-        for t in 1..2 {
+        for t in 1..3 {
             let current_t: usize = t - 1;
             let at = msk._a[current_t];
             // calculate the first part of the sk_it term for sk_{i,1} and sk_{i,2}
@@ -185,7 +183,7 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
                 (msk._g * (msk._d[current_t])) * msp._m[i - 1][0];
 
             // now calculate the product over j=2 until n2 for sk_it in a loop
-            for j in 2..n2 {
+            for j in 2..(n2 + 1) {
                 sk_it = sk_it +
                     (hash_to_element(combine_string(&j.to_string(), 1, t as u32).as_bytes()) *
                          (msk._b[0] * r1 * at.inverse().unwrap()) +
@@ -195,21 +193,19 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
                          hash_to_element(
                             combine_string(&j.to_string(), 3, t as u32).as_bytes(),
                         ) * ((r1 + r2) * at.inverse().unwrap()) +
-                         (msk._g * (sgima_prime[j - 2] * at.inverse().unwrap()))) *
+                         (msk._g * (sigma_prime[j - 2] * at.inverse().unwrap()))) *
                         msp._m[i - 1][j - 1];
             }
-            sk_triple.push(sk_it);
+            sk_i_temp.push(sk_it);
         }
         // calculate sk_{i,3}
         let mut sk_i3 = G1::one();
-        for j in 2..n2 {
-            sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp._m[i][j]);
+        for j in 2..(n2 + 1) {
+            sk_i3 = sk_i3 + ((msk._g * -sigma_prime[j - 2]) * msp._m[i - 1][j - 2]);
         }
-        sk_i3 = sk_i3 + ((msk._g * msk._d[2]) * msp._m[i][0]) + (msk._g * (-sigma));
-        // and push it in vec
-        sk_triple.push(sk_i3);
+        sk_i3 = sk_i3 + ((msk._g * msk._d[2]) * msp._m[i - 1][0]) + (msk._g * (-sigma));
         // now push all three values into sk_i vec
-        sk_i.push((sk_triple[0], sk_triple[1], sk_triple[2]));
+        sk_i.push((sk_i_temp[0], sk_i_temp[1], sk_i3));
     }
     return Some(AbeSecretKey {
         _sk0: _sk_0,
@@ -419,9 +415,8 @@ mod tests {
     use abe_keygen;
     use hash_string_to_element;
     use combine_string;
-    use AbePublicKey;
-    use AbeMasterKey;
     use AbePolicy;
+    use AbeSecretKey;
     use Fr;
     use std::collections::LinkedList;
     use std::string::String;
@@ -476,17 +471,25 @@ mod tests {
     #[test]
     fn test_keygen() {
         let (pk, msk) = abe_setup();
-        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
-        let sk = abe_keygen(msk, AbePolicy::from_string(policy));
+        // 4 attributes a, b, c and d
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let msp: AbePolicy = AbePolicy::from_string(policy).unwrap();
+        // 4 rows
+        assert_eq!(msp._m.len(), 4);
+        // with 3 columns
+        assert_eq!(msp._m[0].len(), 3);
+        // create sk from msk and msp
+        let sk: AbeSecretKey = abe_keygen(&msk, &msp).unwrap();
+        //assert_eq!(sk._ski.len(), 4);
     }
 
     #[test]
     fn test_combine_string() {
         let s1 = String::from("hashing");
-        let u2: u32 = 1;
-        let u3: u32 = 2;
+        let u2: u32 = 4;
+        let u3: u32 = 8;
         let _combined = combine_string(&s1, u2, u3);
-        assert_eq!(_combined, String::from("hashing12"));
+        assert_eq!(_combined, String::from("hashing48"));
     }
 
     #[test]
@@ -534,16 +537,5 @@ mod tests {
                 assert!(_msp_test._deg == _msp._deg);
             }
         }
-    }
-    #[test]
-    fn test_keygen() {
-        let (pk, msk) = abe_setup();
-        let mut attrs: LinkedList<String> = LinkedList::new();
-        attrs.push_back(String::from("a1"));
-        attrs.push_back(String::from("a2"));
-        attrs.push_back(String::from("a3"));
-        //let sk = abe_keygen(&pk, &msk, &attrs);
-        //assert!(!sk.is_none());
-        //assert_ne!(None, sk);
     }
 }
