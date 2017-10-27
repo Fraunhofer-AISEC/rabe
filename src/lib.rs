@@ -179,11 +179,11 @@ pub fn abe_keygen(
             let at = msk._a[current_t];
             // calculate the first part of the sk_it term for sk_{i,1} and sk_{i,2}
             sk_it = sk_it +
-                (hash_to_element(generate_hash(&msp._pi[i - 1], 1, t as u32).as_bytes()) *
+                (hash_to_element(combine_string(&msp._pi[i - 1], 1, t as u32).as_bytes()) *
                      (msk._b[0] * r1 * at.inverse().unwrap())) +
-                (hash_to_element(generate_hash(&msp._pi[i - 1], 2, t as u32).as_bytes()) *
+                (hash_to_element(combine_string(&msp._pi[i - 1], 2, t as u32).as_bytes()) *
                      (msk._b[1] * r2 * at.inverse().unwrap())) +
-                (hash_to_element(generate_hash(&msp._pi[i - 1], 3, t as u32).as_bytes()) *
+                (hash_to_element(combine_string(&msp._pi[i - 1], 3, t as u32).as_bytes()) *
                      ((r1 + r2) * at.inverse().unwrap())) +
                 msk._g * (sigma * at.inverse().unwrap()) +
                 (msk._g * (msk._d[current_t])) * msp._m[i - 1][0];
@@ -191,12 +191,14 @@ pub fn abe_keygen(
             // now calculate the product over j=2 until n2 for sk_it in a loop
             for j in 2..n2 {
                 sk_it = sk_it +
-                    (hash_to_element(generate_hash(&j.to_string(), 1, t as u32).as_bytes()) *
+                    (hash_to_element(combine_string(&j.to_string(), 1, t as u32).as_bytes()) *
                          (msk._b[0] * r1 * at.inverse().unwrap()) +
-                         hash_to_element(generate_hash(&j.to_string(), 2, t as u32).as_bytes()) *
-                             (msk._b[1] * r2 * at.inverse().unwrap()) +
-                         hash_to_element(generate_hash(&j.to_string(), 3, t as u32).as_bytes()) *
-                             ((r1 + r2) * at.inverse().unwrap()) +
+                         hash_to_element(
+                            combine_string(&j.to_string(), 2, t as u32).as_bytes(),
+                        ) * (msk._b[1] * r2 * at.inverse().unwrap()) +
+                         hash_to_element(
+                            combine_string(&j.to_string(), 3, t as u32).as_bytes(),
+                        ) * ((r1 + r2) * at.inverse().unwrap()) +
                          (msk._g * (sgima_prime[j - 2] * at.inverse().unwrap()))) *
                         msp._m[i - 1][j - 1];
             }
@@ -223,7 +225,7 @@ pub fn abe_keygen(
     });
 }
 
-pub fn generate_hash(text: &String, j: u32, t: u32) -> String {
+pub fn combine_string(text: &String, j: u32, t: u32) -> String {
     let mut _combined: String = text.to_owned();
     _combined.push_str(&j.to_string());
     _combined.push_str(&t.to_string());
@@ -321,12 +323,12 @@ pub fn abe_encrypt(
     for _tag in tags.iter() {
         let _attribute: (bn::G1, bn::G1, bn::G1) =
             (
-                hash_string_to_element(&generate_hash(&_tag, 1, 1)) * s1 +
-                    hash_string_to_element(&generate_hash(&_tag, 1, 2)) * s2,
-                hash_string_to_element(&generate_hash(&_tag, 2, 1)) * s1 +
-                    hash_string_to_element(&generate_hash(&_tag, 2, 2)) * s2,
-                hash_string_to_element(&generate_hash(&_tag, 3, 1)) * s1 +
-                    hash_string_to_element(&generate_hash(&_tag, 3, 2)) * s2,
+                hash_string_to_element(&combine_string(&_tag, 1, 1)) * s1 +
+                    hash_string_to_element(&combine_string(&_tag, 1, 2)) * s2,
+                hash_string_to_element(&combine_string(&_tag, 2, 1)) * s1 +
+                    hash_string_to_element(&combine_string(&_tag, 2, 2)) * s2,
+                hash_string_to_element(&combine_string(&_tag, 3, 1)) * s1 +
+                    hash_string_to_element(&combine_string(&_tag, 3, 2)) * s2,
             );
         _ct_yl.push(_attribute);
     }
@@ -432,7 +434,7 @@ mod tests {
     use abe_setup;
     use abe_keygen;
     use hash_string_to_element;
-    use generate_hash;
+    use combine_string;
     use AbePublicKey;
     use AbeMasterKey;
     use AbePolicy;
@@ -460,11 +462,11 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_hash() {
+    fn test_combine_string() {
         let s1 = String::from("hashing");
         let u2: u32 = 1;
         let u3: u32 = 2;
-        let _combined = generate_hash(&s1, u2, u3);
+        let _combined = combine_string(&s1, u2, u3);
         assert_eq!(_combined, String::from("hashing12"));
     }
 
