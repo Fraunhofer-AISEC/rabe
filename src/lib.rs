@@ -20,10 +20,14 @@ use num_bigint::BigInt;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
+use crypto::{symmetriccipher, buffer, aes, blockmodes};
+use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
+use bincode::SizeLimit::Infinite;
+use bincode::rustc_serialize::{encode, decode};
 //use rustc_serialize::{Encodable, Decodable};
-//use rustc_serialize::hex::{FromHex, ToHex};
+use rustc_serialize::hex::{FromHex, ToHex};
 //use byteorder::{ByteOrder, BigEndian};
-//use rand::Rng;
+use rand::Rng;
 use policy::AbePolicy;
 
 mod policy;
@@ -49,6 +53,8 @@ pub struct AbeCiphertext {
     _ct_0: (bn::G2, bn::G2, bn::G2),
     _ct_prime: bn::Gt,
     _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
+    _ciphertext: Vec<u8>,
+    _iv: [u8; 16],
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -127,12 +133,16 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     return (pk, msk);
 }
 
-//TODO can input here be malformed? Then we should return Option<AbeSecretKey>
 pub fn abe_keygen(
     msk: &AbeMasterKey,
     msp: &AbePolicy,
     attributes: &LinkedList<String>,
-) -> AbeSecretKey {
+) -> Option<AbeSecretKey> {
+    // if no attibutes or an empty policy
+    // maybe add empty msk als here
+    if attributes.is_empty() || msp._m.is_empty() || msp._m.len() == 0 || msp._m[0].len() == 0 {
+        return None;
+    }
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate random r1 and r2
@@ -157,63 +167,66 @@ pub fn abe_keygen(
     let mut sk_i: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
     // for all i=1,...n1 compute
     for i in 1..n1 {
+        // vec to collect triples in loop
+        let mut sk_triple: Vec<(bn::G1)> = Vec::new();
         // pick random sigma
         let sigma = Fr::random(rng);
+        // calculate sk_{i,1} and sk_{i,2}
+        let mut sk_it = G1::one();
+        for t in 1..2 {
+            let current_t: usize = t - 1;
+            let at = msk._a[current_t];
+            // calculate the first part of the sk_it term for sk_{i,1} and sk_{i,2}
+            sk_it = sk_it +
+                (hash_to_element(generate_hash(&msp._pi[i - 1], 1, t as u32).as_bytes()) *
+                     (msk._b[0] * r1 * at.inverse().unwrap())) +
+                (hash_to_element(generate_hash(&msp._pi[i - 1], 2, t as u32).as_bytes()) *
+                     (msk._b[1] * r2 * at.inverse().unwrap())) +
+                (hash_to_element(generate_hash(&msp._pi[i - 1], 3, t as u32).as_bytes()) *
+                     ((r1 + r2) * at.inverse().unwrap())) +
+                msk._g * (sigma * at.inverse().unwrap()) +
+                (msk._g * (msk._d[current_t])) * msp._m[i - 1][0];
+
+            // now calculate the product over j=2 until n2 for sk_it in a loop
+            for j in 2..n2 {
+                sk_it = sk_it +
+                    (hash_to_element(generate_hash(&j.to_string(), 1, t as u32).as_bytes()) *
+                         (msk._b[0] * r1 * at.inverse().unwrap()) +
+                         hash_to_element(generate_hash(&j.to_string(), 2, t as u32).as_bytes()) *
+                             (msk._b[1] * r2 * at.inverse().unwrap()) +
+                         hash_to_element(generate_hash(&j.to_string(), 3, t as u32).as_bytes()) *
+                             ((r1 + r2) * at.inverse().unwrap()) +
+                         (msk._g * (sgima_prime[j - 2] * at.inverse().unwrap()))) *
+                        msp._m[i - 1][j - 1];
+            }
+            sk_triple.push(sk_it);
+        }
         // calculate sk_{i,3}
         let mut sk_i3 = G1::one();
         for j in 2..n2 {
             sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp._m[i][j]);
         }
         sk_i3 = sk_i3 + ((msk._g * msk._d[2]) * msp._m[i][0]) + (msk._g * (-sigma));
-        // calculate sk_{i,1} and sk_{i,2}
-        // at first calculate the product for sk_it
-        let mut sk_it = G1::one();
-        for j in 2..n2 {
-            for t in 1u32..2 {
-                let current_index: usize = t - 1;
-                let at = msk._a[current_index];
-                sk_it = sk_it +
-                    hash_to_element(generate_hash(&j.to_string(), 1, t as u32).as_bytes()) *
-                        (msk._b[0] * r1 * at.inverse().unwrap()) +
-                    hash_to_element(generate_hash(&j.to_string(), 1, t as u32).as_bytes()) *
-                        (msk._b[1] * r2 * at.inverse().unwrap()) +
-                    hash_to_element(generate_hash(&j.to_string(), 1, t as u32).as_bytes()) *
-                        ((r1 + r2) * at.inverse().unwrap()) +
-                    (msk._g * (sigma * at.inverse().unwrap())) +
-                    ((msk._g * msk._d[current_index]) * msp._m[i][0]);
-
-                sk_it = sk_it +
-                    (((hash_to_element(generate_hash(&j.to_string(), 1, t).as_bytes()) *
-                           (msk._b[0] * r1 * at.inverse().unwrap())) +
-                          (hash_to_element(generate_hash(&j.to_string(), 2, t).as_bytes()) *
-                               (msk._b[1] * r2 * at.inverse().unwrap())) +
-                          (hash_to_element(generate_hash(&j.to_string(), 3, t).as_bytes()) *
-                               ((r1 + r2) * at.inverse().unwrap())) +
-                          (msk._g * (-sgima_prime[j] * msk._a1.inverse().unwrap()))) *
-                         msp._m[i][j]);
-            }
-
-        }
-
-        sk_i.push((sk_i1, sk_i2, sk_i3));
+        // and push it in vec
+        sk_triple.push(sk_it);
+        // now push all three values into sk_i vec
+        sk_i.push((sk_triple[0], sk_triple[1], sk_triple[2]));
     }
-    // now generate sk key
-    let sk = AbeSecretKey {
+    // output string attributes
+    for str in attributes.iter() {
+        print!("attributes in new key: {}", str);
+    }
+    return Some(AbeSecretKey {
         _sk0: _sk_0,
         _ski: sk_i,
-    };
-    for str in attributes.iter() {
-        print!("attribute: {}", str);
-    }
-    return sk;
+    });
 }
 
 pub fn generate_hash(text: &String, j: u32, t: u32) -> String {
     let mut _combined: String = text.to_owned();
-    let borrowed_string: &str = "world";
-
     _combined.push_str(&j.to_string());
-    return String::from("asd");
+    _combined.push_str(&t.to_string());
+    return _combined.to_string();
 }
 
 pub fn hash_to_element(data: &[u8]) -> bn::G1 {
@@ -223,24 +236,83 @@ pub fn hash_to_element(data: &[u8]) -> bn::G1 {
     return G1::one() * Fr::from_str(&i.to_str_radix(10)).unwrap();
 }
 
-
 pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
 }
 
+fn encrypt_aes(
+    data: &[u8],
+    key: &[u8],
+    iv: &[u8],
+) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
+    let mut encryptor =
+        aes::cbc_encryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
+    // Each encryption operation encrypts some data from
+    // an input buffer into an output buffer. Those buffers
+    // must be instances of RefReaderBuffer and RefWriteBuffer
+    // (respectively) which keep track of how much data has been
+    // read from or written to them.
+    let mut final_result = Vec::<u8>::new();
+    let mut read_buffer = buffer::RefReadBuffer::new(data);
+    let mut buffer = [0; 4096];
+    let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
 
+    // Each encryption operation will "make progress". "Making progress"
+    // is a bit loosely defined, but basically, at the end of each operation
+    // either BufferUnderflow or BufferOverflow will be returned (unless
+    // there was an error). If the return value is BufferUnderflow, it means
+    // that the operation ended while wanting more input data. If the return
+    // value is BufferOverflow, it means that the operation ended because it
+    // needed more space to output data. As long as the next call to the encryption
+    // operation provides the space that was requested (either more input data
+    // or more output space), the operation is guaranteed to get closer to
+    // completing the full operation - ie: "make progress".
+    //
+    // Here, we pass the data to encrypt to the enryptor along with a fixed-size
+    // output buffer. The 'true' flag indicates that the end of the data that
+    // is to be encrypted is included in the input buffer (which is true, since
+    // the input data includes all the data to encrypt). After each call, we copy
+    // any output data to our result Vec. If we get a BufferOverflow, we keep
+    // going in the loop since it means that there is more work to do. We can
+    // complete as soon as we get a BufferUnderflow since the encryptor is telling
+    // us that it stopped processing data due to not having any more data in the
+    // input buffer.
+    loop {
+        let result = try!(encryptor.encrypt(&mut read_buffer, &mut write_buffer, true));
+
+        // "write_buffer.take_read_buffer().take_remaining()" means:
+        // from the writable buffer, create a new readable buffer which
+        // contains all data that has been written, and then access all
+        // of that data as a slice.
+        final_result.extend(
+            write_buffer
+                .take_read_buffer()
+                .take_remaining()
+                .iter()
+                .map(|&i| i),
+        );
+
+        match result {
+            BufferResult::BufferUnderflow => break,
+            BufferResult::BufferOverflow => {}
+        }
+    }
+
+    Ok(final_result)
+}
 
 pub fn abe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
-    plaintext: bn::Gt,
+    plaintext: &Vec<u8>,
 ) -> Option<AbeCiphertext> {
-
     if tags.is_empty() {
         return None;
     }
     // random number generator
     let rng = &mut rand::thread_rng();
+    //Choose random secret
+    let secret = pairing(G1::random(rng), G2::random(rng));
     // generate s1,s2
     let s1 = Fr::random(rng);
     let s2 = Fr::random(rng);
@@ -253,20 +325,105 @@ pub fn abe_encrypt(
         );
         _ct_yl.push(_attribute);
     }
-    let ct = AbeCiphertext {
-        _ct_0: (pk._h1 * s1, pk._h2 * s2, pk._h * (s1 + s2)),
-        _ct_prime: (pk._t1.pow(s1) * pk._t1.pow(s2) * plaintext),
-        _ct_y: _ct_yl,
-    };
-    return Some(ct);
+    //Encrypt plaintext using derived key from secret
+    let mut sha = Sha3::sha3_256();
+    match encode(&secret, Infinite) {
+        Err(_) => return None,
+        Ok(e) => {
+            sha.input(e.to_hex().as_bytes());
+            let mut key: [u8; 32] = [0; 32];
+            sha.result(&mut key);
+            let mut iv: [u8; 16] = [0; 16];
+            rng.fill_bytes(&mut iv);
+            let ct = AbeCiphertext {
+                _ct_0: (pk._h1 * s1, pk._h2 * s2, pk._h * (s1 + s2)),
+                _ct_prime: (pk._t1.pow(s1) * pk._t1.pow(s2) * secret),
+                _ct_y: _ct_yl,
+                _ciphertext: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
+                _iv: iv,
+            };
+            return Some(ct);
+        }
+    }
 }
 
-pub fn abe_decrypt(pk: &AbePublicKey, sk: &AbeSecretKey, ciphertext: &Vec<u8>) -> Option<Vec<u8>> {
-    if 0 == ciphertext.len() {
-        return None;
+// Decrypts a buffer with the given key and iv using
+// AES-256/CBC/Pkcs encryption.
+//
+// This function is very similar to encrypt(), so, please reference
+// comments in that function. In non-example code, if desired, it is possible to
+// share much of the implementation using closures to hide the operation
+// being performed. However, such code would make this example less clear.
+fn decrypt_aes(
+    encrypted_data: &[u8],
+    key: &[u8],
+    iv: &[u8],
+) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
+    let mut decryptor =
+        aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
+
+    let mut final_result = Vec::<u8>::new();
+    let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
+    let mut buffer = [0; 4096];
+    let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
+
+    loop {
+        let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
+        final_result.extend(
+            write_buffer
+                .take_read_buffer()
+                .take_remaining()
+                .iter()
+                .map(|&i| i),
+        );
+        match result {
+            BufferResult::BufferUnderflow => break,
+            BufferResult::BufferOverflow => {}
+        }
     }
-    let plaintext: Vec<u8> = Vec::new();
-    return Some(plaintext);
+
+    Ok(final_result)
+}
+
+pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
+    //TODO not sure of this should be zero or one
+    let mut ct_1 = bn::G1::zero();
+    let mut ct_2 = bn::G1::zero();
+    let mut ct_3 = bn::G1::zero();
+    let mut sk_1 = bn::G1::zero();
+    let mut sk_2 = bn::G1::zero();
+    let mut sk_3 = bn::G1::zero();
+    for ct_i in ct._ct_y.iter() {
+        ct_1 = ct_1 + ct_i.0;
+        ct_2 = ct_2 + ct_i.1;
+        ct_3 = ct_3 + ct_i.2;
+    }
+    for sk_i in sk._ski.iter() {
+        sk_1 = sk_1 + sk_i.0;
+        sk_2 = sk_2 + sk_i.1;
+        sk_3 = sk_3 + sk_i.2;
+    }
+
+    let num = ct._ct_prime * pairing(ct_1, sk._sk0.0) * pairing(ct_2, sk._sk0.1) *
+        pairing(ct_3, sk._sk0.2);
+    let den = pairing(sk_1, ct._ct_0.0) * pairing(sk_2, ct._ct_0.1) * pairing(sk_3, ct._ct_0.2);
+    let secret = num * den.inverse();
+
+    //Encrypt plaintext using derived key from secret
+    let mut sha = Sha3::sha3_256();
+    match encode(&secret, Infinite) {
+        Err(_) => return None,
+        Ok(e) => {
+            sha.input(e.to_hex().as_bytes());
+            let mut key: [u8; 32] = [0; 32];
+            sha.result(&mut key);
+            return Some(
+                decrypt_aes(&ct._ciphertext[..], &key, &ct._iv)
+                    .ok()
+                    .unwrap(),
+            );
+        }
+    }
 }
 
 #[cfg(test)]
