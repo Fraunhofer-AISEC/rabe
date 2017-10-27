@@ -23,9 +23,11 @@ use crypto::sha3::Sha3;
 use crypto::{symmetriccipher, buffer, aes, blockmodes};
 use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
 use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::{encode, decode};
+//use bincode::rustc_serialize::{encode, decode};
+use bincode::rustc_serialize::encode;
 //use rustc_serialize::{Encodable, Decodable};
-use rustc_serialize::hex::{FromHex, ToHex};
+//use rustc_serialize::hex::{FromHex, ToHex};
+use rustc_serialize::hex::ToHex;
 //use byteorder::{ByteOrder, BigEndian};
 use rand::Rng;
 use policy::AbePolicy;
@@ -53,7 +55,7 @@ pub struct AbeCiphertext {
     _ct_0: (bn::G2, bn::G2, bn::G2),
     _ct_prime: bn::Gt,
     _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
-    _ciphertext: Vec<u8>,
+    _ct: Vec<u8>,
     _iv: [u8; 16],
 }
 
@@ -79,7 +81,6 @@ impl AbePolicy {
         policy::json_to_msp(json)
     }
 }
-
 
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // random number generator
@@ -208,7 +209,7 @@ pub fn abe_keygen(
         }
         sk_i3 = sk_i3 + ((msk._g * msk._d[2]) * msp._m[i][0]) + (msk._g * (-sigma));
         // and push it in vec
-        sk_triple.push(sk_it);
+        sk_triple.push(sk_i3);
         // now push all three values into sk_i vec
         sk_i.push((sk_triple[0], sk_triple[1], sk_triple[2]));
     }
@@ -306,7 +307,7 @@ pub fn abe_encrypt(
     tags: &LinkedList<String>,
     plaintext: &Vec<u8>,
 ) -> Option<AbeCiphertext> {
-    if tags.is_empty() {
+    if tags.is_empty() || plaintext.is_empty() {
         return None;
     }
     // random number generator
@@ -318,11 +319,15 @@ pub fn abe_encrypt(
     let s2 = Fr::random(rng);
     let mut _ct_yl: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
     for _tag in tags.iter() {
-        let _attribute: (bn::G1, bn::G1, bn::G1) = (
-            hash_string_to_element(_tag),
-            hash_string_to_element(_tag),
-            hash_string_to_element(_tag),
-        );
+        let _attribute: (bn::G1, bn::G1, bn::G1) =
+            (
+                hash_string_to_element(&generate_hash(&_tag, 1, 1)) * s1 +
+                    hash_string_to_element(&generate_hash(&_tag, 1, 2)) * s2,
+                hash_string_to_element(&generate_hash(&_tag, 2, 1)) * s1 +
+                    hash_string_to_element(&generate_hash(&_tag, 2, 2)) * s2,
+                hash_string_to_element(&generate_hash(&_tag, 3, 1)) * s1 +
+                    hash_string_to_element(&generate_hash(&_tag, 3, 2)) * s2,
+            );
         _ct_yl.push(_attribute);
     }
     //Encrypt plaintext using derived key from secret
@@ -336,10 +341,10 @@ pub fn abe_encrypt(
             let mut iv: [u8; 16] = [0; 16];
             rng.fill_bytes(&mut iv);
             let ct = AbeCiphertext {
-                _ct_0: (pk._h1 * s1, pk._h2 * s2, pk._h * (s1 + s2)),
-                _ct_prime: (pk._t1.pow(s1) * pk._t1.pow(s2) * secret),
+                _ct_0: (pk._hn[0] * s1, pk._hn[1] * s2, pk._h * (s1 + s2)),
+                _ct_prime: (pk._tn[0].pow(s1) * pk._tn[0].pow(s2) * secret),
                 _ct_y: _ct_yl,
-                _ciphertext: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
+                _ct: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
                 _iv: iv,
             };
             return Some(ct);
@@ -417,11 +422,7 @@ pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
             sha.input(e.to_hex().as_bytes());
             let mut key: [u8; 32] = [0; 32];
             sha.result(&mut key);
-            return Some(
-                decrypt_aes(&ct._ciphertext[..], &key, &ct._iv)
-                    .ok()
-                    .unwrap(),
-            );
+            return Some(decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap());
         }
     }
 }
@@ -431,6 +432,7 @@ mod tests {
     use abe_setup;
     use abe_keygen;
     use hash_string_to_element;
+    use generate_hash;
     use AbePublicKey;
     use AbeMasterKey;
     use AbePolicy;
@@ -443,7 +445,6 @@ mod tests {
     use rustc_serialize::{Encodable, Decodable};
     use rustc_serialize::hex::{FromHex, ToHex};
 
-
     pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
         encode(&obj, Infinite).ok().map(|e| e.to_hex())
     }
@@ -453,10 +454,18 @@ mod tests {
         decode(&s).ok()
     }
 
-
     #[test]
     fn test_setup() {
         let (pk, msk) = abe_setup();
+    }
+
+    #[test]
+    fn test_generate_hash() {
+        let s1 = String::from("hashing");
+        let u2: u32 = 1;
+        let u3: u32 = 2;
+        let _combined = generate_hash(&s1, u2, u3);
+        assert_eq!(_combined, String::from("hashing12"));
     }
 
     #[test]
@@ -469,8 +478,8 @@ mod tests {
             "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
             into_hex(point1).unwrap()
         );
-
     }
+
     #[test]
     fn test_to_msp() {
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
