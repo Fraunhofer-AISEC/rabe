@@ -216,7 +216,7 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
 pub fn abe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
-    plaintext: &Vec<u8>,
+    plaintext: &[u8],
 ) -> Option<AbeCiphertext> {
     if tags.is_empty() || plaintext.is_empty() {
         return None;
@@ -246,6 +246,7 @@ pub fn abe_encrypt(
     match encode(&secret, Infinite) {
         Err(_) => return None,
         Ok(e) => {
+            println!("Used key: {:?}", e.to_hex());
             sha.input(e.to_hex().as_bytes());
             let mut key: [u8; 32] = [0; 32];
             sha.result(&mut key);
@@ -279,12 +280,16 @@ pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
     // Decrypt plaintext using derived secret from abe scheme
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
-        Err(_) => return None,
+        Err(val) => {println!("Error: {:?}", val);return None},
         Ok(e) => {
+            println!("Used key: {:?}", e.to_hex());
             sha.input(e.to_hex().as_bytes());
             let mut key: [u8; 32] = [0; 32];
             sha.result(&mut key);
-            return Some(decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap());
+            println!("XXX");
+            let res = decrypt_aes(ct._ct.as_slice(), &key, &ct._iv).unwrap();
+            println!("YYY");
+            return Some(res);
         }
     }
 }
@@ -345,7 +350,7 @@ fn decrypt_aes(
             BufferResult::BufferOverflow => {}
         }
     }
-    Ok(final_result)
+    return Ok(final_result)
 }
 
 fn encrypt_aes(
@@ -413,6 +418,8 @@ fn encrypt_aes(
 mod tests {
     use abe_setup;
     use abe_keygen;
+    use abe_decrypt;
+    use abe_encrypt;
     use hash_string_to_element;
     use combine_string;
     use AbePolicy;
@@ -537,5 +544,22 @@ mod tests {
                 assert!(_msp_test._deg == _msp._deg);
             }
         }
+    }
+
+    #[test]
+    fn test_enc_dec() {
+        let test_str = "hello world";
+        let (pk,msk) = abe_setup();
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
+        let abe_pol = AbePolicy::from_string(policy).unwrap();
+        let mut tags = LinkedList::new();
+        tags.push_back(String::from("A"));
+        let ciphertext = abe_encrypt (&pk, &tags, test_str.as_bytes()).unwrap();
+        let sk = abe_keygen (&msk, &abe_pol).unwrap();
+        println!("Ctlen: {:?}", ciphertext._ct.len());
+
+        let plaintext = abe_decrypt (&sk, &ciphertext).unwrap();
+                println!("plain: {:?}", plaintext);
+        assert!(plaintext == test_str.as_bytes());
     }
 }
