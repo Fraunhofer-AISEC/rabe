@@ -30,21 +30,18 @@ mod policy;
 
 // Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
 
-/**
- * TODO
- * - Put everything in a module (?)
- * - Encrypt/Decrypt
- * - Serialization, bn::Gt is not serializable :(((
- *
- */
-
+//#[doc = /**
+// * TODO
+// * - Put everything in a module (?)
+// * - Encrypt/Decrypt
+// * - Serialization, bn::Gt is not serializable :(((
+// *
+// */]
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbePublicKey {
     _h: bn::G2,
-    _h1: bn::G2,
-    _h2: bn::G2,
-    _t1: Gt,
-    _t2: Gt,
+    _hn: Vec<(bn::G2)>,
+    _tn: Vec<(bn::Gt)>,
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -58,13 +55,9 @@ pub struct AbeCiphertext {
 pub struct AbeMasterKey {
     _g: bn::G1,
     _h: bn::G2,
-    _a1: bn::Fr,
-    _a2: bn::Fr,
-    _b1: bn::Fr,
-    _b2: bn::Fr,
-    _g_d1: bn::G1,
-    _g_d2: bn::G1,
-    _g_d3: bn::G1,
+    _a: Vec<(bn::Fr)>,
+    _b: Vec<(bn::Fr)>,
+    _d: Vec<(bn::Fr)>,
 }
 
 pub struct AbeSecretKey {
@@ -72,11 +65,13 @@ pub struct AbeSecretKey {
     _ski: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
-
-
 impl AbePolicy {
-    pub fn from_string(policy: String) -> Option<AbePolicy> { policy::string_to_msp(policy) }
-    pub fn from_json(json: &serde_json::Value) -> Option<AbePolicy> { policy::json_to_msp(json) }
+    pub fn from_string(policy: String) -> Option<AbePolicy> {
+        policy::string_to_msp(policy)
+    }
+    pub fn from_json(json: &serde_json::Value) -> Option<AbePolicy> {
+        policy::json_to_msp(json)
+    }
 }
 
 
@@ -86,52 +81,58 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // generator of group G1: g and generator of group G2: h
     let g = G1::one();
     let h = G2::one();
-    // generate a1,a2 from Z*_p (* means it must not be null, can we be sure?)
-    let a1 = Fr::random(rng);
-    let a2 = Fr::random(rng);
-    // generate d1,d2,d3 from Z_p
+    // vec's msk and pk
+    let mut _msk_a: Vec<(bn::Fr)> = Vec::new();
+    let mut _msk_b: Vec<(bn::Fr)> = Vec::new();
+    let mut _msk_d: Vec<(bn::Fr)> = Vec::new();
+    let mut _pk_hn: Vec<(bn::G2)> = Vec::new();
+    let mut _pk_tn: Vec<(bn::Gt)> = Vec::new();
+    // generate d1,d2 and d3 from Z_p (* means it must not be null, can we be sure?)
     let d1 = Fr::random(rng);
     let d2 = Fr::random(rng);
     let d3 = Fr::random(rng);
-    // calculate h^a1 and h^a2
-    let h1 = h * a1;
-    let h2 = h * a2;
+    // generate a1,a2 from Z*_p (* means it must not be null, can we be sure?)
+    let a1 = Fr::random(rng);
+    let a2 = Fr::random(rng);
+    // push into vecs
+    _msk_a.push(a1);
+    _msk_a.push(a2);
+    // generate random b1,b2 from Z_p and push into vec b
+    _msk_b.push(Fr::random(rng));
+    _msk_b.push(Fr::random(rng));
+    // generate g^d1, g^d2 and g^d3
+    _msk_d.push(d1);
+    _msk_d.push(d2);
+    _msk_d.push(d3);
+    // calculate h^a1 and h^a2 and push into vec hn
+    _pk_hn.push(h * a1);
+    _pk_hn.push(h * a2);
     // calculate pairing for T1 and T2
-    let t1 = pairing(g, h).pow(d1 * a1 + d3);
-    let t2 = pairing(g, h).pow(d2 * a2 + d3);
+    _pk_tn.push(pairing(g, h).pow(d1 * a1 + d3));
+    _pk_tn.push(pairing(g, h).pow(d2 * a2 + d3));
     // set values of PK
     let pk = AbePublicKey {
         _h: h,
-        _h1: h1,
-        _h2: h2,
-        _t1: t1,
-        _t2: t2,
+        _hn: _pk_hn,
+        _tn: _pk_tn,
     };
-    // generate b1,b2 from Z*_p (*means it must not be null, can we be sure?)
-    let b1 = Fr::random(rng);
-    let b2 = Fr::random(rng);
-    // calculate g^d1, g^d2, g^d3
-    let g_b1 = g * d1;
-    let g_b2 = g * d2;
-    let g_b3 = g * d3;
-    // set values of MSK
     let msk = AbeMasterKey {
         _g: g,
         _h: h,
-        _a1: a1,
-        _a2: a2,
-        _b1: b1,
-        _b2: b2,
-        _g_d1: g_b1,
-        _g_d2: g_b2,
-        _g_d3: g_b3,
+        _a: _msk_a,
+        _b: _msk_b,
+        _d: _msk_d,
     };
     // return pk and msk
     return (pk, msk);
 }
 
 //TODO can input here be malformed? Then we should return Option<AbeSecretKey>
-pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy, attributes: &LinkedList<String>) -> AbeSecretKey {
+pub fn abe_keygen(
+    msk: &AbeMasterKey,
+    msp: &AbePolicy,
+    attributes: &LinkedList<String>,
+) -> AbeSecretKey {
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate random r1 and r2
@@ -148,8 +149,8 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy, attributes: &LinkedList<S
     }
     // and compute sk0
     let _sk_0 = (
-        msk._h * (msk._b1 * r1),
-        msk._h * (msk._b2 * r2),
+        msk._h * (msk._b[0] * r1),
+        msk._h * (msk._b[1] * r2),
         msk._h * (r1 + r2),
     );
     // sk_i data structure
@@ -163,42 +164,37 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy, attributes: &LinkedList<S
         for j in 2..n2 {
             sk_i3 = sk_i3 + ((msk._g * -sgima_prime[j]) * msp._m[i][j]);
         }
-        sk_i3 = sk_i3 + (msk._g_d3 * msp._m[i][0]) + (msk._g * (-sigma));
+        sk_i3 = sk_i3 + ((msk._g * msk._d[2]) * msp._m[i][0]) + (msk._g * (-sigma));
         // calculate sk_{i,1} and sk_{i,2}
-        let mut sk_i1 = G1::one();
-        let mut sk_i2 = G1::one();
-        // at first calculate the product for sk_i1 and sk_i2
+        // at first calculate the product for sk_it
+        let mut sk_it = G1::one();
         for j in 2..n2 {
-            sk_i1 = sk_i1 +
-                (((hash_to_element(generate_hash(&j.to_string(), 1, 1).as_bytes()) *
-                       (msk._b1 * r1 * msk._a1.inverse().unwrap())) +
-                      (hash_to_element(generate_hash(&j.to_string(), 2, 1).as_bytes()) *
-                           (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
-                      (hash_to_element(generate_hash(&j.to_string(), 3, 1).as_bytes()) *
-                           ((r1 + r2) * msk._a1.inverse().unwrap())) +
-                      (msk._g * (-sgima_prime[j] * msk._a1.inverse().unwrap()))) *
-                     msp._m[i][j]);
-            sk_i2 = sk_i2 +
-                (((hash_to_element(generate_hash(&j.to_string(), 1, 2).as_bytes()) *
-                       (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
-                      (hash_to_element(generate_hash(&j.to_string(), 2, 2).as_bytes()) *
-                           (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
-                      (hash_to_element(generate_hash(&j.to_string(), 3, 2).as_bytes()) *
-                           ((r1 + r2) * msk._a2.inverse().unwrap())) +
-                      (msk._g * (-sgima_prime[j] * msk._a2.inverse().unwrap()))) *
-                     msp._m[i][j]);
-        }
-        sk_i1 = sk_i1 + (hash_to_element(b"todo") * (msk._b1 * r1 * msk._a1.inverse().unwrap())) +
-            (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a1.inverse().unwrap())) +
-            (hash_to_element(b"todo") * ((r1 + r2) * msk._a1.inverse().unwrap())) +
-            (msk._g * (sigma * msk._a1.inverse().unwrap())) +
-            (msk._g_d1 * msp._m[i][0]);
+            for t in 1u32..2 {
+                let current_index: usize = t - 1;
+                let at = msk._a[current_index];
+                sk_it = sk_it +
+                    hash_to_element(generate_hash(&j.to_string(), 1, t as u32).as_bytes()) *
+                        (msk._b[0] * r1 * at.inverse().unwrap()) +
+                    hash_to_element(generate_hash(&j.to_string(), 1, t as u32).as_bytes()) *
+                        (msk._b[1] * r2 * at.inverse().unwrap()) +
+                    hash_to_element(generate_hash(&j.to_string(), 1, t as u32).as_bytes()) *
+                        ((r1 + r2) * at.inverse().unwrap()) +
+                    (msk._g * (sigma * at.inverse().unwrap())) +
+                    ((msk._g * msk._d[current_index]) * msp._m[i][0]);
 
-        sk_i2 = sk_i2 + (hash_to_element(b"todo") * (msk._b1 * r1 * msk._a2.inverse().unwrap())) +
-            (hash_to_element(b"todo") * (msk._b2 * r2 * msk._a2.inverse().unwrap())) +
-            (hash_to_element(b"todo") * ((r1 + r2) * msk._a2.inverse().unwrap())) +
-            (msk._g * (sigma * msk._a2.inverse().unwrap())) +
-            (msk._g_d2 * msp._m[i][0]);
+                sk_it = sk_it +
+                    (((hash_to_element(generate_hash(&j.to_string(), 1, t).as_bytes()) *
+                           (msk._b[0] * r1 * at.inverse().unwrap())) +
+                          (hash_to_element(generate_hash(&j.to_string(), 2, t).as_bytes()) *
+                               (msk._b[1] * r2 * at.inverse().unwrap())) +
+                          (hash_to_element(generate_hash(&j.to_string(), 3, t).as_bytes()) *
+                               ((r1 + r2) * at.inverse().unwrap())) +
+                          (msk._g * (-sgima_prime[j] * msk._a1.inverse().unwrap()))) *
+                         msp._m[i][j]);
+            }
+
+        }
+
         sk_i.push((sk_i1, sk_i2, sk_i3));
     }
     // now generate sk key
@@ -216,7 +212,7 @@ pub fn generate_hash(text: &String, j: u32, t: u32) -> String {
     let mut _combined: String = text.to_owned();
     let borrowed_string: &str = "world";
 
-    _combined.push_str(j.to_string());
+    _combined.push_str(&j.to_string());
     return String::from("asd");
 }
 
@@ -237,7 +233,8 @@ pub fn hash_string_to_element(text: &String) -> bn::G1 {
 pub fn abe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
-    plaintext: bn::Gt) -> Option<AbeCiphertext> {
+    plaintext: bn::Gt,
+) -> Option<AbeCiphertext> {
 
     if tags.is_empty() {
         return None;
@@ -253,7 +250,7 @@ pub fn abe_encrypt(
             hash_string_to_element(_tag),
             hash_string_to_element(_tag),
             hash_string_to_element(_tag),
-            );
+        );
         _ct_yl.push(_attribute);
     }
     let ct = AbeCiphertext {
@@ -264,10 +261,7 @@ pub fn abe_encrypt(
     return Some(ct);
 }
 
-pub fn abe_decrypt(
-    pk: &AbePublicKey,
-    sk: &AbeSecretKey,
-    ciphertext: &Vec<u8>) -> Option<Vec<u8>> {
+pub fn abe_decrypt(pk: &AbePublicKey, sk: &AbeSecretKey, ciphertext: &Vec<u8>) -> Option<Vec<u8>> {
     if 0 == ciphertext.len() {
         return None;
     }
@@ -317,7 +311,7 @@ mod tests {
         assert_eq!(
             "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
             into_hex(point1).unwrap()
-            );
+        );
 
     }
     #[test]
@@ -330,12 +324,17 @@ mod tests {
         let p3 = vec![Fr::zero(), Fr::zero() - Fr::one(), Fr::zero()];
         let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
         let mut _msp_test = AbePolicy {
-            _m: vec![p1,p2,p3,p4],
-            _pi: vec![String::from("A"),String::from("B"),String::from("A"),String::from("C")],
-            _deg: 3
+            _m: vec![p1, p2, p3, p4],
+            _pi: vec![
+                String::from("A"),
+                String::from("B"),
+                String::from("A"),
+                String::from("C"),
+            ],
+            _deg: 3,
         };
         assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
-        match AbePolicy::from_string (policy) {
+        match AbePolicy::from_string(policy) {
             None => assert!(false),
             Some(_msp) => {
                 for i in 0..4 {
