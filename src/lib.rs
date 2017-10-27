@@ -93,6 +93,7 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     let mut _pk_hn: Vec<(bn::G2)> = Vec::new();
     let mut _pk_tn: Vec<(bn::Gt)> = Vec::new();
     // generate d1,d2 and d3 from Z_p (* means it must not be null, can we be sure?)
+    // TODO: check in lib if Fr::random(rng) can produce zero or not at all
     let d1 = Fr::random(rng);
     let d2 = Fr::random(rng);
     let d3 = Fr::random(rng);
@@ -134,7 +135,7 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
 
 pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
     // if no attibutes or an empty policy
-    // maybe add empty msk als here
+    // maybe add empty msk also here
     if msp._m.is_empty() || msp._m.len() == 0 || msp._m[0].len() == 0 {
         return None;
     }
@@ -302,6 +303,7 @@ pub fn hash_to_element(data: &[u8]) -> bn::G1 {
     let mut sha = Sha3::sha3_256();
     sha.input(data);
     let i = BigInt::parse_bytes(sha.result_str().as_bytes(), 16).unwrap();
+    // TODO: check if there is a better (faster) hashToElement method
     return G1::one() * Fr::from_str(&i.to_str_radix(10)).unwrap();
 }
 
@@ -434,6 +436,10 @@ mod tests {
         let s = s.from_hex().unwrap();
         decode(&s).ok()
     }
+
+    // TODO: write tests for all algorithms of the scheme
+    // PROBLEM: random blinding of nearly all values
+    // TODO: check if static values can be injected in rust!?
 
     #[test]
     fn test_setup() {
