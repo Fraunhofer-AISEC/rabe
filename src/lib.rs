@@ -393,30 +393,19 @@ fn decrypt_aes(
 }
 
 pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
-    //TODO not sure of this should be zero or one
-    let mut ct_1 = bn::G1::zero();
-    let mut ct_2 = bn::G1::zero();
-    let mut ct_3 = bn::G1::zero();
-    let mut sk_1 = bn::G1::zero();
-    let mut sk_2 = bn::G1::zero();
-    let mut sk_3 = bn::G1::zero();
+    let mut _ct = (bn::G1::one(), bn::G1::one(), bn::G1::one());
+    let mut _sk = (bn::G1::one(), bn::G1::one(), bn::G1::one());
     for ct_i in ct._ct_y.iter() {
-        ct_1 = ct_1 + ct_i.0;
-        ct_2 = ct_2 + ct_i.1;
-        ct_3 = ct_3 + ct_i.2;
+        _ct = (_ct.0 + ct_i.0, _ct.1 + ct_i.1, _ct.2 + ct_i.2);
     }
     for sk_i in sk._ski.iter() {
-        sk_1 = sk_1 + sk_i.0;
-        sk_2 = sk_2 + sk_i.1;
-        sk_3 = sk_3 + sk_i.2;
+        _sk = (_sk.0 + sk_i.0, _sk.1 + sk_i.1, _sk.2 + sk_i.2);
     }
-
-    let num = ct._ct_prime * pairing(ct_1, sk._sk0.0) * pairing(ct_2, sk._sk0.1) *
-        pairing(ct_3, sk._sk0.2);
-    let den = pairing(sk_1, ct._ct_0.0) * pairing(sk_2, ct._ct_0.1) * pairing(sk_3, ct._ct_0.2);
+    let num = ct._ct_prime * pairing(_ct.0, sk._sk0.0) * pairing(_ct.1, sk._sk0.1) *
+        pairing(_ct.2, sk._sk0.2);
+    let den = pairing(_sk.0, ct._ct_0.0) * pairing(_sk.1, ct._ct_0.1) * pairing(_sk.2, ct._ct_0.2);
     let secret = num * den.inverse();
-
-    //Encrypt plaintext using derived key from secret
+    // Decrypt plaintext using derived secret from abe scheme
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
         Err(_) => return None,
@@ -459,6 +448,34 @@ mod tests {
     #[test]
     fn test_setup() {
         let (pk, msk) = abe_setup();
+        // assert generators
+        assert_eq!(into_hex(msk._h).unwrap(), into_hex(pk._h).unwrap());
+        assert_eq!(
+            into_hex(msk._h).unwrap(),
+            "0404d4bf3239f77cee7b47c7245e9281b3e9c1182d6381a87bbf81f9f2a6254b731df569cda95e060bee91ba69b3f2d103658a7aea6b10e5bdc761e5715e7ee4bb01b4c328f0cbdb4aada63b3d09100d792376b94d07a6004e46054eeec849e8de9835158a11d28483dd8db236ea49f3630edc9e41944e494c5aacfc36af3b66e7"
+        );
+        assert_eq!(
+            into_hex(msk._g).unwrap(),
+            "0400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002"
+        );
+        println!("g: {:?}", into_hex(msk._h).unwrap());
+        println!("h: {:?}", into_hex(msk._g).unwrap());
+        // assert random values a
+        let hn0 = into_hex(msk._h * msk._a[0]).unwrap();
+        let hn1 = into_hex(msk._h * msk._a[1]).unwrap();
+        assert_eq!(hn0, into_hex(pk._hn[0]).unwrap());
+        assert_eq!(hn1, into_hex(pk._hn[1]).unwrap());
+        // assert random values d with pairing e
+        let p1 = into_hex(pairing(
+            msk._g * ((msk._d[0] * msk._a[0]) + msk._d[2]),
+            msk._h,
+        )).unwrap();
+        assert_eq!(p1, into_hex(pk._tn[0]).unwrap());
+        let p2 = into_hex(pairing(
+            msk._g,
+            msk._h * ((msk._d[1] * msk._a[1]) + msk._d[2]),
+        )).unwrap();
+        assert_eq!(p2, into_hex(pk._tn[1]).unwrap());
     }
 
     #[test]
