@@ -134,14 +134,10 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     return (pk, msk);
 }
 
-pub fn abe_keygen(
-    msk: &AbeMasterKey,
-    msp: &AbePolicy,
-    attributes: &LinkedList<String>,
-) -> Option<AbeSecretKey> {
+pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
     // if no attibutes or an empty policy
     // maybe add empty msk als here
-    if attributes.is_empty() || msp._m.is_empty() || msp._m.len() == 0 || msp._m[0].len() == 0 {
+    if msp._m.is_empty() || msp._m.len() == 0 || msp._m[0].len() == 0 {
         return None;
     }
     // random number generator
@@ -215,15 +211,89 @@ pub fn abe_keygen(
         // now push all three values into sk_i vec
         sk_i.push((sk_triple[0], sk_triple[1], sk_triple[2]));
     }
-    // output string attributes
-    for str in attributes.iter() {
-        print!("attributes in new key: {}", str);
-    }
     return Some(AbeSecretKey {
         _sk0: _sk_0,
         _ski: sk_i,
     });
 }
+
+pub fn abe_encrypt(
+    pk: &AbePublicKey,
+    tags: &LinkedList<String>,
+    plaintext: &Vec<u8>,
+) -> Option<AbeCiphertext> {
+    if tags.is_empty() || plaintext.is_empty() {
+        return None;
+    }
+    // random number generator
+    let rng = &mut rand::thread_rng();
+    //Choose random secret
+    let secret = pairing(G1::random(rng), G2::random(rng));
+    // generate s1,s2
+    let s1 = Fr::random(rng);
+    let s2 = Fr::random(rng);
+    let mut _ct_yl: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
+    for _tag in tags.iter() {
+        let _attribute: (bn::G1, bn::G1, bn::G1) =
+            (
+                hash_string_to_element(&combine_string(&_tag, 1, 1)) * s1 +
+                    hash_string_to_element(&combine_string(&_tag, 1, 2)) * s2,
+                hash_string_to_element(&combine_string(&_tag, 2, 1)) * s1 +
+                    hash_string_to_element(&combine_string(&_tag, 2, 2)) * s2,
+                hash_string_to_element(&combine_string(&_tag, 3, 1)) * s1 +
+                    hash_string_to_element(&combine_string(&_tag, 3, 2)) * s2,
+            );
+        _ct_yl.push(_attribute);
+    }
+    //Encrypt plaintext using derived key from secret
+    let mut sha = Sha3::sha3_256();
+    match encode(&secret, Infinite) {
+        Err(_) => return None,
+        Ok(e) => {
+            sha.input(e.to_hex().as_bytes());
+            let mut key: [u8; 32] = [0; 32];
+            sha.result(&mut key);
+            let mut iv: [u8; 16] = [0; 16];
+            rng.fill_bytes(&mut iv);
+            let ct = AbeCiphertext {
+                _ct_0: (pk._hn[0] * s1, pk._hn[1] * s2, pk._h * (s1 + s2)),
+                _ct_prime: (pk._tn[0].pow(s1) * pk._tn[0].pow(s2) * secret),
+                _ct_y: _ct_yl,
+                _ct: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
+                _iv: iv,
+            };
+            return Some(ct);
+        }
+    }
+}
+
+pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
+    let mut _ct = (bn::G1::one(), bn::G1::one(), bn::G1::one());
+    let mut _sk = (bn::G1::one(), bn::G1::one(), bn::G1::one());
+    for ct_i in ct._ct_y.iter() {
+        _ct = (_ct.0 + ct_i.0, _ct.1 + ct_i.1, _ct.2 + ct_i.2);
+    }
+    for sk_i in sk._ski.iter() {
+        _sk = (_sk.0 + sk_i.0, _sk.1 + sk_i.1, _sk.2 + sk_i.2);
+    }
+    let num = ct._ct_prime * pairing(_ct.0, sk._sk0.0) * pairing(_ct.1, sk._sk0.1) *
+        pairing(_ct.2, sk._sk0.2);
+    let den = pairing(_sk.0, ct._ct_0.0) * pairing(_sk.1, ct._ct_0.1) * pairing(_sk.2, ct._ct_0.2);
+    let secret = num * den.inverse();
+    // Decrypt plaintext using derived secret from abe scheme
+    let mut sha = Sha3::sha3_256();
+    match encode(&secret, Infinite) {
+        Err(_) => return None,
+        Ok(e) => {
+            sha.input(e.to_hex().as_bytes());
+            let mut key: [u8; 32] = [0; 32];
+            sha.result(&mut key);
+            return Some(decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap());
+        }
+    }
+}
+
+// Helper functions from here on
 
 pub fn combine_string(text: &String, j: u32, t: u32) -> String {
     let mut _combined: String = text.to_owned();
@@ -241,6 +311,45 @@ pub fn hash_to_element(data: &[u8]) -> bn::G1 {
 
 pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to_element(text.as_bytes());
+}
+
+// AES functions from here on
+
+// Decrypts a buffer with the given key and iv using
+// AES-256/CBC/Pkcs encryption.
+//
+// This function is very similar to encrypt(), so, please reference
+// comments in that function. In non-example code, if desired, it is possible to
+// share much of the implementation using closures to hide the operation
+// being performed. However, such code would make this example less clear.
+fn decrypt_aes(
+    encrypted_data: &[u8],
+    key: &[u8],
+    iv: &[u8],
+) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
+    let mut decryptor =
+        aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
+
+    let mut final_result = Vec::<u8>::new();
+    let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
+    let mut buffer = [0; 4096];
+    let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
+
+    loop {
+        let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
+        final_result.extend(
+            write_buffer
+                .take_read_buffer()
+                .take_remaining()
+                .iter()
+                .map(|&i| i),
+        );
+        match result {
+            BufferResult::BufferUnderflow => break,
+            BufferResult::BufferOverflow => {}
+        }
+    }
+    Ok(final_result)
 }
 
 fn encrypt_aes(
@@ -304,120 +413,6 @@ fn encrypt_aes(
     Ok(final_result)
 }
 
-pub fn abe_encrypt(
-    pk: &AbePublicKey,
-    tags: &LinkedList<String>,
-    plaintext: &Vec<u8>,
-) -> Option<AbeCiphertext> {
-    if tags.is_empty() || plaintext.is_empty() {
-        return None;
-    }
-    // random number generator
-    let rng = &mut rand::thread_rng();
-    //Choose random secret
-    let secret = pairing(G1::random(rng), G2::random(rng));
-    // generate s1,s2
-    let s1 = Fr::random(rng);
-    let s2 = Fr::random(rng);
-    let mut _ct_yl: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
-    for _tag in tags.iter() {
-        let _attribute: (bn::G1, bn::G1, bn::G1) =
-            (
-                hash_string_to_element(&combine_string(&_tag, 1, 1)) * s1 +
-                    hash_string_to_element(&combine_string(&_tag, 1, 2)) * s2,
-                hash_string_to_element(&combine_string(&_tag, 2, 1)) * s1 +
-                    hash_string_to_element(&combine_string(&_tag, 2, 2)) * s2,
-                hash_string_to_element(&combine_string(&_tag, 3, 1)) * s1 +
-                    hash_string_to_element(&combine_string(&_tag, 3, 2)) * s2,
-            );
-        _ct_yl.push(_attribute);
-    }
-    //Encrypt plaintext using derived key from secret
-    let mut sha = Sha3::sha3_256();
-    match encode(&secret, Infinite) {
-        Err(_) => return None,
-        Ok(e) => {
-            sha.input(e.to_hex().as_bytes());
-            let mut key: [u8; 32] = [0; 32];
-            sha.result(&mut key);
-            let mut iv: [u8; 16] = [0; 16];
-            rng.fill_bytes(&mut iv);
-            let ct = AbeCiphertext {
-                _ct_0: (pk._hn[0] * s1, pk._hn[1] * s2, pk._h * (s1 + s2)),
-                _ct_prime: (pk._tn[0].pow(s1) * pk._tn[0].pow(s2) * secret),
-                _ct_y: _ct_yl,
-                _ct: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
-                _iv: iv,
-            };
-            return Some(ct);
-        }
-    }
-}
-
-// Decrypts a buffer with the given key and iv using
-// AES-256/CBC/Pkcs encryption.
-//
-// This function is very similar to encrypt(), so, please reference
-// comments in that function. In non-example code, if desired, it is possible to
-// share much of the implementation using closures to hide the operation
-// being performed. However, such code would make this example less clear.
-fn decrypt_aes(
-    encrypted_data: &[u8],
-    key: &[u8],
-    iv: &[u8],
-) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
-    let mut decryptor =
-        aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
-
-    let mut final_result = Vec::<u8>::new();
-    let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
-    let mut buffer = [0; 4096];
-    let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
-
-    loop {
-        let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
-        final_result.extend(
-            write_buffer
-                .take_read_buffer()
-                .take_remaining()
-                .iter()
-                .map(|&i| i),
-        );
-        match result {
-            BufferResult::BufferUnderflow => break,
-            BufferResult::BufferOverflow => {}
-        }
-    }
-
-    Ok(final_result)
-}
-
-pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
-    let mut _ct = (bn::G1::one(), bn::G1::one(), bn::G1::one());
-    let mut _sk = (bn::G1::one(), bn::G1::one(), bn::G1::one());
-    for ct_i in ct._ct_y.iter() {
-        _ct = (_ct.0 + ct_i.0, _ct.1 + ct_i.1, _ct.2 + ct_i.2);
-    }
-    for sk_i in sk._ski.iter() {
-        _sk = (_sk.0 + sk_i.0, _sk.1 + sk_i.1, _sk.2 + sk_i.2);
-    }
-    let num = ct._ct_prime * pairing(_ct.0, sk._sk0.0) * pairing(_ct.1, sk._sk0.1) *
-        pairing(_ct.2, sk._sk0.2);
-    let den = pairing(_sk.0, ct._ct_0.0) * pairing(_sk.1, ct._ct_0.1) * pairing(_sk.2, ct._ct_0.2);
-    let secret = num * den.inverse();
-    // Decrypt plaintext using derived secret from abe scheme
-    let mut sha = Sha3::sha3_256();
-    match encode(&secret, Infinite) {
-        Err(_) => return None,
-        Ok(e) => {
-            sha.input(e.to_hex().as_bytes());
-            let mut key: [u8; 32] = [0; 32];
-            sha.result(&mut key);
-            return Some(decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap());
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use abe_setup;
@@ -476,6 +471,13 @@ mod tests {
             msk._h * ((msk._d[1] * msk._a[1]) + msk._d[2]),
         )).unwrap();
         assert_eq!(p2, into_hex(pk._tn[1]).unwrap());
+    }
+
+    #[test]
+    fn test_keygen() {
+        let (pk, msk) = abe_setup();
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
+        let sk = abe_keygen(msk, AbePolicy::from_string(policy));
     }
 
     #[test]
