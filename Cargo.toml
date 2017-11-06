@@ -3,7 +3,12 @@ name = "rabe"
 version = "0.1.0"
 authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>"]
 
+[lib]
+name="rabe"
+crate-type=["dylib"]
+
 [dependencies]
+libc = "0.2.0"
 bn = { git = "https://github.com/schanzen/bn.git" }
 rand = "0.3"
 rust-crypto = "0.2"

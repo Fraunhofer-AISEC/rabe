@@ -2,6 +2,7 @@
 //#[macro_use]
 //extern crate serde_derive;
 
+extern crate libc;
 extern crate serde;
 extern crate serde_json;
 extern crate bn;
@@ -12,6 +13,10 @@ extern crate bincode;
 extern crate rustc_serialize;
 extern crate num_bigint;
 
+use libc::*;
+use std::ffi::CString;
+use std::ffi::CStr;
+use std::mem::transmute;
 use std::collections::LinkedList;
 use std::string::String;
 use num_bigint::BigInt;
@@ -71,8 +76,14 @@ pub struct AbeSecretKey {
     _ski: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
+//For C
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct AbeContext {
+    _msk: AbeMasterKey,
+    _pk: AbePublicKey,
+}
 impl AbePolicy {
-    pub fn from_string(policy: String) -> Option<AbePolicy> {
+    pub fn from_string(policy: &String) -> Option<AbePolicy> {
         policy::string_to_msp(policy)
     }
     pub fn from_json(json: &serde_json::Value) -> Option<AbePolicy> {
@@ -263,6 +274,52 @@ pub fn abe_encrypt(
             return Some(ct);
         }
     }
+}
+
+
+#[no_mangle]
+pub extern "C" fn abe_context_create() -> *mut AbeContext
+{
+    let (pk,msk) = abe_setup();
+    let _ctx = unsafe { transmute(Box::new(AbeContext {_msk: msk, _pk: pk}))};
+    _ctx
+}
+
+#[no_mangle]
+pub extern "C" fn abe_context_destroy(ctx: *mut AbeContext)
+{
+    let _ctx: Box<AbeContext> = unsafe { transmute(ctx) };
+    // Drop reference for GC
+}
+
+#[no_mangle]
+pub extern "C" fn abe_secret_key_create(ctx: *mut AbeContext,
+                                        policy: *mut c_char) -> *mut AbeSecretKey
+{
+    let t = unsafe { &mut *policy };
+    let mut _policy = unsafe { CStr::from_ptr(t) };
+    let pol = String::from(_policy.to_str().unwrap());
+    let _msp = AbePolicy::from_string(&pol).unwrap();
+    let _ctx = unsafe { &mut *ctx };
+    let sk = abe_keygen (&_ctx._msk, &_msp).unwrap();
+    let _sk = unsafe { transmute(Box::new(AbeSecretKey {_sk0: sk._sk0.clone(), _ski: sk._ski.clone()}))};
+    _sk
+}
+
+#[no_mangle]
+pub extern "C" fn abe_secret_key_destroy(sk: *mut AbeSecretKey)
+{
+    let _sk: Box<AbeSecretKey> = unsafe { transmute(sk) };
+    // Drop reference for GC
+}
+
+#[no_mangle]
+pub extern "C" fn abe_decrypt_native(sk: *mut AbeSecretKey, ct: *mut c_char) -> i32
+{
+  //TODO: Deserialize ct
+  //TODO: Call abe_decrypt
+  //TODO: serialize returned pt and store under pt
+  return 1;
 }
 
 pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {

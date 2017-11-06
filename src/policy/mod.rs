@@ -93,8 +93,8 @@ pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
     return None;
 }
 
-pub fn string_to_msp(policy: String) -> Option<AbePolicy> {
-    match serde_json::from_str(&policy) {
+pub fn string_to_msp(policy: &String) -> Option<AbePolicy> {
+    match serde_json::from_str(policy) {
         Err(_) => {
             println!("Error parsing policy");
             return None;
