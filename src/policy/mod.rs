@@ -59,7 +59,7 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
         // try A) check math if bn::Fr::zero() - bn::Fr::one() should be replaced with bn::Fr::one().inverse()
         // try B) build msp matrix internally by translating 1, 0 and -1 to G1::one(), G1::zero() and G1::one.inverse() in order to apply directly on group elements
 
-        v_tmp_left.push(bn::Fr::zero() - bn::Fr::one());
+        v_tmp_left.push(bn::Fr::one().inverse().unwrap());
 
         return lw(msp, &p["AND"][0], v_tmp_right) && lw(msp, &p["AND"][1], v_tmp_left);
 

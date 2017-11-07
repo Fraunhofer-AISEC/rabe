@@ -11,7 +11,6 @@ extern crate crypto;
 extern crate bincode;
 extern crate rustc_serialize;
 extern crate num_bigint;
-
 use std::collections::LinkedList;
 use std::string::String;
 use num_bigint::BigInt;
@@ -23,8 +22,7 @@ use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
 use bincode::SizeLimit::Infinite;
 //use bincode::rustc_serialize::{encode, decode};
 use bincode::rustc_serialize::encode;
-//use rustc_serialize::{Encodable, Decodable};
-//use rustc_serialize::hex::{FromHex, ToHex};
+use rustc_serialize::Encodable;
 use rustc_serialize::hex::ToHex;
 //use byteorder::{ByteOrder, BigEndian};
 use rand::Rng;
@@ -44,17 +42,8 @@ mod policy;
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbePublicKey {
     _h: bn::G2,
-    _hn: Vec<(bn::G2)>,
-    _tn: Vec<(bn::Gt)>,
-}
-
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
-pub struct AbeCiphertext {
-    _ct_0: (bn::G2, bn::G2, bn::G2),
-    _ct_prime: bn::Gt,
-    _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
-    _ct: Vec<u8>,
-    _iv: [u8; 16],
+    _h_n: Vec<(bn::G2)>,
+    _t_n: Vec<(bn::Gt)>,
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -63,12 +52,27 @@ pub struct AbeMasterKey {
     _h: bn::G2,
     _a: Vec<(bn::Fr)>,
     _b: Vec<(bn::Fr)>,
-    _d: Vec<(bn::Fr)>,
+    _d: Vec<(bn::G1)>,
 }
 
-pub struct AbeSecretKey {
-    _sk0: (bn::G2, bn::G2, bn::G2),
-    _ski: Vec<(bn::G1, bn::G1, bn::G1)>,
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct AbeCiphertext {
+    _ct_0: Vec<(bn::G2)>,
+    _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
+    _ct_prime: bn::Gt,
+    _ct: Vec<u8>,
+    _iv: [u8; 16],
+}
+
+pub struct CpAbeSecretKey {
+    _sk_0: Vec<(bn::G2)>,
+    _sk_y: Vec<(bn::G1, bn::G1, bn::G1)>,
+    _sk_t: Vec<(bn::G1)>,
+}
+
+pub struct KpAbeSecretKey {
+    _sk_0: Vec<(bn::G2)>,
+    _sk_y: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
 impl AbePolicy {
@@ -80,16 +84,18 @@ impl AbePolicy {
     }
 }
 
+// BOTH SHARE
+
 pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // random number generator
     let rng = &mut rand::thread_rng();
     // generator of group G1: g and generator of group G2: h
-    let g = G1::one();
-    let h = G2::one();
+    let g = G1::random(rng);
+    let h = G2::random(rng);
     // vec's msk and pk
     let mut _msk_a: Vec<(bn::Fr)> = Vec::new();
     let mut _msk_b: Vec<(bn::Fr)> = Vec::new();
-    let mut _msk_d: Vec<(bn::Fr)> = Vec::new();
+    let mut _msk_d: Vec<(bn::G1)> = Vec::new();
     let mut _pk_hn: Vec<(bn::G2)> = Vec::new();
     let mut _pk_tn: Vec<(bn::Gt)> = Vec::new();
     // generate d1,d2 and d3 from Z_p (* means it must not be null, can we be sure?)
@@ -107,9 +113,9 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     _msk_b.push(Fr::random(rng));
     _msk_b.push(Fr::random(rng));
     // generate g^d1, g^d2 and g^d3
-    _msk_d.push(d1);
-    _msk_d.push(d2);
-    _msk_d.push(d3);
+    _msk_d.push(g * d1);
+    _msk_d.push(g * d2);
+    _msk_d.push(g * d3);
     // calculate h^a1 and h^a2 and push into vec hn
     _pk_hn.push(h * a1);
     _pk_hn.push(h * a2);
@@ -119,9 +125,10 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // set values of PK
     let pk = AbePublicKey {
         _h: h,
-        _hn: _pk_hn,
-        _tn: _pk_tn,
+        _h_n: _pk_hn,
+        _t_n: _pk_tn,
     };
+    // set values of MSK
     let msk = AbeMasterKey {
         _g: g,
         _h: h,
@@ -129,11 +136,188 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
         _b: _msk_b,
         _d: _msk_d,
     };
-    // return pk and msk
+    // return PK and MSK
     return (pk, msk);
 }
 
-pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
+// CP ABE PART
+
+pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeSecretKey> {
+    // if no attibutes or an empty policy
+    // maybe add empty msk also here
+    if s.is_empty() || s.len() == 0 {
+        return None;
+    }
+    // random number generator
+    let rng = &mut rand::thread_rng();
+    // generate random r1 and r2
+    let r1 = Fr::random(rng);
+    let r2 = Fr::random(rng);
+    // and compute sk0
+    let mut sk_0: Vec<(bn::G2)> = Vec::new();
+    sk_0.push(msk._h * (msk._b[0] * r1));
+    sk_0.push(msk._h * (msk._b[1] * r2));
+    sk_0.push(msk._h * (r1 + r2));
+    // sk_i data structure
+    let mut sk_y: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
+    // vec to collect 3 skt values
+    let mut sk_t: Vec<(bn::G1)> = Vec::new();
+    // for all i=1,...n1 compute
+    for _y in s.iter() {
+        // vec to collect triples in loop
+        let mut sk_yt: Vec<(bn::G1)> = Vec::new();
+        // pick random sigma
+        let sigma = Fr::random(rng);
+        // calculate sk_{i,1} and sk_{i,2}
+        for t in 1..3 {
+            let current_t: usize = t - 1;
+            let at = msk._a[current_t].inverse().unwrap();
+            let h1 = hash_to(combine_string(_y, 1, t as u32).as_bytes()) * ((msk._b[0] * r1) * at);
+            let h2 = hash_to(combine_string(_y, 2, t as u32).as_bytes()) * ((msk._b[1] * r2) * at);
+            let h3 = hash_to(combine_string(_y, 3, t as u32).as_bytes()) * ((r1 + r2) * at);
+            sk_yt.push(h1 + h2 + h3 + (msk._g * -sigma));
+        }
+        // now push all three values into sk_i vec
+        sk_y.push((sk_yt[0], sk_yt[1], (msk._g * -sigma)));
+    }
+    // now calculate skt
+    let h0 = String::from("01");
+    for t in 1..3 {
+        // pick random sigma
+        let sigma = Fr::random(rng);
+        let current_t: usize = t - 1;
+        let at = msk._a[current_t].inverse().unwrap();
+
+        let h1 = hash_to(combine_string(&h0, 1, t as u32).as_bytes()) * ((msk._b[0] * r1) * at);
+        let h2 = hash_to(combine_string(&h0, 2, t as u32).as_bytes()) * ((msk._b[1] * r2) * at);
+        let h3 = hash_to(combine_string(&h0, 3, t as u32).as_bytes()) * ((r1 + r2) * at);
+        sk_t.push(h1 + h2 + h3 + (msk._g * (sigma * at)) + msk._d[current_t]);
+    }
+
+    return Some(CpAbeSecretKey {
+        _sk_0: sk_0,
+        _sk_y: sk_y,
+        _sk_t: sk_t,
+    });
+}
+
+pub fn cpabe_encrypt(
+    pk: &AbePublicKey,
+    msp: &AbePolicy,
+    plaintext: &Vec<u8>,
+) -> Option<AbeCiphertext> {
+    if msp._m.len() == 0 || msp._m[0].len() == 0 || plaintext.is_empty() {
+        return None;
+    }
+    // random number generator
+    let rng = &mut rand::thread_rng();
+    // generate s1,s2
+    let s1 = Fr::random(rng);
+    let s2 = Fr::random(rng);
+    // msp matrix M with size n1xn2
+    let n1 = msp._m.len();
+    let n2 = msp._m[0].len();
+    let mut _ct_yl: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
+    let secret = pairing(G1::random(rng), G2::random(rng));
+    println!("cp-abe encrypt secret: {:?}", into_hex(secret).unwrap());
+    // pre-compute hashes
+    let mut _hash_table: Vec<Vec<Vec<(bn::G1)>>> = Vec::new();
+    for _j in 0..(n2) {
+        let mut _x: Vec<Vec<(bn::G1)>> = Vec::new();
+        let _string1 = String::from("0") + &(_j + 1).to_string();
+        for _l in 1..4 {
+            let mut _y: Vec<(bn::G1)> = Vec::new();
+            let _string2 = _string1.clone() + &_l.to_string();
+            for _t in 1..3 {
+                let _string3 = _string2.clone() + &_t.to_string();
+                let mut _hash = hash_string_to_element(&_string3);
+                _y.push(_hash);
+            }
+            _x.push(_y);
+        }
+        _hash_table.push(_x);
+    }
+    for _i in 0..(n1) {
+        let mut _ct_yl_temp: Vec<(bn::G1)> = Vec::new();
+        for _l in 1..4 {
+            let mut _prod = G1::one();
+            for _t in 1..3 {
+                let mut _hash =
+                    hash_string_to_element(&combine_string(&msp._pi[_i], _l as u32, _t as u32));
+                for _j in 1..(msp._m[_i].len() + 1) {
+                    _hash = _hash + _hash_table[_j - 1][_l - 1][_t - 1] * msp._m[_i][_j - 1];
+                }
+                _hash = _hash * s1;
+                _hash = _hash * s2;
+                _prod = _prod + _hash;
+            }
+            _ct_yl_temp.push(_prod);
+        }
+        _ct_yl.push((_ct_yl_temp[0], _ct_yl_temp[1], _ct_yl_temp[2]));
+    }
+    let mut ct_0: Vec<(bn::G2)> = Vec::new();
+    ct_0.push(pk._h_n[0] * s1);
+    ct_0.push(pk._h_n[1] * s2);
+    ct_0.push(pk._h * (s1 + s2));
+    //Encrypt plaintext using derived key from secret
+    let mut sha = Sha3::sha3_256();
+    match encode(&secret, Infinite) {
+        Err(_) => return None,
+        Ok(e) => {
+            sha.input(e.to_hex().as_bytes());
+            let mut key: [u8; 32] = [0; 32];
+            sha.result(&mut key);
+            let mut iv: [u8; 16] = [0; 16];
+            rng.fill_bytes(&mut iv);
+            println!("key: {:?}", &key);
+            let ct = AbeCiphertext {
+                _ct_0: ct_0,
+                _ct_prime: (pk._t_n[0].pow(s1) * pk._t_n[1].pow(s2) * secret),
+                _ct_y: _ct_yl,
+                _ct: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
+                _iv: iv,
+            };
+            return Some(ct);
+        }
+    }
+}
+
+pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
+    let mut prod1_gt = Gt::one();
+    let mut prod2_gt = Gt::one();
+    for _i in 0..2 {
+        let mut prod_h = G1::one(); // sk
+        let mut prod_g = G1::one(); // ct
+        for _j in 0..ct._ct_y.len() {
+            let (sk0, sk1, sk2) = sk._sk_y[_j];
+            let (ct0, ct1, ct2) = ct._ct_y[_j];
+            prod_h = prod_h + sk0 + sk1 + sk2;
+            prod_g = prod_g + ct0 + ct1 + ct2;
+        }
+        prod1_gt = prod1_gt * pairing(sk._sk_t[_i] + prod_h, ct._ct_0[_i]);
+        prod2_gt = prod2_gt * pairing(prod_g, sk._sk_0[_i]);
+    }
+    let secret = ct._ct_prime * (prod2_gt * prod1_gt.inverse());
+    println!("cp-abe decrypt secret: {:?}", into_hex(secret).unwrap());
+    let r: Vec<u8> = Vec::new();
+    return Some(r);
+    // Decrypt plaintext using derived secret from abe scheme
+    /*let mut sha = Sha3::sha3_256();
+    match encode(&secret, Infinite) {
+        Err(_) => return None,
+        Ok(e) => {
+            sha.input(e.to_hex().as_bytes());
+            let mut key: [u8; 32] = [0; 32];
+            sha.result(&mut key);
+            println!("key: {:?}", &key);
+            let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
+            return Some(aes);
+        }
+    }*/
+}
+// KP ABE PART
+
+pub fn kpabe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<KpAbeSecretKey> {
     // if no attibutes or an empty policy
     // maybe add empty msk also here
     if msp._m.is_empty() || msp._m.len() == 0 || msp._m[0].len() == 0 {
@@ -154,11 +338,10 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
         sigma_prime.push(Fr::random(rng))
     }
     // and compute sk0
-    let _sk_0 = (
-        msk._h * (msk._b[0] * r1),
-        msk._h * (msk._b[1] * r2),
-        msk._h * (r1 + r2),
-    );
+    let mut _sk_0: Vec<(bn::G2)> = Vec::new();
+    _sk_0.push(msk._h * (msk._b[0] * r1));
+    _sk_0.push(msk._h * (msk._b[1] * r2));
+    _sk_0.push(msk._h * (r1 + r2));
     // sk_i data structure
     let mut sk_i: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
     // for all i=1,...n1 compute
@@ -168,53 +351,45 @@ pub fn abe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<AbeSecretKey> {
         // pick random sigma
         let sigma = Fr::random(rng);
         // calculate sk_{i,1} and sk_{i,2}
-        let mut sk_it = G1::one();
         for t in 1..3 {
             let current_t: usize = t - 1;
             let at = msk._a[current_t];
+            let h1 = hash_to(combine_string(&msp._pi[i - 1], 1, t as u32).as_bytes());
+            let h2 = hash_to(combine_string(&msp._pi[i - 1], 2, t as u32).as_bytes());
+            let h3 = hash_to(combine_string(&msp._pi[i - 1], 3, t as u32).as_bytes());
             // calculate the first part of the sk_it term for sk_{i,1} and sk_{i,2}
-            sk_it = sk_it +
-                (hash_to_element(combine_string(&msp._pi[i - 1], 1, t as u32).as_bytes()) *
-                     (msk._b[0] * r1 * at.inverse().unwrap())) +
-                (hash_to_element(combine_string(&msp._pi[i - 1], 2, t as u32).as_bytes()) *
-                     (msk._b[1] * r2 * at.inverse().unwrap())) +
-                (hash_to_element(combine_string(&msp._pi[i - 1], 3, t as u32).as_bytes()) *
-                     ((r1 + r2) * at.inverse().unwrap())) +
-                msk._g * (sigma * at.inverse().unwrap()) +
-                (msk._g * (msk._d[current_t])) * msp._m[i - 1][0];
-
+            let mut sk_it = h1 * ((msk._b[0] * r1) * at.inverse().unwrap()) +
+                h2 * ((msk._b[1] * r2) * at.inverse().unwrap()) +
+                h3 * ((r1 + r2) * at.inverse().unwrap());
             // now calculate the product over j=2 until n2 for sk_it in a loop
             for j in 2..(n2 + 1) {
+                let j1 = hash_to(combine_string(&j.to_string(), 1, t as u32).as_bytes());
+                let j2 = hash_to(combine_string(&j.to_string(), 2, t as u32).as_bytes());
+                let j3 = hash_to(combine_string(&j.to_string(), 3, t as u32).as_bytes());
                 sk_it = sk_it +
-                    (hash_to_element(combine_string(&j.to_string(), 1, t as u32).as_bytes()) *
-                         (msk._b[0] * r1 * at.inverse().unwrap()) +
-                         hash_to_element(
-                            combine_string(&j.to_string(), 2, t as u32).as_bytes(),
-                        ) * (msk._b[1] * r2 * at.inverse().unwrap()) +
-                         hash_to_element(
-                            combine_string(&j.to_string(), 3, t as u32).as_bytes(),
-                        ) * ((r1 + r2) * at.inverse().unwrap()) +
+                    (j1 * ((msk._b[0] * r1) * at.inverse().unwrap()) +
+                         j2 * ((msk._b[1] * r2) * at.inverse().unwrap()) +
+                         j3 * ((r1 + r2) * at.inverse().unwrap()) +
                          (msk._g * (sigma_prime[j - 2] * at.inverse().unwrap()))) *
                         msp._m[i - 1][j - 1];
             }
             sk_i_temp.push(sk_it);
         }
+        let mut sk_i3 = (msk._g * -sigma) + (msk._d[2] * msp._m[i - 1][0]);
         // calculate sk_{i,3}
-        let mut sk_i3 = G1::one();
         for j in 2..(n2 + 1) {
-            sk_i3 = sk_i3 + ((msk._g * -sigma_prime[j - 2]) * msp._m[i - 1][j - 2]);
+            sk_i3 = sk_i3 + ((msk._g * -sigma_prime[j - 2]) * msp._m[i - 1][j - 1]);
         }
-        sk_i3 = sk_i3 + ((msk._g * msk._d[2]) * msp._m[i - 1][0]) + (msk._g * (-sigma));
         // now push all three values into sk_i vec
         sk_i.push((sk_i_temp[0], sk_i_temp[1], sk_i3));
     }
-    return Some(AbeSecretKey {
-        _sk0: _sk_0,
-        _ski: sk_i,
+    return Some(KpAbeSecretKey {
+        _sk_0: _sk_0,
+        _sk_y: sk_i,
     });
 }
 
-pub fn abe_encrypt(
+pub fn kpabe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
     plaintext: &Vec<u8>,
@@ -224,24 +399,28 @@ pub fn abe_encrypt(
     }
     // random number generator
     let rng = &mut rand::thread_rng();
-    //Choose random secret
-    let secret = pairing(G1::random(rng), G2::random(rng));
     // generate s1,s2
     let s1 = Fr::random(rng);
     let s2 = Fr::random(rng);
+    //Choose random secret
+    let secret = pairing(G1::random(rng), G2::random(rng));
+    println!("kp-abe encrypt secret: {:?}", into_hex(secret).unwrap());
     let mut _ct_yl: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
     for _tag in tags.iter() {
-        let _attribute: (bn::G1, bn::G1, bn::G1) =
-            (
-                hash_string_to_element(&combine_string(&_tag, 1, 1)) * s1 +
-                    hash_string_to_element(&combine_string(&_tag, 1, 2)) * s2,
-                hash_string_to_element(&combine_string(&_tag, 2, 1)) * s1 +
-                    hash_string_to_element(&combine_string(&_tag, 2, 2)) * s2,
-                hash_string_to_element(&combine_string(&_tag, 3, 1)) * s1 +
-                    hash_string_to_element(&combine_string(&_tag, 3, 2)) * s2,
-            );
-        _ct_yl.push(_attribute);
+        let mut _ct_yl_temp: Vec<(bn::G1)> = Vec::new();
+        for _l in 1..4 {
+            let h1 = hash_string_to_element(&combine_string(&_tag, _l as u32, 1));
+            let h2 = hash_string_to_element(&combine_string(&_tag, _l as u32, 2));
+            _ct_yl_temp.push((h1 * s1) + (h2 * s2));
+        }
+        _ct_yl.push((_ct_yl_temp[0], _ct_yl_temp[1], _ct_yl_temp[2]));
     }
+
+    let mut ct_0: Vec<(bn::G2)> = Vec::new();
+    ct_0.push(pk._h_n[0] * s1);
+    ct_0.push(pk._h_n[1] * s2);
+    ct_0.push(pk._h * (s1 + s2));
+
     //Encrypt plaintext using derived key from secret
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
@@ -252,9 +431,10 @@ pub fn abe_encrypt(
             sha.result(&mut key);
             let mut iv: [u8; 16] = [0; 16];
             rng.fill_bytes(&mut iv);
+            println!("key: {:?}", &key);
             let ct = AbeCiphertext {
-                _ct_0: (pk._hn[0] * s1, pk._hn[1] * s2, pk._h * (s1 + s2)),
-                _ct_prime: (pk._tn[0].pow(s1) * pk._tn[0].pow(s2) * secret),
+                _ct_0: ct_0,
+                _ct_prime: (pk._t_n[0].pow(s1) * pk._t_n[1].pow(s2) * secret),
                 _ct_y: _ct_yl,
                 _ct: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
                 _iv: iv,
@@ -264,20 +444,27 @@ pub fn abe_encrypt(
     }
 }
 
-pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
-    let mut _ct = (bn::G1::one(), bn::G1::one(), bn::G1::one());
-    let mut _sk = (bn::G1::one(), bn::G1::one(), bn::G1::one());
-    for ct_i in ct._ct_y.iter() {
-        _ct = (_ct.0 + ct_i.0, _ct.1 + ct_i.1, _ct.2 + ct_i.2);
+pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
+    let mut prod1_gt = Gt::one();
+    let mut prod2_gt = Gt::one();
+    for _i in 1..3 {
+        let mut prod_h = G1::one(); // sk
+        let mut prod_g = G1::one(); // ct
+        for _j in 0..ct._ct_y.len() {
+            let (sk0, sk1, sk2) = sk._sk_y[_j];
+            let (ct0, ct1, ct2) = ct._ct_y[_j];
+            prod_h = prod_h + sk0 + sk1 + sk2;
+            prod_g = prod_g + ct0 + ct1 + ct2;
+        }
+        prod1_gt = prod1_gt * pairing(prod_h, ct._ct_0[_i]);
+        prod2_gt = prod2_gt * pairing(prod_g, sk._sk_0[_i]);
     }
-    for sk_i in sk._ski.iter() {
-        _sk = (_sk.0 + sk_i.0, _sk.1 + sk_i.1, _sk.2 + sk_i.2);
-    }
-    let num = ct._ct_prime * pairing(_ct.0, sk._sk0.0) * pairing(_ct.1, sk._sk0.1) *
-        pairing(_ct.2, sk._sk0.2);
-    let den = pairing(_sk.0, ct._ct_0.0) * pairing(_sk.1, ct._ct_0.1) * pairing(_sk.2, ct._ct_0.2);
-    let secret = num * den.inverse();
+    let secret = ct._ct_prime * (prod2_gt * prod1_gt.inverse());
+    println!("kp-abe decrypt secret: {:?}", into_hex(secret).unwrap());
+    let r: Vec<u8> = Vec::new();
+    return Some(r);
     // Decrypt plaintext using derived secret from abe scheme
+    /*
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
         Err(_) => return None,
@@ -285,12 +472,18 @@ pub fn abe_decrypt(sk: &AbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
             sha.input(e.to_hex().as_bytes());
             let mut key: [u8; 32] = [0; 32];
             sha.result(&mut key);
-            return Some(decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap());
+            println!("key: {:?}", &key);
+            let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
+            return Some(aes);
         }
     }
+    */
 }
 
 // Helper functions from here on
+pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
+    encode(&obj, Infinite).ok().map(|e| e.to_hex())
+}
 
 pub fn combine_string(text: &String, j: u32, t: u32) -> String {
     let mut _combined: String = text.to_owned();
@@ -299,7 +492,7 @@ pub fn combine_string(text: &String, j: u32, t: u32) -> String {
     return _combined.to_string();
 }
 
-pub fn hash_to_element(data: &[u8]) -> bn::G1 {
+pub fn hash_to(data: &[u8]) -> bn::G1 {
     let mut sha = Sha3::sha3_256();
     sha.input(data);
     let i = BigInt::parse_bytes(sha.result_str().as_bytes(), 16).unwrap();
@@ -308,7 +501,7 @@ pub fn hash_to_element(data: &[u8]) -> bn::G1 {
 }
 
 pub fn hash_string_to_element(text: &String) -> bn::G1 {
-    return hash_to_element(text.as_bytes());
+    return hash_to(text.as_bytes());
 }
 
 // AES functions from here on
@@ -414,11 +607,18 @@ fn encrypt_aes(
 #[cfg(test)]
 mod tests {
     use abe_setup;
-    use abe_keygen;
+    use cpabe_keygen;
+    use cpabe_encrypt;
+    use cpabe_decrypt;
+    use kpabe_keygen;
+    use kpabe_encrypt;
+    use kpabe_decrypt;
     use hash_string_to_element;
     use combine_string;
     use AbePolicy;
-    use AbeSecretKey;
+    use AbeCiphertext;
+    use CpAbeSecretKey;
+    use KpAbeSecretKey;
     use Fr;
     use std::collections::LinkedList;
     use std::string::String;
@@ -446,32 +646,11 @@ mod tests {
         let (pk, msk) = abe_setup();
         // assert generators
         assert_eq!(into_hex(msk._h).unwrap(), into_hex(pk._h).unwrap());
-        assert_eq!(
-            into_hex(msk._h).unwrap(),
-            "0404d4bf3239f77cee7b47c7245e9281b3e9c1182d6381a87bbf81f9f2a6254b731df569cda95e060bee91ba69b3f2d103658a7aea6b10e5bdc761e5715e7ee4bb01b4c328f0cbdb4aada63b3d09100d792376b94d07a6004e46054eeec849e8de9835158a11d28483dd8db236ea49f3630edc9e41944e494c5aacfc36af3b66e7"
-        );
-        assert_eq!(
-            into_hex(msk._g).unwrap(),
-            "0400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002"
-        );
-        println!("g: {:?}", into_hex(msk._h).unwrap());
-        println!("h: {:?}", into_hex(msk._g).unwrap());
         // assert random values a
         let hn0 = into_hex(msk._h * msk._a[0]).unwrap();
         let hn1 = into_hex(msk._h * msk._a[1]).unwrap();
-        assert_eq!(hn0, into_hex(pk._hn[0]).unwrap());
-        assert_eq!(hn1, into_hex(pk._hn[1]).unwrap());
-        // assert random values d with pairing e
-        let p1 = into_hex(pairing(
-            msk._g * ((msk._d[0] * msk._a[0]) + msk._d[2]),
-            msk._h,
-        )).unwrap();
-        assert_eq!(p1, into_hex(pk._tn[0]).unwrap());
-        let p2 = into_hex(pairing(
-            msk._g,
-            msk._h * ((msk._d[1] * msk._a[1]) + msk._d[2]),
-        )).unwrap();
-        assert_eq!(p2, into_hex(pk._tn[1]).unwrap());
+        assert_eq!(hn0, into_hex(pk._h_n[0]).unwrap());
+        assert_eq!(hn1, into_hex(pk._h_n[1]).unwrap());
     }
 
     #[test]
@@ -485,8 +664,66 @@ mod tests {
         // with 3 columns
         assert_eq!(msp._m[0].len(), 3);
         // create sk from msk and msp
-        let sk: AbeSecretKey = abe_keygen(&msk, &msp).unwrap();
-        //assert_eq!(sk._ski.len(), 4);
+        let sk: KpAbeSecretKey = kpabe_keygen(&msk, &msp).unwrap();
+        assert_eq!(sk._sk_y.len(), 4);
+    }
+
+    #[test]
+    fn test_cp_abe_and_encryption() {
+        // setup scheme
+        let (pk, msk) = abe_setup();
+        // a set of two attributes
+        let mut attributes: LinkedList<String> = LinkedList::new();
+        attributes.push_back(String::from("A"));
+        attributes.push_back(String::from("B"));
+        // an msp policy (A and B)
+        let msp1: AbePolicy = AbePolicy::from_string(
+            String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
+        ).unwrap();
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!");
+        // cp-abe ciphertext
+        let ct_cp: AbeCiphertext = cpabe_encrypt(&pk, &msp1, &plaintext.clone().into_bytes())
+            .unwrap();
+        // some assertions
+        // TODO
+        // a cp-abe SK key using msp
+        let sk_cp: CpAbeSecretKey = cpabe_keygen(&msk, &attributes).unwrap();
+        // some assertions
+        // TODO
+        // and now decrypt again
+        let plaintext_cp: Vec<u8> = cpabe_decrypt(&sk_cp, &ct_cp).unwrap();
+        let cp = String::from_utf8(plaintext_cp).unwrap();
+        println!("plaintext_cp: {:?}", cp);
+    }
+
+    #[test]
+    fn test_kp_abe_and_encryption() {
+        // setup scheme
+        let (pk, msk) = abe_setup();
+        // a set of two attributes
+        let mut attributes: LinkedList<String> = LinkedList::new();
+        attributes.push_back(String::from("A"));
+        attributes.push_back(String::from("B"));
+        // an msp policy (A and B)
+        let msp1: AbePolicy = AbePolicy::from_string(
+            String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
+        ).unwrap();
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!");
+        // kp-abe ciphertext
+        let ct_kp: AbeCiphertext = kpabe_encrypt(&pk, &attributes, &plaintext.clone().into_bytes())
+            .unwrap();
+        // some assertions
+        // TODO
+        // a kp-abe SK key using msp
+        let sk_kp: KpAbeSecretKey = kpabe_keygen(&msk, &msp1).unwrap();
+        // some assertions
+        // TODO
+        // and now decrypt again
+        let plaintext_kp: Vec<u8> = kpabe_decrypt(&sk_kp, &ct_kp).unwrap();
+        let kp = String::from_utf8(plaintext_kp).unwrap();
+        println!("plaintext_kp: {:?}", kp);
     }
 
     #[test]
@@ -506,7 +743,7 @@ mod tests {
         //println!("Expected: {:?}", expected_str); // print msg's during test: "cargo test -- --nocapture"
         assert_eq!(
             "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
-            into_hex(point1).unwrap()
+            expected_str
         );
     }
 
@@ -515,9 +752,9 @@ mod tests {
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
         let mut _values: Vec<Vec<Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
-        let p1 = vec![Fr::zero(), Fr::zero(), Fr::zero() - Fr::one()];
+        let p1 = vec![Fr::zero(), Fr::zero(), Fr::one().inverse().unwrap()];
         let p2 = vec![Fr::one(), Fr::zero(), Fr::one()];
-        let p3 = vec![Fr::zero(), Fr::zero() - Fr::one(), Fr::zero()];
+        let p3 = vec![Fr::zero(), Fr::one().inverse().unwrap(), Fr::zero()];
         let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
         let mut _msp_test = AbePolicy {
             _m: vec![p1, p2, p3, p4],
@@ -529,7 +766,6 @@ mod tests {
             ],
             _deg: 3,
         };
-        assert!(Fr::zero() == (Fr::one() + (Fr::zero() - Fr::one())));
         match AbePolicy::from_string(policy) {
             None => assert!(false),
             Some(_msp) => {
