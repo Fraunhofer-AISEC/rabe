@@ -171,7 +171,7 @@ pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeS
         // calculate sk_{i,1} and sk_{i,2}
         for t in 1..3 {
             let current_t: usize = t - 1;
-            let at = msk._a[current_t].inverse().unwrap();
+            let at = -msk._a[current_t];
             let h1 = hash_to(combine_string(_y, 1, t as u32).as_bytes()) * ((msk._b[0] * r1) * at);
             let h2 = hash_to(combine_string(_y, 2, t as u32).as_bytes()) * ((msk._b[1] * r2) * at);
             let h3 = hash_to(combine_string(_y, 3, t as u32).as_bytes()) * ((r1 + r2) * at);
@@ -186,8 +186,7 @@ pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeS
         // pick random sigma
         let sigma = Fr::random(rng);
         let current_t: usize = t - 1;
-        let at = msk._a[current_t].inverse().unwrap();
-
+        let at = -msk._a[current_t];
         let h1 = hash_to(combine_string(&h0, 1, t as u32).as_bytes()) * ((msk._b[0] * r1) * at);
         let h2 = hash_to(combine_string(&h0, 2, t as u32).as_bytes()) * ((msk._b[1] * r2) * at);
         let h3 = hash_to(combine_string(&h0, 3, t as u32).as_bytes()) * ((r1 + r2) * at);
@@ -696,7 +695,7 @@ mod tests {
         let cp = String::from_utf8(plaintext_cp).unwrap();
         println!("plaintext_cp: {:?}", cp);
     }
-
+    /*
     #[test]
     fn test_kp_abe_and_encryption() {
         // setup scheme
@@ -725,7 +724,7 @@ mod tests {
         let kp = String::from_utf8(plaintext_kp).unwrap();
         println!("plaintext_kp: {:?}", kp);
     }
-
+*/
     #[test]
     fn test_combine_string() {
         let s1 = String::from("hashing");
@@ -748,13 +747,25 @@ mod tests {
     }
 
     #[test]
+    fn test_fr() {
+        let one: String = into_hex(Fr::one()).unwrap();
+        let minus: String = into_hex(-Fr::one()).unwrap();
+        let substract: String = into_hex(Fr::zero() - Fr::one()).unwrap();
+        let invert: String = into_hex(Fr::one().inverse().unwrap()).unwrap();
+        println!("one: {:?}", one);
+        println!("minus: {:?}", minus);
+        println!("substract: {:?}", substract);
+        println!("invert: {:?}", invert);
+    }
+
+    #[test]
     fn test_to_msp() {
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
         let mut _values: Vec<Vec<Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
-        let p1 = vec![Fr::zero(), Fr::zero(), Fr::one().inverse().unwrap()];
+        let p1 = vec![Fr::zero(), Fr::zero(), -Fr::one()];
         let p2 = vec![Fr::one(), Fr::zero(), Fr::one()];
-        let p3 = vec![Fr::zero(), Fr::one().inverse().unwrap(), Fr::zero()];
+        let p3 = vec![Fr::zero(), -Fr::one(), Fr::zero()];
         let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
         let mut _msp_test = AbePolicy {
             _m: vec![p1, p2, p3, p4],

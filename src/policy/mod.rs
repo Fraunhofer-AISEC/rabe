@@ -4,7 +4,6 @@ extern crate serde_json;
 extern crate bn;
 
 use std::string::String;
-use bn::*;
 
 pub struct AbePolicy {
     pub _m: Vec<Vec<bn::Fr>>,
@@ -54,12 +53,7 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
         v_tmp_right.resize(msp._deg - 1, bn::Fr::zero());
         v_tmp_right.push(bn::Fr::one());
         v_tmp_left.resize(msp._deg - 1, bn::Fr::zero());
-
-        // TODO:
-        // try A) check math if bn::Fr::zero() - bn::Fr::one() should be replaced with bn::Fr::one().inverse()
-        // try B) build msp matrix internally by translating 1, 0 and -1 to G1::one(), G1::zero() and G1::one.inverse() in order to apply directly on group elements
-
-        v_tmp_left.push(bn::Fr::one().inverse().unwrap());
+        v_tmp_left.push(-bn::Fr::one());
 
         return lw(msp, &p["AND"][0], v_tmp_right) && lw(msp, &p["AND"][1], v_tmp_left);
 
@@ -75,10 +69,10 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
 // */]
 pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
     let mut v: Vec<bn::Fr> = Vec::new();
-    let mut _values: Vec<Vec<Fr>> = Vec::new();
+    let mut _matrix: Vec<Vec<bn::Fr>> = Vec::new();
     let mut _attributes: Vec<String> = Vec::new();
     let mut msp = AbePolicy {
-        _m: _values,
+        _m: _matrix,
         _pi: _attributes,
         _deg: 1,
     };
