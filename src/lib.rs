@@ -2,6 +2,7 @@
 //#[macro_use]
 //extern crate serde_derive;
 
+extern crate libc;
 extern crate serde;
 extern crate serde_json;
 extern crate bn;
@@ -11,6 +12,11 @@ extern crate crypto;
 extern crate bincode;
 extern crate rustc_serialize;
 extern crate num_bigint;
+
+use libc::*;
+use std::ffi::CString;
+use std::ffi::CStr;
+use std::mem::transmute;
 use std::collections::LinkedList;
 use std::string::String;
 use num_bigint::BigInt;
@@ -75,8 +81,14 @@ pub struct KpAbeSecretKey {
     _sk_y: Vec<(bn::G1, bn::G1, bn::G1)>,
 }
 
+//For C
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct AbeContext {
+    _msk: AbeMasterKey,
+    _pk: AbePublicKey,
+}
 impl AbePolicy {
-    pub fn from_string(policy: String) -> Option<AbePolicy> {
+    pub fn from_string(policy: &String) -> Option<AbePolicy> {
         policy::string_to_msp(policy)
     }
     pub fn from_json(json: &serde_json::Value) -> Option<AbePolicy> {
@@ -314,6 +326,7 @@ pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>>
         }
     }*/
 }
+
 // KP ABE PART
 
 pub fn kpabe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<KpAbeSecretKey> {
@@ -391,7 +404,7 @@ pub fn kpabe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<KpAbeSecretKe
 pub fn kpabe_encrypt(
     pk: &AbePublicKey,
     tags: &LinkedList<String>,
-    plaintext: &Vec<u8>,
+    plaintext: &[u8],
 ) -> Option<AbeCiphertext> {
     if tags.is_empty() || plaintext.is_empty() {
         return None;
@@ -443,6 +456,54 @@ pub fn kpabe_encrypt(
     }
 }
 
+
+#[no_mangle]
+pub extern "C" fn abe_context_create() -> *mut AbeContext {
+    let (pk, msk) = abe_setup();
+    let _ctx = unsafe { transmute(Box::new(AbeContext { _msk: msk, _pk: pk })) };
+    _ctx
+}
+
+#[no_mangle]
+pub extern "C" fn abe_context_destroy(ctx: *mut AbeContext) {
+    let _ctx: Box<AbeContext> = unsafe { transmute(ctx) };
+    // Drop reference for GC
+}
+
+#[no_mangle]
+pub extern "C" fn kpabe_secret_key_create(
+    ctx: *mut AbeContext,
+    policy: *mut c_char,
+) -> *mut KpAbeSecretKey {
+    let t = unsafe { &mut *policy };
+    let mut _policy = unsafe { CStr::from_ptr(t) };
+    let pol = String::from(_policy.to_str().unwrap());
+    let _msp = AbePolicy::from_string(&pol).unwrap();
+    let _ctx = unsafe { &mut *ctx };
+    let sk = kpabe_keygen(&_ctx._msk, &_msp).unwrap();
+    let _sk = unsafe {
+        transmute(Box::new(KpAbeSecretKey {
+            _sk_0: sk._sk_0.clone(),
+            _sk_y: sk._sk_y.clone(),
+        }))
+    };
+    _sk
+}
+
+#[no_mangle]
+pub extern "C" fn kpabe_secret_key_destroy(sk: *mut KpAbeSecretKey) {
+    let _sk: Box<KpAbeSecretKey> = unsafe { transmute(sk) };
+    // Drop reference for GC
+}
+
+#[no_mangle]
+pub extern "C" fn kpabe_decrypt_native(sk: *mut KpAbeSecretKey, ct: *mut c_char) -> i32 {
+    //TODO: Deserialize ct
+    //TODO: Call abe_decrypt
+    //TODO: serialize returned pt and store under pt
+    return 1;
+}
+
 pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
     let mut prod1_gt = Gt::one();
     let mut prod2_gt = Gt::one();
@@ -466,14 +527,17 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>>
     /*
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
-        Err(_) => return None,
+        Err(val) => {println!("Error: {:?}", val);return None},
         Ok(e) => {
             sha.input(e.to_hex().as_bytes());
             let mut key: [u8; 32] = [0; 32];
             sha.result(&mut key);
+
             println!("key: {:?}", &key);
-            let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
-            return Some(aes);
+            println!("XXX");
+            let res = decrypt_aes(ct._ct.as_slice(), &key, &ct._iv).unwrap();
+            println!("YYY");
+            return Some(res);
         }
     }
     */
@@ -539,7 +603,7 @@ fn decrypt_aes(
             BufferResult::BufferOverflow => {}
         }
     }
-    Ok(final_result)
+    return Ok(final_result);
 }
 
 fn encrypt_aes(
@@ -657,7 +721,7 @@ mod tests {
         let (pk, msk) = abe_setup();
         // 4 attributes a, b, c and d
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
-        let msp: AbePolicy = AbePolicy::from_string(policy).unwrap();
+        let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
         // 4 rows
         assert_eq!(msp._m.len(), 4);
         // with 3 columns
@@ -677,7 +741,7 @@ mod tests {
         attributes.push_back(String::from("B"));
         // an msp policy (A and B)
         let msp1: AbePolicy = AbePolicy::from_string(
-            String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
+            &String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
         ).unwrap();
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!");
@@ -695,7 +759,7 @@ mod tests {
         let cp = String::from_utf8(plaintext_cp).unwrap();
         println!("plaintext_cp: {:?}", cp);
     }
-    /*
+
     #[test]
     fn test_kp_abe_and_encryption() {
         // setup scheme
@@ -706,7 +770,7 @@ mod tests {
         attributes.push_back(String::from("B"));
         // an msp policy (A and B)
         let msp1: AbePolicy = AbePolicy::from_string(
-            String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
+            &String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
         ).unwrap();
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!");
@@ -724,7 +788,7 @@ mod tests {
         let kp = String::from_utf8(plaintext_kp).unwrap();
         println!("plaintext_kp: {:?}", kp);
     }
-*/
+
     #[test]
     fn test_combine_string() {
         let s1 = String::from("hashing");
@@ -747,18 +811,6 @@ mod tests {
     }
 
     #[test]
-    fn test_fr() {
-        let one: String = into_hex(Fr::one()).unwrap();
-        let minus: String = into_hex(-Fr::one()).unwrap();
-        let substract: String = into_hex(Fr::zero() - Fr::one()).unwrap();
-        let invert: String = into_hex(Fr::one().inverse().unwrap()).unwrap();
-        println!("one: {:?}", one);
-        println!("minus: {:?}", minus);
-        println!("substract: {:?}", substract);
-        println!("invert: {:?}", invert);
-    }
-
-    #[test]
     fn test_to_msp() {
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
         let mut _values: Vec<Vec<Fr>> = Vec::new();
@@ -777,7 +829,7 @@ mod tests {
             ],
             _deg: 3,
         };
-        match AbePolicy::from_string(policy) {
+        match AbePolicy::from_string(&policy) {
             None => assert!(false),
             Some(_msp) => {
                 for i in 0..4 {
@@ -791,4 +843,22 @@ mod tests {
             }
         }
     }
+    /*
+    #[test]
+    fn test_enc_dec() {
+        let test_str = "hello world";
+        let (pk, msk) = abe_setup();
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
+        let abe_pol = AbePolicy::from_string(&policy).unwrap();
+        let mut tags = LinkedList::new();
+        tags.push_back(String::from("A"));
+        let ciphertext = kpabe_encrypt(&pk, &tags, test_str.as_bytes()).unwrap();
+        let sk = kpabe_keygen(&msk, &abe_pol).unwrap();
+        println!("Ctlen: {:?}", ciphertext._ct.len());
+
+        let plaintext = kpabe_decrypt(&sk, &ciphertext).unwrap();
+        println!("plain: {:?}", plaintext);
+        assert!(plaintext == test_str.as_bytes());
+    }
+    */
 }
