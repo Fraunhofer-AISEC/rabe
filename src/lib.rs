@@ -37,6 +37,7 @@ use policy::AbePolicy;
 mod policy;
 
 // Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
+const ASSUMPTION_SIZE: i32 = 2;
 
 //#[doc = /**
 // * TODO
@@ -48,7 +49,7 @@ mod policy;
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbePublicKey {
     _h: bn::G2,
-    _h_n: Vec<(bn::G2)>,
+    _h_a: Vec<(bn::G2)>,
     _t_n: Vec<(bn::Gt)>,
 }
 
@@ -58,13 +59,13 @@ pub struct AbeMasterKey {
     _h: bn::G2,
     _a: Vec<(bn::Fr)>,
     _b: Vec<(bn::Fr)>,
-    _d: Vec<(bn::G1)>,
+    _g_k: Vec<(bn::G1)>,
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbeCiphertext {
     _ct_0: Vec<(bn::G2)>,
-    _ct_y: Vec<(bn::G1, bn::G1, bn::G1)>,
+    _ct_y: Vec<Vec<(bn::G1)>>,
     _ct_prime: bn::Gt,
     _ct: Vec<u8>,
     _iv: [u8; 16],
@@ -72,7 +73,7 @@ pub struct AbeCiphertext {
 
 pub struct CpAbeSecretKey {
     _sk_0: Vec<(bn::G2)>,
-    _sk_y: Vec<(bn::G1, bn::G1, bn::G1)>,
+    _sk_y: Vec<Vec<(bn::G1)>>,
     _sk_t: Vec<(bn::G1)>,
 }
 
@@ -87,6 +88,7 @@ pub struct AbeContext {
     _msk: AbeMasterKey,
     _pk: AbePublicKey,
 }
+
 impl AbePolicy {
     pub fn from_string(policy: &String) -> Option<AbePolicy> {
         policy::string_to_msp(policy)
@@ -104,55 +106,61 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // generator of group G1: g and generator of group G2: h
     let g = G1::random(rng);
     let h = G2::random(rng);
-    // vec's msk and pk
-    let mut _msk_a: Vec<(bn::Fr)> = Vec::new();
-    let mut _msk_b: Vec<(bn::Fr)> = Vec::new();
-    let mut _msk_d: Vec<(bn::G1)> = Vec::new();
-    let mut _pk_hn: Vec<(bn::G2)> = Vec::new();
-    let mut _pk_tn: Vec<(bn::Gt)> = Vec::new();
-    // generate d1,d2 and d3 from Z_p (* means it must not be null, can we be sure?)
-    // TODO: check in lib if Fr::random(rng) can produce zero or not at all
-    let d1 = Fr::random(rng);
-    let d2 = Fr::random(rng);
-    let d3 = Fr::random(rng);
-    // generate a1,a2 from Z*_p (* means it must not be null, can we be sure?)
-    let a1 = Fr::random(rng);
-    let a2 = Fr::random(rng);
-    // push into vecs
-    _msk_a.push(a1);
-    _msk_a.push(a2);
-    // generate random b1,b2 from Z_p and push into vec b
-    _msk_b.push(Fr::random(rng));
-    _msk_b.push(Fr::random(rng));
-    // generate g^d1, g^d2 and g^d3
-    _msk_d.push(g * d1);
-    _msk_d.push(g * d2);
-    _msk_d.push(g * d3);
-    // calculate h^a1 and h^a2 and push into vec hn
-    _pk_hn.push(h * a1);
-    _pk_hn.push(h * a2);
-    // calculate pairing for T1 and T2
-    _pk_tn.push(pairing(g, h).pow(d1 * a1 + d3));
-    _pk_tn.push(pairing(g, h).pow(d2 * a2 + d3));
+    let e_gh = pairing(g, h);
+    // vectors
+    // generate two instances of the k-linear assumption
+    let mut a: Vec<(bn::Fr)> = Vec::new();
+    let mut b: Vec<(bn::Fr)> = Vec::new();
+    // temp k vector
+    let mut k: Vec<(bn::Fr)> = Vec::new();
+    // generate random A and B's
+    for _i in 0..ASSUMPTION_SIZE {
+        a.push(Fr::random(rng));
+        b.push(Fr::random(rng));
+    }
+    // generate two instances of the k-linear assumption
+    for _i in 0..(ASSUMPTION_SIZE + 1) {
+        k.push(Fr::random(rng));
+    }
+    // h^a vector
+    let mut h_a: Vec<(bn::G2)> = Vec::new();
+    for _i in 0..ASSUMPTION_SIZE {
+        h_a.push(h * a[_i as usize]);
+    }
+    h_a.push(h);
+    // compute the e([k]_1, [A]_2) term
+    let mut g_k: Vec<(bn::G1)> = Vec::new();
+    for _i in 0..(ASSUMPTION_SIZE + 1) {
+        g_k.push(g * k[_i as usize])
+    }
+    let mut _e_gh_k_a: Vec<(bn::Gt)> = Vec::new();
+    for _i in 0..ASSUMPTION_SIZE {
+        let _gki = e_gh.pow(
+            k[_i as usize] * a[_i as usize] + k[ASSUMPTION_SIZE as usize],
+        );
+        _e_gh_k_a.push(_gki);
+    }
     // set values of PK
     let pk = AbePublicKey {
         _h: h,
-        _h_n: _pk_hn,
-        _t_n: _pk_tn,
+        _h_a: h_a,
+        _t_n: _e_gh_k_a,
     };
     // set values of MSK
     let msk = AbeMasterKey {
         _g: g,
         _h: h,
-        _a: _msk_a,
-        _b: _msk_b,
-        _d: _msk_d,
+        _a: a,
+        _b: b,
+        _g_k: g_k,
     };
     // return PK and MSK
     return (pk, msk);
 }
 
-// CP ABE PART
+//////////////////////////////////////////
+// CP ABE SCHEME:
+//////////////////////////////////////////
 
 pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeSecretKey> {
     // if no attibutes or an empty policy
@@ -162,53 +170,61 @@ pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeS
     }
     // random number generator
     let rng = &mut rand::thread_rng();
-    // generate random r1 and r2
-    let r1 = Fr::random(rng);
-    let r2 = Fr::random(rng);
-    // and compute sk0
-    let mut sk_0: Vec<(bn::G2)> = Vec::new();
-    sk_0.push(msk._h * (msk._b[0] * r1));
-    sk_0.push(msk._h * (msk._b[1] * r2));
-    sk_0.push(msk._h * (r1 + r2));
-    // sk_i data structure
-    let mut sk_y: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
-    // vec to collect 3 skt values
-    let mut sk_t: Vec<(bn::G1)> = Vec::new();
-    // for all i=1,...n1 compute
-    for _y in s.iter() {
-        // vec to collect triples in loop
-        let mut sk_yt: Vec<(bn::G1)> = Vec::new();
-        // pick random sigma
-        let sigma = Fr::random(rng);
-        // calculate sk_{i,1} and sk_{i,2}
-        for t in 1..3 {
-            let current_t: usize = t - 1;
-            let at = -msk._a[current_t];
-            let h1 = hash_to(combine_string(_y, 1, t as u32).as_bytes()) * ((msk._b[0] * r1) * at);
-            let h2 = hash_to(combine_string(_y, 2, t as u32).as_bytes()) * ((msk._b[1] * r2) * at);
-            let h3 = hash_to(combine_string(_y, 3, t as u32).as_bytes()) * ((r1 + r2) * at);
-            sk_yt.push(h1 + h2 + h3 + (msk._g * -sigma));
+    // generate random r1 and r2 and sum of both
+    let mut _r: Vec<(bn::Fr)> = Vec::new();
+    let mut _sum = Fr::one();
+    for _i in 0..ASSUMPTION_SIZE {
+        let rnd = Fr::random(rng);
+        _r.push(rnd);
+        _sum = _sum + rnd;
+    }
+    // first compute just Br as it will be used later too
+    let mut _br: Vec<(bn::Fr)> = Vec::new();
+    for _i in 0..ASSUMPTION_SIZE {
+        _br.push(msk._b[_i as usize] * _r[_i as usize])
+    }
+    _br.push(_sum);
+    // now compute [Br]_2
+    let mut _k_0: Vec<(bn::G2)> = Vec::new();
+    for _i in 0..(ASSUMPTION_SIZE + 1) {
+        _k_0.push(msk._h * _br[_i as usize]);
+    }
+    let mut _k: Vec<Vec<(bn::G1)>> = Vec::new();
+    for attr in s {
+        let mut _key: Vec<(bn::G1)> = Vec::new();
+        let sigma_attr = Fr::random(rng);
+        for _t in 0..ASSUMPTION_SIZE {
+            let mut _prod = G1::one();
+            let a_t = msk._a[_t as usize];
+            for _l in 0..(ASSUMPTION_SIZE + 1) {
+                let elm = hash_to(combine_string(attr, _l, _t).as_bytes());
+                _prod = _prod + (elm * (_br[_l as usize] * a_t.inverse().unwrap()));
+            }
+            _prod = _prod + (msk._g * (sigma_attr * a_t.inverse().unwrap()));
+            _key.push(_prod);
         }
-        // now push all three values into sk_i vec
-        sk_y.push((sk_yt[0], sk_yt[1], (msk._g * -sigma)));
+        _key.push(msk._g * (-sigma_attr));
+        _k.push(_key);
     }
-    // now calculate skt
-    let h0 = String::from("01");
-    for t in 1..3 {
-        // pick random sigma
-        let sigma = Fr::random(rng);
-        let current_t: usize = t - 1;
-        let at = -msk._a[current_t];
-        let h1 = hash_to(combine_string(&h0, 1, t as u32).as_bytes()) * ((msk._b[0] * r1) * at);
-        let h2 = hash_to(combine_string(&h0, 2, t as u32).as_bytes()) * ((msk._b[1] * r2) * at);
-        let h3 = hash_to(combine_string(&h0, 3, t as u32).as_bytes()) * ((r1 + r2) * at);
-        sk_t.push(h1 + h2 + h3 + (msk._g * (sigma * at)) + msk._d[current_t]);
+    // compute [k + VBr]_1
+    let mut _kp: Vec<bn::G1> = Vec::new();
+    let sigma = Fr::random(rng);
+    for _t in 0..ASSUMPTION_SIZE {
+        let mut _prod = msk._g_k[_t as usize];
+        let a_t = msk._a[_t as usize];
+        for _l in 0..(ASSUMPTION_SIZE + 1) {
+            let elm = hash_to(combine_string(&String::from("01"), _l, _t).as_bytes());
+            _prod = _prod + (elm * (_br[_l as usize] * a_t.inverse().unwrap()));
+        }
+        _prod = _prod + (msk._g * (sigma * a_t.inverse().unwrap()));
+        _kp.push(_prod);
     }
+    _kp.push(msk._g_k[ASSUMPTION_SIZE as usize] + (msk._g * (-sigma)));
 
     return Some(CpAbeSecretKey {
-        _sk_0: sk_0,
-        _sk_y: sk_y,
-        _sk_t: sk_t,
+        _sk_0: _k_0,
+        _sk_y: _k,
+        _sk_t: _kp,
     });
 }
 
@@ -222,54 +238,73 @@ pub fn cpabe_encrypt(
     }
     // random number generator
     let rng = &mut rand::thread_rng();
-    // generate s1,s2
-    let s1 = Fr::random(rng);
-    let s2 = Fr::random(rng);
+    // pick randomness
+    let mut _s: Vec<(bn::Fr)> = Vec::new();
+    let mut _sum = Fr::one();
+    for _i in 0..ASSUMPTION_SIZE {
+        let rnd = Fr::random(rng);
+        _s.push(rnd);
+        _sum = _sum + rnd;
+    }
+    // compute the [As]_2 term
+    let mut _c_0: Vec<(bn::G2)> = Vec::new();
+    for _i in 0..ASSUMPTION_SIZE {
+        _c_0.push(pk._h_a[_i as usize] * _s[_i as usize]);
+    }
+    _c_0.push(pk._h_a[ASSUMPTION_SIZE as usize] * _sum);
     // msp matrix M with size n1xn2
     let n1 = msp._m.len();
     let n2 = msp._m[0].len();
-    let mut _ct_yl: Vec<(bn::G1, bn::G1, bn::G1)> = Vec::new();
+    // our secret msg
     let secret = pairing(G1::random(rng), G2::random(rng));
     println!("cp-abe encrypt secret: {:?}", into_hex(secret).unwrap());
-    // pre-compute hashes
-    let mut _hash_table: Vec<Vec<Vec<(bn::G1)>>> = Vec::new();
-    for _j in 0..(n2) {
+    //compute the [(V^T As||U^T_2 As||...) M^T_i + W^T_i As]_1 terms
+    //pre-compute hashes
+    let mut hash_table: Vec<Vec<Vec<(bn::G1)>>> = Vec::new();
+    for _j in 0..n2 {
         let mut _x: Vec<Vec<(bn::G1)>> = Vec::new();
-        let _string1 = String::from("0") + &(_j + 1).to_string();
-        for _l in 1..4 {
+        let input_for_hash1 = String::from("0") + &(_j + 1).to_string();
+        for _l in 0..(ASSUMPTION_SIZE + 1) {
             let mut _y: Vec<(bn::G1)> = Vec::new();
-            let _string2 = _string1.clone() + &_l.to_string();
-            for _t in 1..3 {
-                let _string3 = _string2.clone() + &_t.to_string();
-                let mut _hash = hash_string_to_element(&_string3);
-                _y.push(_hash);
+            let input_for_hash2 = input_for_hash1.clone() + &(_l).to_string();
+            for _t in 0..ASSUMPTION_SIZE {
+                let hashed_value =
+                    hash_to((input_for_hash2.clone() + &(_t).to_string()).as_bytes());
+                _y.push(hashed_value);
             }
             _x.push(_y);
         }
-        _hash_table.push(_x);
+        hash_table.push(_x);
     }
-    for _i in 0..(n1) {
-        let mut _ct_yl_temp: Vec<(bn::G1)> = Vec::new();
-        for _l in 1..4 {
+    // now compute c
+    let mut _c: Vec<Vec<(bn::G1)>> = Vec::new();
+    for _a in 0..n1 {
+        let mut _ct: Vec<(bn::G1)> = Vec::new();
+        let attr = &msp._pi[_a as usize];
+        for _l in 0..(ASSUMPTION_SIZE + 1) {
             let mut _prod = G1::one();
-            for _t in 1..3 {
-                let mut _hash =
-                    hash_string_to_element(&combine_string(&msp._pi[_i], _l as u32, _t as u32));
-                for _j in 1..(msp._m[_i].len() + 1) {
-                    _hash = _hash + _hash_table[_j - 1][_l - 1][_t - 1] * msp._m[_i][_j - 1];
+            for _t in 0..ASSUMPTION_SIZE {
+                let input_for_hash = combine_string(attr, _l, _t);
+                let mut _prod1 = hash_to(input_for_hash.as_bytes());
+                for _j in 0..n2 {
+                    // use hash_table
+                    let hash = hash_table[_j as usize][_l as usize][_t as usize];
+                    _prod1 = _prod1 + (hash * msp._m[_a as usize][_j as usize]);
+
                 }
-                _hash = _hash * s1;
-                _hash = _hash * s2;
-                _prod = _prod + _hash;
+                _prod = _prod + (_prod1 * _s[_t as usize]);
             }
-            _ct_yl_temp.push(_prod);
+            _ct.push(_prod);
         }
-        _ct_yl.push((_ct_yl_temp[0], _ct_yl_temp[1], _ct_yl_temp[2]));
+        _c.push(_ct);
     }
-    let mut ct_0: Vec<(bn::G2)> = Vec::new();
-    ct_0.push(pk._h_n[0] * s1);
-    ct_0.push(pk._h_n[1] * s2);
-    ct_0.push(pk._h * (s1 + s2));
+    // compute the e(g, h)^(k^T As) . m term
+    let mut _cp = Gt::one();
+    for _i in 0..ASSUMPTION_SIZE {
+        let term = pk._t_n[_i as usize].pow(_s[_i as usize]);
+        _cp = _cp * term;
+    }
+    _cp = _cp * secret;
     //Encrypt plaintext using derived key from secret
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
@@ -282,9 +317,9 @@ pub fn cpabe_encrypt(
             rng.fill_bytes(&mut iv);
             println!("key: {:?}", &key);
             let ct = AbeCiphertext {
-                _ct_0: ct_0,
-                _ct_prime: (pk._t_n[0].pow(s1) * pk._t_n[1].pow(s2) * secret),
-                _ct_y: _ct_yl,
+                _ct_0: _c_0,
+                _ct_prime: _cp,
+                _ct_y: _c,
                 _ct: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
                 _iv: iv,
             };
@@ -296,24 +331,24 @@ pub fn cpabe_encrypt(
 pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
     let mut prod1_gt = Gt::one();
     let mut prod2_gt = Gt::one();
-    for _i in 0..2 {
+
+    // TODO: add pruning check
+    // i.e. if policy not satisfied by attributes return here
+
+    for _i in 0..(ASSUMPTION_SIZE + 1) {
         let mut prod_h = G1::one(); // sk
         let mut prod_g = G1::one(); // ct
         for _j in 0..ct._ct_y.len() {
-            let (sk0, sk1, sk2) = sk._sk_y[_j];
-            let (ct0, ct1, ct2) = ct._ct_y[_j];
-            prod_h = prod_h + sk0 + sk1 + sk2;
-            prod_g = prod_g + ct0 + ct1 + ct2;
+            prod_h = prod_h + sk._sk_y[_j as usize][_i as usize];
+            prod_g = prod_g + ct._ct_y[_j as usize][_i as usize];
         }
-        prod1_gt = prod1_gt * pairing(sk._sk_t[_i] + prod_h, ct._ct_0[_i]);
-        prod2_gt = prod2_gt * pairing(prod_g, sk._sk_0[_i]);
+        prod1_gt = prod1_gt * pairing(sk._sk_t[_i as usize] + prod_h, ct._ct_0[_i as usize]);
+        prod2_gt = prod2_gt * pairing(prod_g, sk._sk_0[_i as usize]);
     }
     let secret = ct._ct_prime * (prod2_gt * prod1_gt.inverse());
     println!("cp-abe decrypt secret: {:?}", into_hex(secret).unwrap());
-    let r: Vec<u8> = Vec::new();
-    return Some(r);
     // Decrypt plaintext using derived secret from abe scheme
-    /*let mut sha = Sha3::sha3_256();
+    let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
         Err(_) => return None,
         Ok(e) => {
@@ -324,10 +359,12 @@ pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>>
             let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
             return Some(aes);
         }
-    }*/
+    }
 }
-
-// KP ABE PART
+/*
+//////////////////////////////////////////
+// KP ABE SCHEME:
+//////////////////////////////////////////
 
 pub fn kpabe_keygen(msk: &AbeMasterKey, msp: &AbePolicy) -> Option<KpAbeSecretKey> {
     // if no attibutes or an empty policy
@@ -456,54 +493,6 @@ pub fn kpabe_encrypt(
     }
 }
 
-
-#[no_mangle]
-pub extern "C" fn abe_context_create() -> *mut AbeContext {
-    let (pk, msk) = abe_setup();
-    let _ctx = unsafe { transmute(Box::new(AbeContext { _msk: msk, _pk: pk })) };
-    _ctx
-}
-
-#[no_mangle]
-pub extern "C" fn abe_context_destroy(ctx: *mut AbeContext) {
-    let _ctx: Box<AbeContext> = unsafe { transmute(ctx) };
-    // Drop reference for GC
-}
-
-#[no_mangle]
-pub extern "C" fn kpabe_secret_key_create(
-    ctx: *mut AbeContext,
-    policy: *mut c_char,
-) -> *mut KpAbeSecretKey {
-    let t = unsafe { &mut *policy };
-    let mut _policy = unsafe { CStr::from_ptr(t) };
-    let pol = String::from(_policy.to_str().unwrap());
-    let _msp = AbePolicy::from_string(&pol).unwrap();
-    let _ctx = unsafe { &mut *ctx };
-    let sk = kpabe_keygen(&_ctx._msk, &_msp).unwrap();
-    let _sk = unsafe {
-        transmute(Box::new(KpAbeSecretKey {
-            _sk_0: sk._sk_0.clone(),
-            _sk_y: sk._sk_y.clone(),
-        }))
-    };
-    _sk
-}
-
-#[no_mangle]
-pub extern "C" fn kpabe_secret_key_destroy(sk: *mut KpAbeSecretKey) {
-    let _sk: Box<KpAbeSecretKey> = unsafe { transmute(sk) };
-    // Drop reference for GC
-}
-
-#[no_mangle]
-pub extern "C" fn kpabe_decrypt_native(sk: *mut KpAbeSecretKey, ct: *mut c_char) -> i32 {
-    //TODO: Deserialize ct
-    //TODO: Call abe_decrypt
-    //TODO: serialize returned pt and store under pt
-    return 1;
-}
-
 pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
     let mut prod1_gt = Gt::one();
     let mut prod2_gt = Gt::one();
@@ -524,7 +513,7 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>>
     let r: Vec<u8> = Vec::new();
     return Some(r);
     // Decrypt plaintext using derived secret from abe scheme
-    /*
+
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
         Err(val) => {println!("Error: {:?}", val);return None},
@@ -540,7 +529,55 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>>
             return Some(res);
         }
     }
-    */
+}
+*/
+
+#[no_mangle]
+pub extern "C" fn abe_context_create() -> *mut AbeContext {
+    let (pk, msk) = abe_setup();
+    let _ctx = unsafe { transmute(Box::new(AbeContext { _msk: msk, _pk: pk })) };
+    _ctx
+}
+
+#[no_mangle]
+pub extern "C" fn abe_context_destroy(ctx: *mut AbeContext) {
+    let _ctx: Box<AbeContext> = unsafe { transmute(ctx) };
+    // Drop reference for GC
+}
+
+/*
+#[no_mangle]
+pub extern "C" fn kpabe_secret_key_create(
+    ctx: *mut AbeContext,
+    policy: *mut c_char,
+) -> *mut KpAbeSecretKey {
+    let t = unsafe { &mut *policy };
+    let mut _policy = unsafe { CStr::from_ptr(t) };
+    let pol = String::from(_policy.to_str().unwrap());
+    let _msp = AbePolicy::from_string(&pol).unwrap();
+    let _ctx = unsafe { &mut *ctx };
+    let sk = kpabe_keygen(&_ctx._msk, &_msp).unwrap();
+    let _sk = unsafe {
+        transmute(Box::new(KpAbeSecretKey {
+            _sk_0: sk._sk_0.clone(),
+            _sk_y: sk._sk_y.clone(),
+        }))
+    };
+    _sk
+}
+*/
+#[no_mangle]
+pub extern "C" fn kpabe_secret_key_destroy(sk: *mut KpAbeSecretKey) {
+    let _sk: Box<KpAbeSecretKey> = unsafe { transmute(sk) };
+    // Drop reference for GC
+}
+
+#[no_mangle]
+pub extern "C" fn kpabe_decrypt_native(sk: *mut KpAbeSecretKey, ct: *mut c_char) -> i32 {
+    //TODO: Deserialize ct
+    //TODO: Call abe_decrypt
+    //TODO: serialize returned pt and store under pt
+    return 1;
 }
 
 // Helper functions from here on
@@ -548,7 +585,7 @@ pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
     encode(&obj, Infinite).ok().map(|e| e.to_hex())
 }
 
-pub fn combine_string(text: &String, j: u32, t: u32) -> String {
+pub fn combine_string(text: &String, j: i32, t: i32) -> String {
     let mut _combined: String = text.to_owned();
     _combined.push_str(&j.to_string());
     _combined.push_str(&t.to_string());
@@ -673,9 +710,9 @@ mod tests {
     use cpabe_keygen;
     use cpabe_encrypt;
     use cpabe_decrypt;
-    use kpabe_keygen;
-    use kpabe_encrypt;
-    use kpabe_decrypt;
+    //use kpabe_keygen;
+    //use kpabe_encrypt;
+    //use kpabe_decrypt;
     use hash_string_to_element;
     use combine_string;
     use AbePolicy;
@@ -712,10 +749,10 @@ mod tests {
         // assert random values a
         let hn0 = into_hex(msk._h * msk._a[0]).unwrap();
         let hn1 = into_hex(msk._h * msk._a[1]).unwrap();
-        assert_eq!(hn0, into_hex(pk._h_n[0]).unwrap());
-        assert_eq!(hn1, into_hex(pk._h_n[1]).unwrap());
+        assert_eq!(hn0, into_hex(pk._h_a[0]).unwrap());
+        assert_eq!(hn1, into_hex(pk._h_a[1]).unwrap());
     }
-
+    /*
     #[test]
     fn test_keygen() {
         let (pk, msk) = abe_setup();
@@ -727,12 +764,12 @@ mod tests {
         // with 3 columns
         assert_eq!(msp._m[0].len(), 3);
         // create sk from msk and msp
-        let sk: KpAbeSecretKey = kpabe_keygen(&msk, &msp).unwrap();
+        let sk: CpAbeSecretKey = cpabe_keygen(&msk, &msp).unwrap();
         assert_eq!(sk._sk_y.len(), 4);
-    }
-
+    }  
+*/
     #[test]
-    fn test_cp_abe_and_encryption() {
+    fn test_cp_abe_and() {
         // setup scheme
         let (pk, msk) = abe_setup();
         // a set of two attributes
@@ -740,14 +777,18 @@ mod tests {
         attributes.push_back(String::from("A"));
         attributes.push_back(String::from("B"));
         // an msp policy (A and B)
-        let msp1: AbePolicy = AbePolicy::from_string(
+        let msp: AbePolicy = AbePolicy::from_string(
             &String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
         ).unwrap();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!");
         // cp-abe ciphertext
-        let ct_cp: AbeCiphertext = cpabe_encrypt(&pk, &msp1, &plaintext.clone().into_bytes())
-            .unwrap();
+        let ct_cp: AbeCiphertext = cpabe_encrypt(
+            &pk,
+            &msp,
+            &String::from(
+                "dance like no one's watching, encrypt like everyone is!",
+            ).into_bytes(),
+        ).unwrap();
         // some assertions
         // TODO
         // a cp-abe SK key using msp
@@ -759,7 +800,7 @@ mod tests {
         let cp = String::from_utf8(plaintext_cp).unwrap();
         println!("plaintext_cp: {:?}", cp);
     }
-
+    /*
     #[test]
     fn test_kp_abe_and_encryption() {
         // setup scheme
@@ -788,12 +829,12 @@ mod tests {
         let kp = String::from_utf8(plaintext_kp).unwrap();
         println!("plaintext_kp: {:?}", kp);
     }
-
+*/
     #[test]
     fn test_combine_string() {
         let s1 = String::from("hashing");
-        let u2: u32 = 4;
-        let u3: u32 = 8;
+        let u2: i32 = 4;
+        let u3: i32 = 8;
         let _combined = combine_string(&s1, u2, u3);
         assert_eq!(_combined, String::from("hashing48"));
     }
