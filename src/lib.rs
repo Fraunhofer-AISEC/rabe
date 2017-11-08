@@ -21,6 +21,8 @@ use std::collections::LinkedList;
 use std::string::String;
 use std::ops::Add;
 use std::ops::Sub;
+use std::ops::Mul;
+use std::ops::Div;
 use num_bigint::BigInt;
 use bn::*;
 use crypto::digest::Digest;
@@ -39,7 +41,7 @@ use policy::AbePolicy;
 mod policy;
 
 // Barreto-Naehrig (BN) curve construction with an efficient bilinear pairing e: G1 × G2 → GT
-const ASSUMPTION_SIZE: i32 = 2;
+const ASSUMPTION_SIZE: usize = 2;
 
 //#[doc = /**
 // * TODO
@@ -113,34 +115,31 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // generate two instances of the k-linear assumption
     let mut a: Vec<(bn::Fr)> = Vec::new();
     let mut b: Vec<(bn::Fr)> = Vec::new();
-    // temp k vector
-    let mut k: Vec<(bn::Fr)> = Vec::new();
     // generate random A and B's
-    for _i in 0..ASSUMPTION_SIZE {
+    for _i in 0usize..ASSUMPTION_SIZE {
         a.push(Fr::random(rng));
         b.push(Fr::random(rng));
     }
+    // temp k vector
+    let mut k: Vec<(bn::Fr)> = Vec::new();
     // generate two instances of the k-linear assumption
-    for _i in 0..(ASSUMPTION_SIZE + 1) {
+    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
         k.push(Fr::random(rng));
     }
     // h^a vector
     let mut h_a: Vec<(bn::G2)> = Vec::new();
-    for _i in 0..ASSUMPTION_SIZE {
-        h_a.push(h * a[_i as usize]);
+    for _i in 0usize..ASSUMPTION_SIZE {
+        h_a.push(h * a[_i]);
     }
     h_a.push(h);
     // compute the e([k]_1, [A]_2) term
     let mut g_k: Vec<(bn::G1)> = Vec::new();
-    for _i in 0..(ASSUMPTION_SIZE + 1) {
-        g_k.push(g * k[_i as usize])
+    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
+        g_k.push(g * k[_i]);
     }
     let mut _e_gh_k_a: Vec<(bn::Gt)> = Vec::new();
-    for _i in 0..ASSUMPTION_SIZE {
-        let _gki = e_gh.pow(
-            k[_i as usize] * a[_i as usize] + k[ASSUMPTION_SIZE as usize],
-        );
-        _e_gh_k_a.push(_gki);
+    for _i in 0usize..ASSUMPTION_SIZE {
+        _e_gh_k_a.push(e_gh.pow(k[_i] * a[_i] + k[ASSUMPTION_SIZE]));
     }
     // set values of PK
     let pk = AbePublicKey {
@@ -174,33 +173,35 @@ pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeS
     let rng = &mut rand::thread_rng();
     // generate random r1 and r2 and sum of both
     let mut _r: Vec<(bn::Fr)> = Vec::new();
-    let mut _sum = Fr::one();
-    for _i in 0..ASSUMPTION_SIZE {
+    let mut _sum = Fr::zero();
+    for _i in 0usize..ASSUMPTION_SIZE {
         let rnd = Fr::random(rng);
         _r.push(rnd);
         _sum = _sum + rnd;
     }
     // first compute just Br as it will be used later too
     let mut _br: Vec<(bn::Fr)> = Vec::new();
-    for _i in 0..ASSUMPTION_SIZE {
-        _br.push(msk._b[_i as usize] * _r[_i as usize])
+    for _i in 0usize..ASSUMPTION_SIZE {
+        _br.push(msk._b[_i] * _r[_i])
     }
     _br.push(_sum);
     // now compute [Br]_2
     let mut _k_0: Vec<(bn::G2)> = Vec::new();
-    for _i in 0..(ASSUMPTION_SIZE + 1) {
-        _k_0.push(msk._h * _br[_i as usize]);
+    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
+        _k_0.push(msk._h * _br[_i]);
     }
     let mut _k: Vec<Vec<(bn::G1)>> = Vec::new();
     for attr in s {
         let mut _key: Vec<(bn::G1)> = Vec::new();
         let sigma_attr = Fr::random(rng);
-        for _t in 0..ASSUMPTION_SIZE {
+        for _t in 0usize..ASSUMPTION_SIZE {
             let mut _prod = G1::one();
-            let a_t = msk._a[_t as usize];
-            for _l in 0..(ASSUMPTION_SIZE + 1) {
-                let elm = hash_to(combine_string(attr, _l, _t).as_bytes());
-                _prod = _prod + (elm * (_br[_l as usize] * a_t.inverse().unwrap()));
+            let a_t = msk._a[_t];
+            for _l in 0usize..(ASSUMPTION_SIZE + 1) {
+                let str = combine_string(attr, _l, _t);
+                println!("cpabe_keygen sk_y[{:?}][{:?}]: {:?}", _t, _l, str);
+                let elm = hash_to(str.as_bytes());
+                _prod = _prod + (elm * (_br[_l].mul(a_t.inverse().unwrap())));
             }
             _prod = _prod + (msk._g * (sigma_attr * a_t.inverse().unwrap()));
             _key.push(_prod);
@@ -211,17 +212,19 @@ pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeS
     // compute [k + VBr]_1
     let mut _kp: Vec<bn::G1> = Vec::new();
     let sigma = Fr::random(rng);
-    for _t in 0..ASSUMPTION_SIZE {
-        let mut _prod = msk._g_k[_t as usize];
-        let a_t = msk._a[_t as usize];
-        for _l in 0..(ASSUMPTION_SIZE + 1) {
-            let elm = hash_to(combine_string(&String::from("01"), _l, _t).as_bytes());
-            _prod = _prod + (elm * (_br[_l as usize] * a_t.inverse().unwrap()));
+    for _t in 0usize..ASSUMPTION_SIZE {
+        let mut _prod = msk._g_k[_t];
+        let a_t = msk._a[_t];
+        for _l in 0usize..(ASSUMPTION_SIZE + 1) {
+            let str = combine_string(&String::from("01"), _l, _t);
+            println!("cpabe_keygen sk_t[{:?}][{:?}]: {:?}", _t, _l, str);
+            let elm = hash_to(str.as_bytes());
+            _prod = _prod + (elm * (_br[_l] * a_t.inverse().unwrap()));
         }
         _prod = _prod + (msk._g * (sigma * a_t.inverse().unwrap()));
         _kp.push(_prod);
     }
-    _kp.push(msk._g_k[ASSUMPTION_SIZE as usize] + (msk._g * (-sigma)));
+    _kp.push(msk._g_k[ASSUMPTION_SIZE] + (msk._g * (-sigma)));
 
     return Some(CpAbeSecretKey {
         _sk_0: _k_0,
@@ -243,17 +246,17 @@ pub fn cpabe_encrypt(
     // pick randomness
     let mut _s: Vec<(bn::Fr)> = Vec::new();
     let mut _sum = Fr::one();
-    for _i in 0..ASSUMPTION_SIZE {
+    for _i in 0usize..ASSUMPTION_SIZE {
         let rnd = Fr::random(rng);
         _s.push(rnd);
         _sum = _sum + rnd;
     }
     // compute the [As]_2 term
     let mut _c_0: Vec<(bn::G2)> = Vec::new();
-    for _i in 0..ASSUMPTION_SIZE {
-        _c_0.push(pk._h_a[_i as usize] * _s[_i as usize]);
+    for _i in 0usize..ASSUMPTION_SIZE {
+        _c_0.push(pk._h_a[_i] * _s[_i]);
     }
-    _c_0.push(pk._h_a[ASSUMPTION_SIZE as usize] * _sum);
+    _c_0.push(pk._h_a[ASSUMPTION_SIZE] * _sum);
     // msp matrix M with size n1xn2
     let n1 = msp._m.len();
     let n2 = msp._m[0].len();
@@ -270,6 +273,13 @@ pub fn cpabe_encrypt(
             let mut _y: Vec<(bn::G1)> = Vec::new();
             let input_for_hash2 = input_for_hash1.clone() + &(_l).to_string();
             for _t in 0..ASSUMPTION_SIZE {
+                println!(
+                    "cpabe_encrypt SUM[{:?}][{:?}][{:?}]: {:?}",
+                    _j,
+                    _l,
+                    _t,
+                    (input_for_hash2.clone() + &(_t).to_string())
+                );
                 let hashed_value =
                     hash_to((input_for_hash2.clone() + &(_t).to_string()).as_bytes());
                 _y.push(hashed_value);
@@ -280,21 +290,35 @@ pub fn cpabe_encrypt(
     }
     // now compute c
     let mut _c: Vec<Vec<(bn::G1)>> = Vec::new();
-    for _a in 0..n1 {
+    for _a in 0usize..n1 {
         let mut _ct: Vec<(bn::G1)> = Vec::new();
-        let attr = &msp._pi[_a as usize];
+        let attr = &msp._pi[_a];
         for _l in 0..(ASSUMPTION_SIZE + 1) {
             let mut _prod = G1::one();
             for _t in 0..ASSUMPTION_SIZE {
                 let input_for_hash = combine_string(attr, _l, _t);
+                println!(
+                    "cpabe_encrypt ct_il[{:?}][{:?}][{:?}]: {:?}",
+                    _a,
+                    _l,
+                    _t,
+                    input_for_hash
+                );
                 let mut _prod1 = hash_to(input_for_hash.as_bytes());
-                for _j in 0..n2 {
+                for _j in 0usize..n2 {
                     // use hash_table
-                    let hash = hash_table[_j as usize][_l as usize][_t as usize];
-                    _prod1 = _prod1 + (hash * msp._m[_a as usize][_j as usize]);
-
+                    if msp._m[_a][_j] == 0 {
+                        // do nothing
+                    } else if msp._m[_a][_j] == 1 {
+                        _prod1 = _prod1 + (hash_table[_j][_l][_t]);
+                    } else if msp._m[_a][_j] == -1 {
+                        _prod1 = _prod1 + (-hash_table[_j][_l][_t]);
+                    } else {
+                        // error in msp
+                        return None;
+                    }
                 }
-                _prod = _prod + (_prod1 * _s[_t as usize]);
+                _prod = _prod + (_prod1 * _s[_t]);
             }
             _ct.push(_prod);
         }
@@ -302,11 +326,10 @@ pub fn cpabe_encrypt(
     }
     // compute the e(g, h)^(k^T As) . m term
     let mut _cp = Gt::one();
-    for _i in 0..ASSUMPTION_SIZE {
-        let term = pk._t_n[_i as usize].pow(_s[_i as usize]);
-        _cp = _cp * term;
+    for _i in 0usize..ASSUMPTION_SIZE {
+        _cp.mul(pk._t_n[_i].pow(_s[_i]));
     }
-    _cp = _cp * secret;
+    _cp.mul(secret);
     //Encrypt plaintext using derived key from secret
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
@@ -337,15 +360,15 @@ pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>>
     // TODO: add pruning check
     // i.e. if policy not satisfied by attributes return here
 
-    for _i in 0..(ASSUMPTION_SIZE + 1) {
+    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
         let mut prod_h = G1::one(); // sk
         let mut prod_g = G1::one(); // ct
         for _j in 0..ct._ct_y.len() {
-            prod_h = prod_h + sk._sk_y[_j as usize][_i as usize];
-            prod_g = prod_g + ct._ct_y[_j as usize][_i as usize];
+            prod_h = prod_h + sk._sk_y[_j][_i];
+            prod_g = prod_g + ct._ct_y[_j][_i];
         }
-        prod1_gt = prod1_gt * pairing(sk._sk_t[_i as usize] + prod_h, ct._ct_0[_i as usize]);
-        prod2_gt = prod2_gt * pairing(prod_g, sk._sk_0[_i as usize]);
+        prod1_gt = prod1_gt * pairing(sk._sk_t[_i] + prod_h, ct._ct_0[_i]);
+        prod2_gt = prod2_gt * pairing(prod_g, sk._sk_0[_i]);
     }
     let secret = ct._ct_prime * (prod2_gt * prod1_gt.inverse());
     println!("cp-abe decrypt secret: {:?}", into_hex(secret).unwrap());
@@ -587,7 +610,7 @@ pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
     encode(&obj, Infinite).ok().map(|e| e.to_hex())
 }
 
-pub fn combine_string(text: &String, j: i32, t: i32) -> String {
+pub fn combine_string(text: &String, j: usize, t: usize) -> String {
     let mut _combined: String = text.to_owned();
     _combined.push_str(&j.to_string());
     _combined.push_str(&t.to_string());
@@ -761,6 +784,12 @@ mod tests {
     fn test_keygen() {
         let (pk, msk) = abe_setup();
         // 4 attributes a, b, c and d
+        let mut attributes: LinkedList<String> = LinkedList::new();
+        attributes.push_back(String::from("A"));
+        attributes.push_back(String::from("B"));
+        attributes.push_back(String::from("C"));
+        attributes.push_back(String::from("D"));
+        // 4 attributes a, b, c and d
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
         // 4 rows
@@ -768,9 +797,11 @@ mod tests {
         // with 3 columns
         assert_eq!(msp._m[0].len(), 3);
         // create sk from msk and msp
-        let sk: CpAbeSecretKey = cpabe_keygen(&msk, &msp).unwrap();
-        assert_eq!(sk._sk_y.len(), 4);
-    }  
+        //let kp_sk: KpAbeSecretKey = kpabe_keygen(&msk, &msp).unwrap();
+
+        let cp_sk: CpAbeSecretKey = cpabe_keygen(&msk, &attributes).unwrap();
+        //assert_eq!(sk._sk_y.len(), 4);
+    }
 */
     #[test]
     fn test_cp_abe_and() {
@@ -802,7 +833,7 @@ mod tests {
         // and now decrypt again
         let plaintext_cp: Vec<u8> = cpabe_decrypt(&sk_cp, &ct_cp).unwrap();
         let cp = String::from_utf8(plaintext_cp).unwrap();
-        println!("plaintext_cp: {:?}", cp);
+        //println!("plaintext_cp: {:?}", cp);
     }
     /*
     #[test]
@@ -837,37 +868,10 @@ mod tests {
     #[test]
     fn test_combine_string() {
         let s1 = String::from("hashing");
-        let u2: i32 = 4;
-        let u3: i32 = 8;
+        let u2: usize = 4;
+        let u3: usize = 8;
         let _combined = combine_string(&s1, u2, u3);
         assert_eq!(_combined, String::from("hashing48"));
-    }
-
-    #[test]
-    fn test_neutralization() {
-        let one = Fr::from_str("1");
-        let zero = Fr::from_str("0");
-        let _minus = zero.unwrap().sub(one.unwrap());
-        let _plus = zero.unwrap().add(one.unwrap());
-        let _neutral = _minus.add(_plus);
-        let g1one = G1::one();
-        let g1zero = G1::zero();
-        let minus = g1one * _minus;
-        let neutral = g1one * _neutral;
-        let plus = g1one * _plus;
-        let ext = minus + plus;
-
-        println!("g1: {:?}", into_hex(g1one).unwrap());
-        println!("g0: {:?}", into_hex(g1zero).unwrap());
-        println!("minus: {:?}", into_hex(minus).unwrap());
-        println!("neutral: {:?}", into_hex(neutral).unwrap());
-        println!("plus: {:?}", into_hex(plus).unwrap());
-        println!("ext: {:?}", into_hex(ext).unwrap());
-
-        assert_eq!(into_hex(ext).unwrap(), into_hex(neutral).unwrap());
-        assert_eq!(into_hex(ext).unwrap(), into_hex(g1zero).unwrap());
-        assert_eq!(into_hex(plus).unwrap(), into_hex(g1one).unwrap());
-        assert_eq!(into_hex(neutral).unwrap(), into_hex(g1zero).unwrap());
     }
 
     #[test]
@@ -884,20 +888,13 @@ mod tests {
 
     #[test]
     fn test_to_msp() {
-
-        let one = Fr::from_str("1");
-        let zero = Fr::from_str("0");
-        let _minus = zero.unwrap().sub(one.unwrap());
-        let _plus = zero.unwrap().add(one.unwrap());
-        let _neutral = _minus.add(_plus);
-
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         let mut _values: Vec<Vec<Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
-        let p1 = vec![_neutral, _neutral, _minus];
-        let p2 = vec![_plus, _neutral, _plus];
-        let p3 = vec![_neutral, _minus, _neutral];
-        let p4 = vec![_plus, _plus, _neutral];
+        let p1 = vec![0, 0, -1];
+        let p2 = vec![1, 0, 1];
+        let p3 = vec![0, -1, 0];
+        let p4 = vec![1, 1, 0];
         let mut _msp_static = AbePolicy {
             _m: vec![p1, p2, p3, p4],
             _pi: vec![
@@ -915,22 +912,11 @@ mod tests {
                     let p = &_msp._m[i];
                     let p_test = &_msp_static._m[i];
                     for j in 0..3 {
-                        println!("_mspg[{:?}][{:?}]: {:?}", i, j, into_hex(p[j]).unwrap());
-                        println!(
-                            "_msps[{:?}][{:?}]: {:?}",
-                            i,
-                            j,
-                            into_hex(p_test[j]).unwrap()
-                        );
+                        //println!("_mspg[{:?}][{:?}]: {:?}", i, j, p[j]);
+                        //println!("_msps[{:?}][{:?}]: {:?}", i, j, p_test[j]);
                         assert!(p[j] == p_test[j]);
                     }
-                    println!(
-                        "_pi[{:?}]{:?} _pi[{:?}]{:?}",
-                        i,
-                        _msp_static._pi[i],
-                        i,
-                        _msp._pi[i]
-                    );
+                    //println!("_pi[{:?}]{:?} _pi[{:?}]{:?}",i,_msp_static._pi[i],i,_msp._pi[i]);
                     assert!(_msp_static._pi[i] == _msp._pi[i]);
                 }
                 assert!(_msp_static._deg == _msp._deg);

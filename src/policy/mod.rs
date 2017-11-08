@@ -9,19 +9,17 @@ use std::ops::Add;
 use bn::*;
 
 pub struct AbePolicy {
-    pub _m: Vec<Vec<bn::Fr>>,
+    pub _m: Vec<Vec<i32>>,
     pub _pi: Vec<String>,
     pub _deg: usize,
 }
 
-fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
+fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();
-    let one = bn::Fr::from_str("1");
-    let zero = bn::Fr::from_str("0");
-    let _minus = zero.unwrap().sub(one.unwrap());
-    let _plus = zero.unwrap().add(one.unwrap());
-    let _neutral = _minus.add(_plus);
+    let _minus: i32 = -1;
+    let _plus: i32 = 1;
+    let _neutral: i32 = 0;
 
     if *p == serde_json::Value::Null {
         println!("Error passed null!");
@@ -74,8 +72,8 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<bn::Fr>) -> bool {
 // * BEWARE: policy must be in DNF!
 // */]
 pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
-    let mut v: Vec<bn::Fr> = Vec::new();
-    let mut _values: Vec<Vec<Fr>> = Vec::new();
+    let mut v: Vec<i32> = Vec::new();
+    let mut _values: Vec<Vec<i32>> = Vec::new();
     let mut _attributes: Vec<String> = Vec::new();
     let mut msp = AbePolicy {
         _m: _values,
@@ -83,10 +81,10 @@ pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
         _deg: 1,
     };
 
-    v.push(bn::Fr::one());
+    v.push(1);
     if lw(&mut msp, json, v) {
         for p in &mut msp._m {
-            p.resize(msp._deg, bn::Fr::zero());
+            p.resize(msp._deg, 0);
         }
         msp._pi.reverse();
         return Some(msp);
