@@ -19,6 +19,8 @@ use std::ffi::CStr;
 use std::mem::transmute;
 use std::collections::LinkedList;
 use std::string::String;
+use std::ops::Add;
+use std::ops::Sub;
 use num_bigint::BigInt;
 use bn::*;
 use crypto::digest::Digest;
@@ -719,9 +721,11 @@ mod tests {
     use AbeCiphertext;
     use CpAbeSecretKey;
     use KpAbeSecretKey;
-    use Fr;
+    //use Fr;
     use std::collections::LinkedList;
     use std::string::String;
+    use std::ops::Add;
+    use std::ops::Sub;
     use bn::*;
     use bincode::SizeLimit::Infinite;
     use bincode::rustc_serialize::{encode, decode};
@@ -840,6 +844,33 @@ mod tests {
     }
 
     #[test]
+    fn test_neutralization() {
+        let one = Fr::from_str("1");
+        let zero = Fr::from_str("0");
+        let _minus = zero.unwrap().sub(one.unwrap());
+        let _plus = zero.unwrap().add(one.unwrap());
+        let _neutral = _minus.add(_plus);
+        let g1one = G1::one();
+        let g1zero = G1::zero();
+        let minus = g1one * _minus;
+        let neutral = g1one * _neutral;
+        let plus = g1one * _plus;
+        let ext = minus + plus;
+
+        println!("g1: {:?}", into_hex(g1one).unwrap());
+        println!("g0: {:?}", into_hex(g1zero).unwrap());
+        println!("minus: {:?}", into_hex(minus).unwrap());
+        println!("neutral: {:?}", into_hex(neutral).unwrap());
+        println!("plus: {:?}", into_hex(plus).unwrap());
+        println!("ext: {:?}", into_hex(ext).unwrap());
+
+        assert_eq!(into_hex(ext).unwrap(), into_hex(neutral).unwrap());
+        assert_eq!(into_hex(ext).unwrap(), into_hex(g1zero).unwrap());
+        assert_eq!(into_hex(plus).unwrap(), into_hex(g1one).unwrap());
+        assert_eq!(into_hex(neutral).unwrap(), into_hex(g1zero).unwrap());
+    }
+
+    #[test]
     fn test_hash() {
         let s1 = String::from("hashing");
         let point1 = hash_string_to_element(&s1);
@@ -853,20 +884,27 @@ mod tests {
 
     #[test]
     fn test_to_msp() {
-        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
+
+        let one = Fr::from_str("1");
+        let zero = Fr::from_str("0");
+        let _minus = zero.unwrap().sub(one.unwrap());
+        let _plus = zero.unwrap().add(one.unwrap());
+        let _neutral = _minus.add(_plus);
+
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         let mut _values: Vec<Vec<Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
-        let p1 = vec![Fr::zero(), Fr::zero(), -Fr::one()];
-        let p2 = vec![Fr::one(), Fr::zero(), Fr::one()];
-        let p3 = vec![Fr::zero(), -Fr::one(), Fr::zero()];
-        let p4 = vec![Fr::one(), Fr::one(), Fr::zero()];
-        let mut _msp_test = AbePolicy {
+        let p1 = vec![_neutral, _neutral, _minus];
+        let p2 = vec![_plus, _neutral, _plus];
+        let p3 = vec![_neutral, _minus, _neutral];
+        let p4 = vec![_plus, _plus, _neutral];
+        let mut _msp_static = AbePolicy {
             _m: vec![p1, p2, p3, p4],
             _pi: vec![
                 String::from("A"),
                 String::from("B"),
-                String::from("A"),
                 String::from("C"),
+                String::from("D"),
             ],
             _deg: 3,
         };
@@ -875,12 +913,28 @@ mod tests {
             Some(_msp) => {
                 for i in 0..4 {
                     let p = &_msp._m[i];
-                    let p_test = &_msp_test._m[i];
+                    let p_test = &_msp_static._m[i];
                     for j in 0..3 {
+                        println!("_mspg[{:?}][{:?}]: {:?}", i, j, into_hex(p[j]).unwrap());
+                        println!(
+                            "_msps[{:?}][{:?}]: {:?}",
+                            i,
+                            j,
+                            into_hex(p_test[j]).unwrap()
+                        );
                         assert!(p[j] == p_test[j]);
                     }
+                    println!(
+                        "_pi[{:?}]{:?} _pi[{:?}]{:?}",
+                        i,
+                        _msp_static._pi[i],
+                        i,
+                        _msp._pi[i]
+                    );
+                    assert!(_msp_static._pi[i] == _msp._pi[i]);
                 }
-                assert!(_msp_test._deg == _msp._deg);
+                assert!(_msp_static._deg == _msp._deg);
+
             }
         }
     }
