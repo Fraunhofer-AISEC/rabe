@@ -12,8 +12,10 @@ extern crate crypto;
 extern crate bincode;
 extern crate rustc_serialize;
 extern crate num_bigint;
+extern crate blake2_rfc;
 
 use libc::*;
+use blake2_rfc::blake2b::{Blake2b, blake2b};
 use std::ffi::CString;
 use std::ffi::CStr;
 use std::mem::transmute;
@@ -23,6 +25,7 @@ use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
 use std::ops::Div;
+use std::mem;
 use num_bigint::BigInt;
 use bn::*;
 use crypto::digest::Digest;
@@ -37,6 +40,9 @@ use rustc_serialize::hex::ToHex;
 //use byteorder::{ByteOrder, BigEndian};
 use rand::Rng;
 use policy::AbePolicy;
+
+#[macro_use]
+extern crate arrayref;
 
 mod policy;
 
@@ -110,7 +116,6 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // generator of group G1: g and generator of group G2: h
     let g = G1::random(rng);
     let h = G2::random(rng);
-    let e_gh = pairing(g, h);
     // vectors
     // generate two instances of the k-linear assumption
     let mut a: Vec<(bn::Fr)> = Vec::new();
@@ -137,6 +142,8 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
         g_k.push(g * k[_i]);
     }
+
+    let e_gh = pairing(g, h);
     let mut _e_gh_k_a: Vec<(bn::Gt)> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
         _e_gh_k_a.push(e_gh.pow(k[_i] * a[_i] + k[ASSUMPTION_SIZE]));
@@ -618,12 +625,24 @@ pub fn combine_string(text: &String, j: usize, t: usize) -> String {
 }
 
 pub fn hash_to(data: &[u8]) -> bn::G1 {
-    let mut sha = Sha3::sha3_256();
+    /*let mut sha = Sha3::sha3_256();
     sha.input(data);
     let i = BigInt::parse_bytes(sha.result_str().as_bytes(), 16).unwrap();
     // TODO: check if there is a better (faster) hashToElement method
-    return G1::one() * Fr::from_str(&i.to_str_radix(10)).unwrap();
+    return G1::one().mul(Fr::from_str(&i.to_str_radix(10)).unwrap());
+    */
+    return better_hash_to(data);
 }
+
+fn pop(input: &[u8]) -> &[u8; 64] {
+    array_ref!(input, 0, 64)
+}
+
+pub fn better_hash_to(data: &[u8]) -> bn::G1 {
+    let hash = blake2b(64, &[], data);
+    return G1::one().mul(Fr::interpret(pop(hash.as_bytes())));
+}
+
 
 pub fn hash_string_to_element(text: &String) -> bn::G1 {
     return hash_to(text.as_bytes());
@@ -877,12 +896,20 @@ mod tests {
     #[test]
     fn test_hash() {
         let s1 = String::from("hashing");
+        let s2 = String::from("hashin");
+        let s3 = String::from("hashing1");
         let point1 = hash_string_to_element(&s1);
-        let expected_str: String = into_hex(point1).unwrap();
-        //println!("Expected: {:?}", expected_str); // print msg's during test: "cargo test -- --nocapture"
+        let point2 = hash_string_to_element(&s2);
+        let point3 = hash_string_to_element(&s3);
+        let expected_str1: String = into_hex(point1).unwrap();
+        let expected_str2: String = into_hex(point2).unwrap();
+        let expected_str3: String = into_hex(point3).unwrap();
+        println!("Expected1: {:?}", expected_str1); // print msg's during test: "cargo test -- --nocapture"
+        println!("Expected2: {:?}", expected_str2); // print msg's during test: "cargo test -- --nocapture"
+        println!("Expected3: {:?}", expected_str3); // print msg's during test: "cargo test -- --nocapture"
         assert_eq!(
-            "0403284c4eb462be32679deba32fa662d71bb4ba7b1300f7c8906e1215e6c354aa0d973373c26c7f2859c2ba7a0656bc59a79fa64cb3a5bbe99cf14d0f0f08ab46",
-            expected_str
+            "0405897d22cedf47c9c0d140be56f479c2c94d04cc5dddfca3abc87e600d0a8e910e6aa03645956a48953ec5a58909ab11ebac05e93a9b85b37d881457a7625505",
+            expected_str1
         );
     }
 
