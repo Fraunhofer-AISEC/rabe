@@ -201,12 +201,13 @@ pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeS
         let sigma_y = Fr::random(rng);
         for _t in 0usize..ASSUMPTION_SIZE {
             let a_t = msk._a[_t].inverse().unwrap();
-            let mut _sk_y_t = msk._g * (sigma_y * a_t);
+            let mut _sk_y_t = G1::one();
             for _l in 0usize..(ASSUMPTION_SIZE + 1) {
                 let str = combine_string(attr, _l, _t);
                 println!("keygen-1: {:?}", str);
-                _sk_y_t = _sk_y_t + hash_to(str.as_bytes()) * (_br[_l] * a_t);
+                _sk_y_t = _sk_y_t + (hash_to(str.as_bytes()) * (_br[_l] * a_t));
             }
+            _sk_y_t = _sk_y_t + (msk._g * (sigma_y * a_t));
             _sk_y.push(_sk_y_t);
         }
         _sk_y.push(msk._g * -sigma_y);
@@ -283,7 +284,7 @@ pub fn cpabe_encrypt(
         let mut _ct_il: Vec<(bn::G1)> = Vec::new();
         let attr = &msp._pi[_i];
         for _l in 0..(ASSUMPTION_SIZE + 1) {
-            let mut _ct_ilt = G1::zero();
+            let mut _ct_ilt = G1::one();
             for _t in 0..ASSUMPTION_SIZE {
                 let str = combine_string(attr, _l, _t);
                 let mut _prod = hash_to(str.as_bytes());
