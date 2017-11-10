@@ -25,6 +25,7 @@ use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
 use std::ops::Div;
+use std::ops::Neg;
 use std::mem;
 use num_bigint::BigInt;
 use bn::*;
@@ -58,9 +59,8 @@ const ASSUMPTION_SIZE: usize = 2;
 // */]
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct AbePublicKey {
-    _h: bn::G2,
     _h_a: Vec<(bn::G2)>,
-    _t_n: Vec<(bn::Gt)>,
+    _e_gh_k: Vec<(bn::Gt)>,
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -120,39 +120,51 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
     // generate two instances of the k-linear assumption
     let mut a: Vec<(bn::Fr)> = Vec::new();
     let mut b: Vec<(bn::Fr)> = Vec::new();
-    // generate random A and B's
+    // generate random a and b's
+    // without zero !
     for _i in 0usize..ASSUMPTION_SIZE {
-        a.push(Fr::random(rng));
-        b.push(Fr::random(rng));
+        let mut _r1 = Fr::random(rng);
+        let mut _r2 = Fr::random(rng);
+        loop {
+            if _r1.is_zero() {
+                _r1 = Fr::random(rng);
+            } else if _r2.is_zero() {
+                _r2 = Fr::random(rng);
+            } else {
+                break;
+            }
+        }
+        a.push(_r1);
+        b.push(_r2);
     }
+
     // temp k vector
-    let mut k: Vec<(bn::Fr)> = Vec::new();
-    // generate two instances of the k-linear assumption
+    let mut _d: Vec<(bn::Fr)> = Vec::new();
+    // generate three instances of random Zp
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-        k.push(Fr::random(rng));
+        _d.push(Fr::random(rng));
     }
     // h^a vector
     let mut h_a: Vec<(bn::G2)> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
-        h_a.push(h * a[_i]);
+        h_a.push(h.mul(a[_i]));
     }
     h_a.push(h);
     // compute the e([k]_1, [A]_2) term
-    let mut g_k: Vec<(bn::G1)> = Vec::new();
+    let mut g_d: Vec<(bn::G1)> = Vec::new();
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-        g_k.push(g * k[_i]);
+        g_d.push(g.mul(_d[_i]));
     }
-
+    // calculate the pairing between g and h
     let e_gh = pairing(g, h);
-    let mut _e_gh_k_a: Vec<(bn::Gt)> = Vec::new();
+    let mut e_gh_k: Vec<(bn::Gt)> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
-        _e_gh_k_a.push(e_gh.pow(k[_i] * a[_i] + k[ASSUMPTION_SIZE]));
+        e_gh_k.push(e_gh.pow(_d[_i].mul(a[_i]).add(_d[ASSUMPTION_SIZE])));
     }
     // set values of PK
     let pk = AbePublicKey {
-        _h: h,
         _h_a: h_a,
-        _t_n: _e_gh_k_a,
+        _e_gh_k: e_gh_k,
     };
     // set values of MSK
     let msk = AbeMasterKey {
@@ -160,7 +172,7 @@ pub fn abe_setup() -> (AbePublicKey, AbeMasterKey) {
         _h: h,
         _a: a,
         _b: b,
-        _g_k: g_k,
+        _g_k: g_d,
     };
     // return PK and MSK
     return (pk, msk);
@@ -179,64 +191,67 @@ pub fn cpabe_keygen(msk: &AbeMasterKey, s: &LinkedList<String>) -> Option<CpAbeS
     // random number generator
     let rng = &mut rand::thread_rng();
     // generate random r1 and r2 and sum of both
+    // compute Br as well because it will be used later too
     let mut _r: Vec<(bn::Fr)> = Vec::new();
-    let mut _sum = Fr::zero();
+    let mut _br: Vec<(bn::Fr)> = Vec::new();
+    let _sum = Fr::zero();
     for _i in 0usize..ASSUMPTION_SIZE {
         let rnd = Fr::random(rng);
         _r.push(rnd);
-        _sum = _sum + rnd;
-    }
-    // first compute just Br as it will be used later too
-    let mut _br: Vec<(bn::Fr)> = Vec::new();
-    for _i in 0usize..ASSUMPTION_SIZE {
-        _br.push(msk._b[_i] * _r[_i])
+        _sum.add(rnd);
+        _br.push(msk._b[_i].mul(rnd));
     }
     _br.push(_sum);
-    // now compute [Br]_2
-    let mut _k_0: Vec<(bn::G2)> = Vec::new();
+    // now compute sk_0
+    let mut _sk_0: Vec<(bn::G2)> = Vec::new();
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-        _k_0.push(msk._h * _br[_i]);
+        _sk_0.push(msk._h.mul(_br[_i]));
     }
-    let mut _k: Vec<Vec<(bn::G1)>> = Vec::new();
+    // now compute sk_(y,t)
+    let mut _key: Vec<Vec<(bn::G1)>> = Vec::new();
     for attr in s {
-        let mut _key: Vec<(bn::G1)> = Vec::new();
-        let sigma_attr = Fr::random(rng);
+        let mut _sk_y: Vec<(bn::G1)> = Vec::new();
+        let sigma_y = Fr::random(rng);
         for _t in 0usize..ASSUMPTION_SIZE {
-            let mut _prod = G1::one();
-            let a_t = msk._a[_t];
+            let mut _sk_y_t = msk._g.mul(sigma_y.mul(msk._a[_t].inverse().unwrap()));
             for _l in 0usize..(ASSUMPTION_SIZE + 1) {
                 let str = combine_string(attr, _l, _t);
-                println!("cpabe_keygen sk_y[{:?}][{:?}]: {:?}", _t, _l, str);
-                let elm = hash_to(str.as_bytes());
-                _prod = _prod + (elm * (_br[_l].mul(a_t.inverse().unwrap())));
+                println!(
+                    "cpabe_keygen sk_y[{:?}][{:?}][{:?}]: {:?}",
+                    attr,
+                    _t,
+                    _l,
+                    str
+                );
+                _sk_y_t.add(hash_to(str.as_bytes()).mul(_br[_l].mul(
+                    msk._a[_t].inverse().unwrap(),
+                )));
             }
-            _prod = _prod + (msk._g * (sigma_attr * a_t.inverse().unwrap()));
-            _key.push(_prod);
+            _sk_y.push(_sk_y_t);
         }
-        _key.push(msk._g * (-sigma_attr));
-        _k.push(_key);
+        _sk_y.push(msk._g.mul(sigma_y.neg()));
+        _key.push(_sk_y);
     }
-    // compute [k + VBr]_1
-    let mut _kp: Vec<bn::G1> = Vec::new();
+    // now compute sk_t'
+    let mut _sk_t: Vec<bn::G1> = Vec::new();
     let sigma = Fr::random(rng);
     for _t in 0usize..ASSUMPTION_SIZE {
-        let mut _prod = msk._g_k[_t];
-        let a_t = msk._a[_t];
+        let mut _sk_tp = msk._g_k[_t];
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
             let str = combine_string(&String::from("01"), _l, _t);
             println!("cpabe_keygen sk_t[{:?}][{:?}]: {:?}", _t, _l, str);
-            let elm = hash_to(str.as_bytes());
-            _prod = _prod + (elm * (_br[_l] * a_t.inverse().unwrap()));
+            _sk_tp.add(hash_to(str.as_bytes()).mul(_br[_l].mul(
+                msk._a[_t].inverse().unwrap(),
+            )));
         }
-        _prod = _prod + (msk._g * (sigma * a_t.inverse().unwrap()));
-        _kp.push(_prod);
+        _sk_tp.add(msk._g.mul(sigma.mul(msk._a[_t].inverse().unwrap())));
+        _sk_t.push(_sk_tp);
     }
-    _kp.push(msk._g_k[ASSUMPTION_SIZE] + (msk._g * (-sigma)));
-
+    _sk_t.push(msk._g_k[ASSUMPTION_SIZE].add(msk._g.mul(sigma.neg())));
     return Some(CpAbeSecretKey {
-        _sk_0: _k_0,
-        _sk_y: _k,
-        _sk_t: _kp,
+        _sk_0: _sk_0,
+        _sk_y: _key,
+        _sk_t: _sk_t,
     });
 }
 
@@ -252,91 +267,86 @@ pub fn cpabe_encrypt(
     let rng = &mut rand::thread_rng();
     // pick randomness
     let mut _s: Vec<(bn::Fr)> = Vec::new();
-    let mut _sum = Fr::one();
+    let _sum = Fr::zero();
     for _i in 0usize..ASSUMPTION_SIZE {
         let rnd = Fr::random(rng);
         _s.push(rnd);
-        _sum = _sum + rnd;
+        _sum.add(rnd);
     }
     // compute the [As]_2 term
-    let mut _c_0: Vec<(bn::G2)> = Vec::new();
+    let mut _ct_0: Vec<(bn::G2)> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
-        _c_0.push(pk._h_a[_i] * _s[_i]);
+        _ct_0.push(pk._h_a[_i].mul(_s[_i]));
     }
-    _c_0.push(pk._h_a[ASSUMPTION_SIZE] * _sum);
+    _ct_0.push(pk._h_a[ASSUMPTION_SIZE].mul(_sum));
     // msp matrix M with size n1xn2
     let n1 = msp._m.len();
     let n2 = msp._m[0].len();
     // our secret msg
     let secret = pairing(G1::random(rng), G2::random(rng));
-    println!("cp-abe encrypt secret: {:?}", into_hex(secret).unwrap());
-    //compute the [(V^T As||U^T_2 As||...) M^T_i + W^T_i As]_1 terms
     //pre-compute hashes
     let mut hash_table: Vec<Vec<Vec<(bn::G1)>>> = Vec::new();
     for _j in 0..n2 {
         let mut _x: Vec<Vec<(bn::G1)>> = Vec::new();
-        let input_for_hash1 = String::from("0") + &(_j + 1).to_string();
+        let input_hash1 = String::from("0") + &(_j + 1).to_string();
         for _l in 0..(ASSUMPTION_SIZE + 1) {
             let mut _y: Vec<(bn::G1)> = Vec::new();
-            let input_for_hash2 = input_for_hash1.clone() + &(_l).to_string();
+            let input_hash2 = input_hash1.clone() + &(_l).to_string();
             for _t in 0..ASSUMPTION_SIZE {
+                let input_hash3 = input_hash2.clone() + &(_t).to_string();
                 println!(
                     "cpabe_encrypt SUM[{:?}][{:?}][{:?}]: {:?}",
                     _j,
                     _l,
                     _t,
-                    (input_for_hash2.clone() + &(_t).to_string())
+                    input_hash3
                 );
-                let hashed_value =
-                    hash_to((input_for_hash2.clone() + &(_t).to_string()).as_bytes());
-                _y.push(hashed_value);
+                _y.push(hash_to(input_hash3.as_bytes()));
             }
             _x.push(_y);
         }
         hash_table.push(_x);
     }
-    // now compute c
-    let mut _c: Vec<Vec<(bn::G1)>> = Vec::new();
-    for _a in 0usize..n1 {
-        let mut _ct: Vec<(bn::G1)> = Vec::new();
-        let attr = &msp._pi[_a];
+    // now compute ct_i,l
+    let mut _ct_i: Vec<Vec<(bn::G1)>> = Vec::new();
+    for _i in 0usize..n1 {
+        let mut _ct_il: Vec<(bn::G1)> = Vec::new();
+        let attr = &msp._pi[_i];
         for _l in 0..(ASSUMPTION_SIZE + 1) {
-            let mut _prod = G1::one();
+            let mut _ct_ilt = G1::zero();
             for _t in 0..ASSUMPTION_SIZE {
                 let input_for_hash = combine_string(attr, _l, _t);
+                let mut _prod = hash_to(input_for_hash.as_bytes());
                 println!(
                     "cpabe_encrypt ct_il[{:?}][{:?}][{:?}]: {:?}",
-                    _a,
+                    _i,
                     _l,
                     _t,
                     input_for_hash
                 );
-                let mut _prod1 = hash_to(input_for_hash.as_bytes());
                 for _j in 0usize..n2 {
                     // use hash_table
-                    if msp._m[_a][_j] == 0 {
-                        // do nothing
-                    } else if msp._m[_a][_j] == 1 {
-                        _prod1 = _prod1 + (hash_table[_j][_l][_t]);
-                    } else if msp._m[_a][_j] == -1 {
-                        _prod1 = _prod1 + (-hash_table[_j][_l][_t]);
-                    } else {
-                        // error in msp
-                        return None;
+                    if msp._m[_i][_j] == 0 {
+                        // if M(i,j)==0 : do nothing
+                    } else if msp._m[_i][_j] == 1 {
+                        // if M(i,j)==1 : add hash value
+                        _prod.add(hash_table[_j][_l][_t]);
+                    } else if msp._m[_i][_j] == -1 {
+                        // if M(i,j)==0 : sub hash value
+                        _prod.add(hash_table[_j][_l][_t].neg());
                     }
                 }
-                _prod = _prod + (_prod1 * _s[_t]);
+                _ct_ilt.add(_prod.mul(_s[_t]));
             }
-            _ct.push(_prod);
+            _ct_il.push(_ct_ilt);
         }
-        _c.push(_ct);
+        _ct_i.push(_ct_il);
     }
-    // compute the e(g, h)^(k^T As) . m term
-    let mut _cp = Gt::one();
+    println!("cp-abe-enc secret: {:?}", into_hex(secret).unwrap());
+    let mut _cp = secret.clone();
     for _i in 0usize..ASSUMPTION_SIZE {
-        _cp.mul(pk._t_n[_i].pow(_s[_i]));
+        _cp.mul(pk._e_gh_k[_i].pow(_s[_i]));
     }
-    _cp.mul(secret);
     //Encrypt plaintext using derived key from secret
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
@@ -349,9 +359,9 @@ pub fn cpabe_encrypt(
             rng.fill_bytes(&mut iv);
             println!("key: {:?}", &key);
             let ct = AbeCiphertext {
-                _ct_0: _c_0,
+                _ct_0: _ct_0,
                 _ct_prime: _cp,
-                _ct_y: _c,
+                _ct_y: _ct_i,
                 _ct: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
                 _iv: iv,
             };
@@ -361,24 +371,25 @@ pub fn cpabe_encrypt(
 }
 
 pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &AbeCiphertext) -> Option<Vec<u8>> {
-    let mut prod1_gt = Gt::one();
-    let mut prod2_gt = Gt::one();
+    let mut num = ct._ct_prime.clone();
+    let mut den = Gt::zero();
 
     // TODO: add pruning check
     // i.e. if policy not satisfied by attributes return here
 
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-        let mut prod_h = G1::one(); // sk
-        let mut prod_g = G1::one(); // ct
+        let mut prod_num = G1::zero(); // ct
+        let mut prod_den = G1::zero(); // sk
+
         for _j in 0..ct._ct_y.len() {
-            prod_h = prod_h + sk._sk_y[_j][_i];
-            prod_g = prod_g + ct._ct_y[_j][_i];
+            prod_den.add(sk._sk_y[_j][_i]);
+            prod_num.add(ct._ct_y[_j][_i]);
         }
-        prod1_gt = prod1_gt * pairing(sk._sk_t[_i] + prod_h, ct._ct_0[_i]);
-        prod2_gt = prod2_gt * pairing(prod_g, sk._sk_0[_i]);
+        num.mul(pairing(prod_num.add(sk._sk_t[_i]), ct._ct_0[_i]));
+        den.mul(pairing(prod_den, sk._sk_0[_i]));
     }
     let secret = ct._ct_prime * (prod2_gt * prod1_gt.inverse());
-    println!("cp-abe decrypt secret: {:?}", into_hex(secret).unwrap());
+    println!("cp-abe-dec secret: {:?}", into_hex(secret).unwrap());
     // Decrypt plaintext using derived secret from abe scheme
     let mut sha = Sha3::sha3_256();
     match encode(&secret, Infinite) {
@@ -515,7 +526,7 @@ pub fn kpabe_encrypt(
             println!("key: {:?}", &key);
             let ct = AbeCiphertext {
                 _ct_0: ct_0,
-                _ct_prime: (pk._t_n[0].pow(s1) * pk._t_n[1].pow(s2) * secret),
+                _ct_prime: (pk._e_gh_k[0].pow(s1) * pk._e_gh_k[1].pow(s2) * secret),
                 _ct_y: _ct_yl,
                 _ct: encrypt_aes(plaintext, &key, &iv).ok().unwrap(),
                 _iv: iv,
@@ -769,6 +780,7 @@ mod tests {
     use std::ops::Add;
     use std::ops::Sub;
     use bn::*;
+    use num_bigint::BigInt;
     use bincode::SizeLimit::Infinite;
     use bincode::rustc_serialize::{encode, decode};
     use rustc_serialize::{Encodable, Decodable};
@@ -776,6 +788,14 @@ mod tests {
 
     pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
         encode(&obj, Infinite).ok().map(|e| e.to_hex())
+    }
+
+    pub fn into_dec<S: Encodable>(obj: S) -> Option<String> {
+        encode(&obj, Infinite).ok().map(|e| {
+            BigInt::parse_bytes(e.to_hex().as_bytes(), 16)
+                .unwrap()
+                .to_str_radix(10)
+        })
     }
 
     pub fn from_hex<S: Decodable>(s: &str) -> Option<S> {
@@ -790,8 +810,6 @@ mod tests {
     #[test]
     fn test_setup() {
         let (pk, msk) = abe_setup();
-        // assert generators
-        assert_eq!(into_hex(msk._h).unwrap(), into_hex(pk._h).unwrap());
         // assert random values a
         let hn0 = into_hex(msk._h * msk._a[0]).unwrap();
         let hn1 = into_hex(msk._h * msk._a[1]).unwrap();
@@ -891,26 +909,6 @@ mod tests {
         let u3: usize = 8;
         let _combined = combine_string(&s1, u2, u3);
         assert_eq!(_combined, String::from("hashing48"));
-    }
-
-    #[test]
-    fn test_hash() {
-        let s1 = String::from("hashing");
-        let s2 = String::from("hashin");
-        let s3 = String::from("hashing1");
-        let point1 = hash_string_to_element(&s1);
-        let point2 = hash_string_to_element(&s2);
-        let point3 = hash_string_to_element(&s3);
-        let expected_str1: String = into_hex(point1).unwrap();
-        let expected_str2: String = into_hex(point2).unwrap();
-        let expected_str3: String = into_hex(point3).unwrap();
-        println!("Expected1: {:?}", expected_str1); // print msg's during test: "cargo test -- --nocapture"
-        println!("Expected2: {:?}", expected_str2); // print msg's during test: "cargo test -- --nocapture"
-        println!("Expected3: {:?}", expected_str3); // print msg's during test: "cargo test -- --nocapture"
-        assert_eq!(
-            "0405897d22cedf47c9c0d140be56f479c2c94d04cc5dddfca3abc87e600d0a8e910e6aa03645956a48953ec5a58909ab11ebac05e93a9b85b37d881457a7625505",
-            expected_str1
-        );
     }
 
     #[test]
