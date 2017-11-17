@@ -4,8 +4,6 @@ extern crate serde_json;
 extern crate bn;
 
 use std::string::String;
-use std::ops::Sub;
-use std::ops::Add;
 use bn::*;
 
 pub struct AbePolicy {
@@ -14,12 +12,13 @@ pub struct AbePolicy {
     pub _deg: usize,
 }
 
+const ZERO: i32 = 0;
+const PLUS: i32 = 1;
+const MINUS: i32 = -1;
+
 fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();
-    let _minus: i32 = -1;
-    let _plus: i32 = 1;
-    let _neutral: i32 = 0;
 
     if *p == serde_json::Value::Null {
         println!("Error passed null!");
@@ -45,10 +44,10 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
             return false;
         }
 
-        v_tmp_right.resize(msp._deg, _neutral);
-        v_tmp_right.push(_plus);
-        v_tmp_left.resize(msp._deg, _neutral);
-        v_tmp_left.push(_minus);
+        v_tmp_right.resize(msp._deg, ZERO);
+        v_tmp_right.push(PLUS);
+        v_tmp_left.resize(msp._deg, ZERO);
+        v_tmp_left.push(MINUS);
         msp._deg += 1;
         return lw(msp, &p["AND"][0], v_tmp_right) && lw(msp, &p["AND"][1], v_tmp_left);
 
@@ -81,10 +80,10 @@ pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
         _deg: 1,
     };
 
-    v.push(1);
+    v.push(PLUS);
     if lw(&mut msp, json, v) {
         for p in &mut msp._m {
-            p.resize(msp._deg, 0);
+            p.resize(msp._deg, ZERO);
         }
         msp._pi.reverse();
         return Some(msp);
