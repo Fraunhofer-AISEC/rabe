@@ -1,4 +1,5 @@
-A Rust implementation of some ABE scheme's using the bn library (type-3 pairing on a baretto naering curve)
+A Rust implementation of some ABE scheme's using the bn library 
+(type-3 pairing / baretto naering curve)
 
 Implemented Schemes:
 - BSW CP-ABE
