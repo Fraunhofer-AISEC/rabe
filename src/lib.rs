@@ -585,7 +585,6 @@ pub fn ac17cp_encrypt(
     }
     // random msg
     let _msg = pairing(G1::random(_rng), G2::random(_rng));
-    //let _msg = Gt::one();
     _c_p = _c_p * _msg;
 
     //Encrypt plaintext using derived key from secret
@@ -843,11 +842,13 @@ pub fn ac17kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec
     }
 }
 
-
+/*
 
 //////////////////////////////////////////
 // LSW KP-ABE on type-3
 //////////////////////////////////////////
+
+// TODO : fix bug in coeff reconstruction
 
 // SETUP
 
@@ -1027,6 +1028,7 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &KpAbeCiphertext) -> Option<Vec<u8
     }
 }
 
+*/
 
 #[no_mangle]
 pub extern "C" fn abe_context_create() -> *mut CpAbeContext {
@@ -1313,6 +1315,11 @@ pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
         return false;
     }
 }
+
+/////////////////////////////////////////////////////////////////////
+// HASH TO GROUP FUNTIONS
+/////////////////////////////////////////////////////////////////////
+
 // used to hash to G1
 pub fn blake2b_hash_g1(g: bn::G1, data: &String) -> bn::G1 {
     let hash = blake2b(64, &[], data.as_bytes());
@@ -1324,7 +1331,6 @@ pub fn blake2b_hash_g2(g: bn::G2, data: &String) -> bn::G2 {
     let hash = blake2b(64, &[], data.as_bytes());
     return g * Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
 }
-
 
 // used to hash to Fr
 pub fn blake2b_hash_fr(data: &String) -> bn::Fr {
@@ -1459,6 +1465,8 @@ fn encrypt_aes(
     Ok(final_result)
 }
 
+// TESTS:
+
 #[cfg(test)]
 mod tests {
     // bsw cp-abe
@@ -1483,12 +1491,14 @@ mod tests {
     use Ac17KpCiphertext;
     use Ac17KpSecretKey;
     // lse kp-abe
+    /*
     use KpAbeCiphertext;
     use KpAbeSecretKey;
     use kpabe_setup;
     use kpabe_keygen;
     use kpabe_encrypt;
     use kpabe_decrypt;
+    */
     // general tools
     use traverse_str;
     use traverse_json;
@@ -1608,10 +1618,6 @@ mod tests {
         //}
     }
 
-
-
-
-    /*
     #[test]
     fn test_cp_abe_and() {
         // setup scheme
@@ -1656,7 +1662,9 @@ mod tests {
             Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
         }
     }
-  
+    /*
+    // disable test because of bug in lsw kp-abe scheme
+    // TODO: fix bug
     #[test]
     fn test_kp_abe_and() {
         // setup scheme
@@ -1703,7 +1711,8 @@ mod tests {
         //    Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
         //}
     }
-    
+    */
+
     #[test]
     fn test_ac17cp_and() {
         // setup scheme
@@ -1748,7 +1757,7 @@ mod tests {
         //    None => println!("KP-ABE: Cannot decrypt"),
         //    Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
         //}
-    }    
+    }
 
     #[test]
     fn test_secret_sharing_and() {
@@ -1827,5 +1836,4 @@ mod tests {
             }
         }
     }
-    */
 }
