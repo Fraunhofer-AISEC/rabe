@@ -627,7 +627,6 @@ pub fn ac17cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec
             _prod2_gt = _prod2_gt * pairing(_prod_g, sk._k_0[_i]);
         }
         let _msg = ct._c_p * (_prod2_gt * _prod1_gt.inverse());
-        println!("_pt: {:?}", into_dec(_msg).unwrap());
         // Decrypt plaintext using derived secret from cp-abe scheme
         let mut sha = Sha3::sha3_256();
         match encode(&_msg, Infinite) {
@@ -688,7 +687,6 @@ pub fn ac17kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecre
             let _a_t = _a[_t].inverse().unwrap();
             for _l in 0usize..(ASSUMPTION_SIZE + 1) {
                 let _hash = combine_three_strings(&msp._pi[_i], _l, _t);
-                println!("_hash: {:?}", _hash);
                 _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
             }
             _prod = _prod + (msk._g * (_sigma_attr * _a_t));
@@ -703,7 +701,6 @@ pub fn ac17kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecre
                 let _hash0 = combine_two_strings(&String::from("0"), _j);
                 for _l in 0usize..(ASSUMPTION_SIZE + 1) {
                     let _hash1 = combine_three_strings(&_hash0, _l, _t);
-                    println!("_hash1: {:?}", _hash1);
                     _temp = _temp + (blake2b_hash_g1(msk._g, &_hash1) * (_br[_l] * _a_t));
                 }
                 _temp = _temp + (msk._g * _sigma_prime[_j - 1].neg());
@@ -770,7 +767,6 @@ pub fn ac17kp_encrypt(
             let mut _prod = G1::zero();
             for _t in 0usize..ASSUMPTION_SIZE {
                 let _hash = combine_three_strings(&_attr, _l, _t);
-                println!("_enc_hash: {:?}", _hash);
                 let mut _prod1 = blake2b_hash_g1(pk._g, &_hash);
                 _prod = _prod + (_prod1 * _s[_t]);
             }
@@ -785,7 +781,6 @@ pub fn ac17kp_encrypt(
     // random msg
     let _msg = pairing(G1::random(_rng), G2::random(_rng));
     _c_p = _c_p * _msg;
-    println!("_msg: {:?}", into_dec(_msg).unwrap());
     //Encrypt plaintext using derived key from secret
     let mut sha = Sha3::sha3_256();
     match encode(&_msg, Infinite) {
@@ -826,7 +821,6 @@ pub fn ac17kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec
             _prod2_gt = _prod2_gt * pairing(_prod_g, sk._k_0[_i]);
         }
         let _msg = ct._c_p * (_prod2_gt * _prod1_gt.inverse());
-        println!("_pt: {:?}", into_dec(_msg).unwrap());
         // Decrypt plaintext using derived secret from cp-abe scheme
         let mut sha = Sha3::sha3_256();
         match encode(&_msg, Infinite) {
@@ -1087,7 +1081,7 @@ pub fn is_negative(_attr: &String) -> bool {
 pub fn calc_coefficients_str(_policy: &String) -> Option<Vec<(String, bn::Fr)>> {
     match serde_json::from_str(_policy) {
         Err(_) => {
-            println!("Error parsing policy {:?}", _policy);
+            println!("Error in policy (could not parse as json): {:?}", _policy);
             return None;
         }
         Ok(pol) => {
@@ -1133,11 +1127,6 @@ pub fn recover_coefficients(_list: Vec<bn::Fr>) -> Vec<bn::Fr> {
         for _j in _list.clone() {
             if _i != _j {
                 _result = _result * ((Fr::zero() - _j) * (_i - _j).inverse().unwrap());
-                println!(
-                    "lagrange_coeff : {:?} {:?}",
-                    into_dec(_i).unwrap(),
-                    into_dec(_result).unwrap()
-                );
             }
         }
         _coeff.push(_result);
@@ -1218,12 +1207,10 @@ pub fn gen_shares(_secret: bn::Fr, _k: usize, _n: usize) -> Vec<bn::Fr> {
             } else {
                 _a.push(Fr::random(_rng))
             }
-            println!("KEY_coeff[{:?}]: {:?}", _i, into_dec(_a[_i]).unwrap());
         }
         for _i in 0..(_n + 1) {
             let _polynom = polynomial(_a.clone(), usize_to_fr(_i));
             _shares.push(_polynom);
-            println!("KEY_polynom[{:?}]: {:?}", _i, into_dec(_polynom).unwrap());
         }
     }
     return _shares;
@@ -1278,7 +1265,7 @@ pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
             }
             return ret;
         } else {
-            println!("Invalid policy.");
+            println!("Error: Invalid policy (OR with just a single child).");
             return false;
         }
     }
@@ -1292,7 +1279,7 @@ pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
             }
             return ret;
         } else {
-            println!("Invalid policy.");
+            println!("Error: Invalid policy (AND with just a single child).");
             return false;
         }
     }
@@ -1304,14 +1291,14 @@ pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
                 return (&_attr).into_iter().any(|v| v == &s);
             }
             None => {
-                println!("ERROR attribute not in list");
+                println!("Error: in attribute String");
                 return false;
             }
         }
     }
     // error
     else {
-        println!("Policy invalid. No AND or OR found");
+        println!("Error: Policy invalid. No AND or OR found");
         return false;
     }
 }
@@ -1582,43 +1569,6 @@ mod tests {
     }
 
     #[test]
-    fn test_ac17kp_and() {
-        // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("A"));
-        att_matching.push(String::from("B"));
-
-        // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
-
-        // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-
-        // kp-abe ciphertext
-        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
-
-        // a kp-abe SK key
-        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
-
-        // and now decrypt again with mathcing sk
-        let _matching = ac17kp_decrypt(&sk, &ct);
-        match _matching {
-            None => println!("AC17-KP-ABE: Cannot decrypt"),
-            Some(x) => println!("AC17-KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
-        }
-
-        // and now decrypt again without matching sk
-        //let _not_matching = kpabe_decrypt(&sk, &ct_kp_not_matching);
-        //match _not_matching {
-        //    None => println!("KP-ABE: Cannot decrypt"),
-        //    Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
-        //}
-    }
-
-    #[test]
     fn test_cp_abe_and() {
         // setup scheme
         let (pk, msk) = cpabe_setup();
@@ -1712,6 +1662,43 @@ mod tests {
         //}
     }
     */
+
+    #[test]
+    fn test_ac17kp_and() {
+        // setup scheme
+        let (pk, msk) = ac17_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        // our policy
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+
+        // kp-abe ciphertext
+        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
+
+        // a kp-abe SK key
+        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+
+        // and now decrypt again with mathcing sk
+        let _matching = ac17kp_decrypt(&sk, &ct);
+        match _matching {
+            None => println!("AC17-KP-ABE: Cannot decrypt"),
+            Some(x) => println!("AC17-KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+
+        // and now decrypt again without matching sk
+        //let _not_matching = kpabe_decrypt(&sk, &ct_kp_not_matching);
+        //match _not_matching {
+        //    None => println!("KP-ABE: Cannot decrypt"),
+        //    Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        //}
+    }
 
     #[test]
     fn test_ac17cp_and() {
