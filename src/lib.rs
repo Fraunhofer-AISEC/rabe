@@ -1486,11 +1486,6 @@ mod tests {
     // other libs
     use std::string::String;
     use bn::*;
-    use num_bigint::BigInt;
-    use bincode::SizeLimit::Infinite;
-    use bincode::rustc_serialize::{encode, decode};
-    use rustc_serialize::{Encodable, Decodable};
-    use rustc_serialize::hex::{FromHex, ToHex};
     use rand;
 
     #[test]
