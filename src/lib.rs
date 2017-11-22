@@ -98,7 +98,7 @@ pub struct CpAbeContext {
 }
 
 //////////////////////////////////////////////////////
-// AC17 KP-ABE structs
+// AC17 ABE structs
 //////////////////////////////////////////////////////
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17PublicKey {
@@ -115,6 +115,17 @@ pub struct Ac17MasterKey {
     _a: Vec<bn::Fr>,
     _b: Vec<bn::Fr>,
 }
+
+//For C
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct Ac17Context {
+    _msk: Ac17MasterKey,
+    _pk: Ac17PublicKey,
+}
+
+//////////////////////////////////////////////////////
+// AC17 CP-ABE structs
+//////////////////////////////////////////////////////
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17CpCiphertext {
@@ -133,12 +144,27 @@ pub struct Ac17CpSecretKey {
     _k_p: Vec<bn::G1>,
 }
 
-//For C
+//////////////////////////////////////////////////////
+// AC17 KP-ABE structs
+//////////////////////////////////////////////////////
+
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
-pub struct Ac17Context {
-    _msk: Ac17MasterKey,
-    _pk: Ac17PublicKey,
+pub struct Ac17KpCiphertext {
+    _attr: Vec<(String)>,
+    _c_0: Vec<bn::G2>,
+    _c: Vec<(String, Vec<bn::G1>)>,
+    _c_p: bn::Gt,
+    _ct: Vec<u8>,
+    _iv: [u8; 16],
 }
+
+pub struct Ac17KpSecretKey {
+    _policy: String,
+    _k_0: Vec<bn::G2>,
+    _k: Vec<(String, Vec<(bn::G1)>)>,
+}
+
+
 
 //////////////////////////////////////////////////////
 // LSE KP-ABE structs
@@ -361,6 +387,8 @@ pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &CpAbeCiphertext) -> Option<Vec<u8
 
 const ASSUMPTION_SIZE: usize = 2;
 
+// BOTH SCHEMES SHARE
+
 pub fn ac17_setup() -> (Ac17PublicKey, Ac17MasterKey) {
     // random number generator
     let _rng = &mut rand::thread_rng();
@@ -414,6 +442,7 @@ pub fn ac17_setup() -> (Ac17PublicKey, Ac17MasterKey) {
     return (_pk, _msk);
 }
 
+// FROM HERE ON AC17-CP-ABE
 
 pub fn ac17cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17CpSecretKey> {
     // if no attibutes or an empty policy
@@ -552,12 +581,11 @@ pub fn ac17cp_encrypt(
     }
     let mut _c_p = Gt::one();
     for _i in 0usize..ASSUMPTION_SIZE {
-        // TODO CHECK HERE * in GT
         _c_p = _c_p * (pk._e_gh_ka[_i].pow(_s[_i]));
     }
     // random msg
-    //let _msg = pairing(G1::ranom(_rng), G2::ranom(_rng));
-    let _msg = Gt::one();
+    let _msg = pairing(G1::random(_rng), G2::random(_rng));
+    //let _msg = Gt::one();
     _c_p = _c_p * _msg;
 
     //Encrypt plaintext using derived key from secret
@@ -615,6 +643,8 @@ pub fn ac17cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec
         }
     }
 }
+
+// FROM HERE ON AC17-CP-ABE
 
 
 //////////////////////////////////////////
@@ -1351,7 +1381,7 @@ mod tests {
             .into_bytes();
 
         // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
 
         // kp-abe ciphertext
         let ct: Ac17CpCiphertext = ac17cp_encrypt(&pk, &policy, &plaintext).unwrap();
