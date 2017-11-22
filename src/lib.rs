@@ -15,32 +15,21 @@ extern crate num_bigint;
 extern crate blake2_rfc;
 
 use libc::*;
-use blake2_rfc::blake2b::{Blake2b, blake2b};
-use std::ffi::CString;
+use blake2_rfc::blake2b::blake2b;
 use std::ffi::CStr;
 use std::mem::transmute;
-use std::collections::LinkedList;
 use std::string::String;
-use std::convert::AsMut;
-use std::ops::Add;
-use std::ops::Sub;
-use std::ops::Mul;
-use std::ops::Div;
 use std::ops::Neg;
-use std::mem;
-use serde_json::Value;
-use num_bigint::{ToBigInt, Sign, BigInt};
+use num_bigint::{ToBigInt, BigInt};
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use crypto::{symmetriccipher, buffer, aes, blockmodes};
 use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
 use bincode::SizeLimit::Infinite;
-//use bincode::rustc_serialize::{encode, decode};
 use bincode::rustc_serialize::encode;
 use rustc_serialize::Encodable;
 use rustc_serialize::hex::ToHex;
-//use byteorder::{ByteOrder, BigEndian};
 use rand::Rng;
 use policy::AbePolicy;
 
@@ -1487,18 +1476,15 @@ mod tests {
     */
     // general tools
     use traverse_str;
-    use traverse_json;
+    //use traverse_json;
     use gen_shares;
     use recover_secret;
-    use blake2b_hash_g1;
-    use blake2b_hash_fr;
+    //use blake2b_hash_g1;
+    //use blake2b_hash_fr;
     // general struct
     use AbePolicy;
     // other libs
-    use std::collections::LinkedList;
     use std::string::String;
-    use std::ops::Add;
-    use std::ops::Sub;
     use bn::*;
     use num_bigint::BigInt;
     use bincode::SizeLimit::Infinite;
@@ -1506,23 +1492,6 @@ mod tests {
     use rustc_serialize::{Encodable, Decodable};
     use rustc_serialize::hex::{FromHex, ToHex};
     use rand;
-
-    pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
-        encode(&obj, Infinite).ok().map(|e| e.to_hex())
-    }
-
-    pub fn into_dec<S: Encodable>(obj: S) -> Option<String> {
-        encode(&obj, Infinite).ok().map(|e| {
-            BigInt::parse_bytes(e.to_hex().as_bytes(), 16)
-                .unwrap()
-                .to_str_radix(10)
-        })
-    }
-
-    pub fn from_hex<S: Decodable>(s: &str) -> Option<S> {
-        let s = s.from_hex().unwrap();
-        decode(&s).ok()
-    }
 
     #[test]
     fn test_traverse() {
