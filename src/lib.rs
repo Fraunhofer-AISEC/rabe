@@ -1025,47 +1025,46 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &KpAbeCiphertext) -> Option<Vec<u8
 */
 
 #[no_mangle]
-pub extern "C" fn abe_context_create() -> *mut CpAbeContext {
-    let (pk, msk) = cpabe_setup();
-    let _ctx = unsafe { transmute(Box::new(CpAbeContext { _msk: msk, _pk: pk })) };
+pub extern "C" fn abe_context_create() -> *mut Ac17Context {
+    let (pk, msk) = ac17_setup();
+    let _ctx = unsafe { transmute(Box::new(Ac17Context { _msk: msk, _pk: pk })) };
     _ctx
 }
 
 #[no_mangle]
-pub extern "C" fn abe_context_destroy(ctx: *mut CpAbeContext) {
-    let _ctx: Box<CpAbeContext> = unsafe { transmute(ctx) };
+pub extern "C" fn abe_context_destroy(ctx: *mut Ac17Context) {
+    let _ctx: Box<Ac17Context> = unsafe { transmute(ctx) };
     // Drop reference for GC
 }
 
-/*
 #[no_mangle]
 pub extern "C" fn kpabe_secret_key_create(
-    ctx: *mut CpAbeContext,
+    ctx: *mut Ac17Context,
     policy: *mut c_char,
-) -> *mut KpCpAbeSecretKey {
+) -> *mut Ac17KpSecretKey {
     let t = unsafe { &mut *policy };
     let mut _policy = unsafe { CStr::from_ptr(t) };
     let pol = String::from(_policy.to_str().unwrap());
-    let _msp = AbePolicy::from_string(&pol).unwrap();
     let _ctx = unsafe { &mut *ctx };
-    let sk = kpabe_keygen(&_ctx._msk, &_msp).unwrap();
+    let sk = ac17kp_keygen(&_ctx._msk, &pol).unwrap();
     let _sk = unsafe {
-        transmute(Box::new(KpCpAbeSecretKey {
-            _sk_0: sk._sk_0.clone(),
-            _sk_y: sk._sk_y.clone(),
+        transmute(Box::new(Ac17KpSecretKey {
+            _policy: sk._policy.clone(),
+            _k: sk._k.clone(),
+            _k_0: sk._k_0.clone(),
         }))
     };
     _sk
 }
-*/
+
 #[no_mangle]
-pub extern "C" fn abe_secret_key_destroy(sk: *mut CpAbeSecretKey) {
-    let _sk: Box<CpAbeSecretKey> = unsafe { transmute(sk) };
+pub extern "C" fn abe_secret_key_destroy(sk: *mut Ac17KpSecretKey) {
+    let _sk: Box<Ac17KpSecretKey> = unsafe { transmute(sk) };
     // Drop reference for GC
 }
 
 #[no_mangle]
-pub extern "C" fn kpabe_decrypt_native(sk: *mut CpAbeSecretKey, ct: *mut c_char) -> i32 {
+pub extern "C" fn kpabe_decrypt_native(sk: *mut Ac17KpCiphertext, ct: *mut c_char) -> i32 {
     //TODO: Deserialize ct
     //TODO: Call abe_decrypt
     //TODO: serialize returned pt and store under pt
