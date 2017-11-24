@@ -34,10 +34,7 @@ use bsw::*;
 use lsw::*;
 
 //#[doc = /**
-// * TODO
-// * - Put everything in a module (?)
-// * - Encrypt/Decrypt
-// * - Serialization, bn::Gt is not serializable :(((
+// * DOC
 // *
 // */]
 
@@ -53,20 +50,20 @@ impl AbePolicy {
 
 
 #[no_mangle]
-pub extern "C" fn abe_context_create() -> *mut Ac17Context {
+pub extern "C" fn ac17kpabe_context_create() -> *mut Ac17Context {
     let (pk, msk) = ac17_setup();
     let _ctx = unsafe { transmute(Box::new(Ac17Context { _msk: msk, _pk: pk })) };
     _ctx
 }
 
 #[no_mangle]
-pub extern "C" fn abe_context_destroy(ctx: *mut Ac17Context) {
+pub extern "C" fn ac17kpabe_context_destroy(ctx: *mut Ac17Context) {
     let _ctx: Box<Ac17Context> = unsafe { transmute(ctx) };
     // Drop reference for GC
 }
 
 #[no_mangle]
-pub extern "C" fn kpabe_secret_key_create(
+pub extern "C" fn ac17kpabe_secret_key_create(
     ctx: *mut Ac17Context,
     policy: *mut c_char,
 ) -> *mut Ac17KpSecretKey {
@@ -86,13 +83,40 @@ pub extern "C" fn kpabe_secret_key_create(
 }
 
 #[no_mangle]
-pub extern "C" fn abe_secret_key_destroy(sk: *mut Ac17KpSecretKey) {
+pub extern "C" fn ac17kpabe_secret_key_destroy(sk: *mut Ac17KpSecretKey) {
     let _sk: Box<Ac17KpSecretKey> = unsafe { transmute(sk) };
     // Drop reference for GC
 }
+/*
+#[no_mangle]
+pub extern "C" fn ac17kpabe_encrypt_native(
+    pk: *mut Ac17PublicKey,
+    attributes: *mut Vec<String>,
+    //data??,
+) -> i32 {
+    let _attr = unsafe { &mut *attributes };
+    let mut attr_vec: Vec<_> = _attr.iter() // do NOT into_iter()
+        .map(|arg| arg.to_string())
+        .collect();
+    let _pk = unsafe { &mut *pk };
+    //conv data?? to [u8],
+    let ct = ac17kp_encrypt(&_pk, &attr_vec, _data).unwrap();
+    let _ct = unsafe {
+        transmute(Box::new(Ac17KpCiphertext {
+            _attr: ct._attr.clone(),
+            _c_0: ct._c_0.clone(),
+            _c: ct._c.clone(),
+            _c_p: ct._c_p.clone(),
+            _ct: ct._ct.clone(),
+            _iv: ct._iv.clone(),
+        }))
+    };
+    _ct
+}
+*/
 
 #[no_mangle]
-pub extern "C" fn kpabe_decrypt_native(sk: *mut Ac17KpCiphertext, ct: *mut c_char) -> i32 {
+pub extern "C" fn ac17kpabe_decrypt_native(sk: *mut Ac17KpCiphertext, ct: *mut c_char) -> i32 {
     //TODO: Deserialize ct
     //TODO: Call abe_decrypt
     //TODO: serialize returned pt and store under pt
