@@ -16,14 +16,10 @@ mod lsw;
 mod tools;
 
 use rustc_serialize::json;
-use policy::AbePolicy;
 use clap::{Arg, App, SubCommand, ArgMatches};
 use std::process;
-use tools::*;
 use ac17::*;
 use bsw::*;
-use lsw::*;
-use std::iter::FromIterator;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
@@ -49,10 +45,7 @@ fn main() {
 }
     let _abe_app = App::new("ABE")
         .version("0.1.0")
-        .author(
-            "Martin Schanzenbach <martin.schanzenbach@aisec.fraunhofer.de>",
-        )
-        .author("Georg Bramm <georg.bramm@aisec.fraunhofer.de>")
+        .author(crate_authors!("\n"))
         .about("ABE schemes written in Rust")
         .arg(
             Arg::with_name("scheme")
