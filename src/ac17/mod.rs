@@ -53,6 +53,7 @@ pub struct Ac17CpCiphertext {
     pub _iv: [u8; 16],
 }
 
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17CpSecretKey {
     pub _attr: Vec<(String)>,
     pub _k_0: Vec<bn::G2>,
@@ -74,6 +75,7 @@ pub struct Ac17KpCiphertext {
     pub _iv: [u8; 16],
 }
 
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17KpSecretKey {
     pub _policy: String,
     pub _k_0: Vec<bn::G2>,

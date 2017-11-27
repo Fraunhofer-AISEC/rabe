@@ -15,6 +15,15 @@ const ZERO: i32 = 0;
 const PLUS: i32 = 1;
 const MINUS: i32 = -1;
 
+impl AbePolicy {
+    pub fn from_string(_policy: &String) -> Option<AbePolicy> {
+        string_to_msp(_policy)
+    }
+    pub fn from_json(_json: &serde_json::Value) -> Option<AbePolicy> {
+        json_to_msp(_json)
+    }
+}
+
 fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();

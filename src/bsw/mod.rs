@@ -48,6 +48,7 @@ pub struct CpAbeCiphertext {
     _iv: [u8; 16],
 }
 
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct CpAbeSecretKey {
     _attr: Vec<(String)>,
     _k_0: bn::G1,
@@ -57,8 +58,8 @@ pub struct CpAbeSecretKey {
 //For C
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct CpAbeContext {
-    _msk: CpAbeMasterKey,
-    _pk: CpAbePublicKey,
+    pub _msk: CpAbeMasterKey,
+    pub _pk: CpAbePublicKey,
 }
 
 /////////////////////////////////////////////

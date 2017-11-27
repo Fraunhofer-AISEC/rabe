@@ -39,16 +39,6 @@ use lsw::*;
 // */]
 
 
-impl AbePolicy {
-    pub fn from_string(_policy: &String) -> Option<AbePolicy> {
-        policy::string_to_msp(_policy)
-    }
-    pub fn from_json(_json: &serde_json::Value) -> Option<AbePolicy> {
-        policy::json_to_msp(_json)
-    }
-}
-
-
 #[no_mangle]
 pub extern "C" fn ac17kpabe_context_create() -> *mut Ac17Context {
     let (pk, msk) = ac17_setup();
