@@ -32,6 +32,10 @@ use std::path::Path;
 #[macro_use]
 extern crate arrayref;
 
+const MSK_FILE: &'static str = "msk.key";
+const PK_FILE: &'static str = "pk.key";
+const SK_FILE: &'static str = "sk.key";
+
 fn main() {
 
     arg_enum! {
@@ -64,7 +68,7 @@ fn main() {
                 .long("msk")
                 .required(false)
                 .takes_value(true)
-                .default_value("msk.key")
+                .default_value(MSK_FILE)
                 .value_name("msk")
                 .help("master secret key file."),
         )
@@ -73,7 +77,7 @@ fn main() {
                 .long("pk")
                 .required(false)
                 .takes_value(true)
-                .default_value("pk.key")
+                .default_value(PK_FILE)
                 .value_name("pk")
                 .help("public key file."),
         )
@@ -99,6 +103,7 @@ fn main() {
                 .long("sk")
                 .required(false)
                 .takes_value(true)
+                .default_value(SK_FILE)
                 .value_name("sk")
                 .help("user key file."),
         )
@@ -143,14 +148,16 @@ fn main() {
     fn run_setup(matches: &ArgMatches, _enum: &Scheme) -> Result<(), String> {
         let mut _msk_file = "msk.key";
         let mut _pk_file = "pk.key";
-        if matches.value_of("msk").is_some() {
-            _msk_file = matches.value_of("msk").unwrap();
-        }
-        if matches.value_of("pk").is_some() {
-            _pk_file = matches.value_of("pk").unwrap();
-        }
         let mut _encoded_msk: String = String::new();
         let mut _encoded_pk: String = String::new();
+        match matches.value_of("msk") {
+            None => {}
+            Some(x) => _msk_file = x,
+        }
+        match matches.value_of("pk") {
+            None => {}
+            Some(x) => _pk_file = x,
+        }
         match _enum {
             AC17CP => {
                 let (_msk, _pk) = ac17_setup();
@@ -173,39 +180,44 @@ fn main() {
                 //_encoded_pk = json::encode(&_pk).unwrap();
             }
         }
-        // Print, write to a file, or send to an HTTP server.
-        println!("{}", _encoded_msk);
-        println!("{}", _encoded_pk);
-
+        //println!("msk : {}", _encoded_msk);
+        //println!("pk : {}", _encoded_pk);
+        write_file(Path::new(_msk_file), _encoded_msk);
+        write_file(Path::new(_pk_file), _encoded_pk);
         Ok(())
     }
 
     fn run_keygen(matches: &ArgMatches, _enum: &Scheme) -> Result<(), String> {
-        let mut _msk_file = "msk.key";
-        let mut _pk_file = "pk.key";
-        let mut _sk_file = "user.key";
-        if matches.value_of("msk").is_some() {
-            _msk_file = matches.value_of("msk").unwrap();
-        }
-        if matches.value_of("pk").is_some() {
-            _pk_file = matches.value_of("pk").unwrap();
-        }
-        if matches.value_of("sk").is_some() {
-            _sk_file = matches.value_of("sk").unwrap();
-        }
+        let mut _sk_file = SK_FILE;
+        let mut _msk_file = MSK_FILE;
+        let mut _pk_file = PK_FILE;
+        let mut _encoded_msk: String = String::new();
+        let mut _encoded_pk: String = String::new();
+        let mut _encoded_sk: String = String::new();
+        let mut _policy: String = String::new();
         let mut _attributes: Vec<String> = Vec::new();
-        if matches.values_of("attributes").is_some() {
-            _attributes = matches
-                .values_of("attributes")
-                .unwrap()
-                .map(|s| s.to_string())
-                .collect();
+        match matches.value_of("msk") {
+            None => {}
+            Some(x) => _msk_file = x,
         }
-
-        let _policy = matches.value_of("policy").unwrap().to_string();
+        match matches.value_of("pk") {
+            None => {}
+            Some(x) => _pk_file = x,
+        }
+        match matches.value_of("sk") {
+            None => {}
+            Some(x) => _sk_file = x,
+        }
+        match matches.values_of("attributes") {
+            None => {}
+            Some(x) => _attributes = x.map(|s| s.to_string()).collect(),
+        }
+        match matches.value_of("policy") {
+            None => {}
+            Some(x) => _policy = x.to_string(),
+        }
         let _msk_string = read_file(Path::new(_msk_file));
         let _pk_string = read_file(Path::new(_pk_file));
-        let mut _encoded_sk: String = String::new();
         match _enum {
             AC17CP => {
                 let _msk: Ac17MasterKey = json::decode(&_msk_string).unwrap();
@@ -228,55 +240,105 @@ fn main() {
                 //_encoded_sk = json::encode(&_msk).unwrap();
             }
         }
-        // Print, write to a file, or send to an HTTP server.
-        println!("{}", _encoded_sk);
-
+        //println!("sk: {}", _encoded_sk);
+        write_file(Path::new(_sk_file), _encoded_sk);
         Ok(())
     }
 
     fn run_encrypt(matches: &ArgMatches, _enum: &Scheme) -> Result<(), String> {
-        let _pk_file = matches.value_of("pk").unwrap();
+        let mut _pk_file = PK_FILE;
+        let mut _file: String = String::new();
+        let mut _encoded_ct: String = String::new();
+        let mut _policy: String = String::new();
+        let mut _attributes: Vec<String> = Vec::new();
+        match matches.value_of("pk") {
+            None => {}
+            Some(x) => _pk_file = x,
+        }
+        match matches.values_of("attributes") {
+            None => {}
+            Some(x) => _attributes = x.map(|s| s.to_string()).collect(),
+        }
+        match matches.value_of("policy") {
+            None => {}
+            Some(x) => _policy = x.to_string(),
+        }
+        match matches.value_of("file") {
+            None => {}
+            Some(x) => _file = x.to_string(),
+        }
         let _pk_string = read_file(Path::new(_pk_file));
-
-        let _policy = matches.value_of("policy").unwrap().to_string();
-        let file = matches.value_of("file").unwrap();
-        let _attributes: Vec<String> = matches
-            .values_of("attributes")
-            .unwrap()
-            .map(|s| s.to_string())
-            .collect();
-        let policy = matches.value_of("policy").unwrap();
-        /*
-        match _scheme {
-            Scheme::AC17CP => {
+        let buffer: Vec<u8> = read_to_vec(Path::new(&_file));
+        match _enum {
+            AC17CP => {
                 let _pk: Ac17PublicKey = json::decode(&_pk_string).unwrap();
-                let _sk = ac17cp_keygen(&_msk, &_attributes);
-                _encoded_sk = json::encode(&_sk).unwrap();
+                let _ct = ac17cp_encrypt(&_pk, &_policy, &buffer);
+                _encoded_ct = json::encode(&_ct).unwrap();
             }
-            Scheme::AC17KP => {
+            AC17KP => {
                 let _pk: Ac17PublicKey = json::decode(&_pk_string).unwrap();
-                let _sk = ac17kp_keygen(&_msk, &_policy);
-                _encoded_sk = json::encode(&_sk).unwrap();
+                let _ct = ac17kp_encrypt(&_pk, &_attributes, &buffer);
+                _encoded_ct = json::encode(&_ct).unwrap();
             }
-            Scheme::BSWCP => {
+            BSWCP => {
                 let _pk: CpAbePublicKey = json::decode(&_pk_string).unwrap();
-                let _sk = cpabe_keygen(&_pk, &_msk, &_attributes);
-                _encoded_sk = json::encode(&_sk).unwrap();
+                let _ct = cpabe_encrypt(&_pk, &_policy, &buffer);
+                _encoded_ct = json::encode(&_ct).unwrap();
             }
-            Scheme::LSWKP => {
-                //let _sk = kpabe_keygen();
-                //_encoded_sk = json::encode(&_msk).unwrap();
+            LSWKP => {
+                //let _ct = kpabe_encrypt();
+                //_encoded_ct = json::encode(&_ct).unwrap();
             }
-        } */
+        }
+        //println!("ct: {}", _encoded_ct);
+        write_file(Path::new(&_file), _encoded_ct);
         Ok(())
     }
 
     fn run_decrypt(matches: &ArgMatches, _enum: &Scheme) -> Result<(), String> {
-        let _sk_file = matches.value_of("sk").unwrap();
-        let _sk_string = read_file(Path::new(_sk_file));
-        let _sk: Ac17PublicKey = json::decode(&_sk_string).unwrap();
-
-        let file = matches.value_of("file").unwrap();
+        let mut _sk_file = SK_FILE;
+        let mut _file: String = String::new();
+        let mut _encoded_sk: String = String::new();
+        let mut _pt: Vec<u8> = Vec::new();
+        let mut _pt_option: Option<Vec<u8>> = None;
+        match matches.value_of("sk") {
+            None => {}
+            Some(x) => _sk_file = x,
+        }
+        match matches.value_of("file") {
+            None => {}
+            Some(x) => _file = x.to_string(),
+        }
+        match _enum {
+            AC17CP => {
+                let _sk: Ac17CpSecretKey = json::decode(&_sk_file).unwrap();
+                let _ct: Ac17CpCiphertext = json::decode(&_file).unwrap();
+                _pt_option = ac17cp_decrypt(&_sk, &_ct);
+            }
+            AC17KP => {
+                let _sk: Ac17KpSecretKey = json::decode(&_sk_file).unwrap();
+                let _ct: Ac17KpCiphertext = json::decode(&_file).unwrap();
+                _pt_option = ac17kp_decrypt(&_sk, &_ct);
+            }
+            BSWCP => {
+                let _sk: CpAbeSecretKey = json::decode(&_sk_file).unwrap();
+                let _ct: CpAbeCiphertext = json::decode(&_file).unwrap();
+                _pt_option = cpabe_decrypt(&_sk, &_ct);
+            }
+            LSWKP => {
+                //let _ct = kpabe_encrypt();
+                //_encoded_ct = json::encode(&_ct).unwrap();
+            }
+        }
+        match _pt_option {
+            None => {
+                println!("Error could not decrypt!");
+            }
+            Some(_pt_u) => {
+                _pt = _pt_u;
+                write_from_vec(Path::new(&_file), &_pt);
+            }
+        }
         Ok(())
     }
 
@@ -296,6 +358,36 @@ fn main() {
             Ok(_) => print!("{} contains:\n{}", display, s),
         }
         return s;
+    }
+
+    fn read_to_vec(_path: &Path) -> Vec<u8> {
+        let mut data: Vec<u8> = Vec::new();
+        let display = _path.display();
+        // Open the path in read-only mode, returns `io::Result<File>`
+        let mut file = match File::open(_path) {
+            // The `description` method of `io::Error` returns a string that
+            // describes the error
+            Err(why) => panic!("couldn't open {}: {}", display, why.description()),
+            Ok(file) => file,
+        };
+        // read the whole file
+        file.read_to_end(&mut data);
+        return data;
+    }
+
+    fn write_from_vec(_path: &Path, _data: &Vec<u8>) {
+        let display = _path.display();
+        // Open the path in read-only mode, returns `io::Result<File>`
+        let mut file = match File::open(_path) {
+            // The `description` method of `io::Error` returns a string that
+            // describes the error
+            Err(why) => panic!("couldn't open {}: {}", display, why.description()),
+            Ok(file) => file,
+        };
+        match file.write_all(_data) {
+            Err(why) => panic!("couldn't write to {}: {}", display, why.description()),
+            Ok(_) => println!("successfully wrote to {}", display),
+        }
     }
 
     fn write_file(_path: &Path, _content: String) -> bool {
