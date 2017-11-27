@@ -348,7 +348,7 @@ fn main() {
         let mut s = String::new();
         match file.read_to_string(&mut s) {
             Err(why) => panic!("couldn't read {}: {}", display, why.description()),
-            Ok(_) => print!("{} contains:\n{}", display, s),
+            Ok(_) => print!("successfully read {}", display),
         }
         return s;
     }

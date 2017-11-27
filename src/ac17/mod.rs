@@ -1,5 +1,7 @@
 extern crate bn;
 extern crate rand;
+extern crate serde;
+extern crate serde_json;
 
 use std::string::String;
 use std::ops::Neg;
