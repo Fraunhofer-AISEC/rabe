@@ -42,6 +42,10 @@ SUBCOMMANDS:
     keygen     creates a user key sk using attributes (cp-schemes) or a policy (kp-schemes).
     setup      sets up a scheme, creates msk and pk.
 ```
+For example, in order to create msk and pk of an AC17 KP-ABE scheme run:
+```bash
+$ ./target/debug/rabe --scheme AC17KP setup
+```
 
 To compile the C testfile:
 gcc test.c -lrabe -L./target/debug -o test
