@@ -35,14 +35,14 @@ const SK_FILE: &'static str = "sk.key";
 fn main() {
 
     arg_enum! {
-    #[derive(Debug)]
-    enum Scheme {
-        AC17CP,
-        AC17KP,
-        BSWCP,
-        LSWKP
-    }
-}
+	    #[derive(Debug)]
+	    enum Scheme {
+	        AC17CP,
+	        AC17KP,
+	        BSWCP,
+	        LSWKP
+	    }
+	}
     let _abe_app = App::new("ABE")
         .version("0.1.0")
         .author(crate_authors!("\n"))
@@ -129,16 +129,17 @@ fn main() {
 
     fn run(matches: ArgMatches) -> Result<(), String> {
         let _scheme = value_t!(matches.value_of("scheme"), Scheme).unwrap();
+        println!("using scheme: {:?}", _scheme);
         match matches.subcommand() {
-            ("setup", Some(matches)) => run_setup(matches, &_scheme),
-            ("keygen", Some(matches)) => run_keygen(matches, &_scheme),
-            ("encrypt", Some(matches)) => run_encrypt(matches, &_scheme),
-            ("decrypt", Some(matches)) => run_decrypt(matches, &_scheme),
+            ("setup", Some(matches)) => run_setup(matches, _scheme),
+            ("keygen", Some(matches)) => run_keygen(matches, _scheme),
+            ("encrypt", Some(matches)) => run_encrypt(matches, _scheme),
+            ("decrypt", Some(matches)) => run_decrypt(matches, _scheme),
             _ => Ok(()),
         }
     }
 
-    fn run_setup(matches: &ArgMatches, _enum: &Scheme) -> Result<(), String> {
+    fn run_setup(matches: &ArgMatches, _scheme: Scheme) -> Result<(), String> {
         let mut _msk_file = "msk.key";
         let mut _pk_file = "pk.key";
         let mut _encoded_msk: String = String::new();
@@ -151,23 +152,23 @@ fn main() {
             None => {}
             Some(x) => _pk_file = x,
         }
-        match _enum {
-            AC17CP => {
+        match _scheme {
+            Scheme::AC17CP => {
                 let (_msk, _pk) = ac17_setup();
                 _encoded_msk = json::encode(&_msk).unwrap();
                 _encoded_pk = json::encode(&_pk).unwrap();
             }
-            AC17KP => {
+            Scheme::AC17KP => {
                 let (_msk, _pk) = ac17_setup();
                 _encoded_msk = json::encode(&_msk).unwrap();
                 _encoded_pk = json::encode(&_pk).unwrap();
             }
-            BSWCP => {
+            Scheme::BSWCP => {
                 let (_msk, _pk) = cpabe_setup();
                 _encoded_msk = json::encode(&_msk).unwrap();
                 _encoded_pk = json::encode(&_pk).unwrap();
             }
-            LSWKP => {
+            Scheme::LSWKP => {
                 //let (_msk, _pk) = kpabe_setup();
                 //_encoded_msk = json::encode(&_msk).unwrap();
                 //_encoded_pk = json::encode(&_pk).unwrap();
@@ -180,7 +181,7 @@ fn main() {
         Ok(())
     }
 
-    fn run_keygen(matches: &ArgMatches, _enum: &Scheme) -> Result<(), String> {
+    fn run_keygen(matches: &ArgMatches, _scheme: Scheme) -> Result<(), String> {
         let mut _sk_file = SK_FILE;
         let mut _msk_file = MSK_FILE;
         let mut _pk_file = PK_FILE;
@@ -211,24 +212,24 @@ fn main() {
         }
         let _msk_string = read_file(Path::new(_msk_file));
         let _pk_string = read_file(Path::new(_pk_file));
-        match _enum {
-            AC17CP => {
-                let _msk: Ac17MasterKey = json::decode(&_msk_string).unwrap();
+        match _scheme {
+            Scheme::AC17CP => {
+                let _msk: Ac17MasterKey = json::decode(&_msk_string[..]).unwrap();
                 let _sk = ac17cp_keygen(&_msk, &_attributes);
                 _encoded_sk = json::encode(&_sk).unwrap();
             }
-            AC17KP => {
-                let _msk: Ac17MasterKey = json::decode(&_msk_string).unwrap();
+            Scheme::AC17KP => {
+                let _msk: Ac17MasterKey = json::decode(&_msk_string[..]).unwrap();
                 let _sk = ac17kp_keygen(&_msk, &_policy);
                 _encoded_sk = json::encode(&_sk).unwrap();
             }
-            BSWCP => {
-                let _msk: CpAbeMasterKey = json::decode(&_msk_string).unwrap();
-                let _pk: CpAbePublicKey = json::decode(&_pk_string).unwrap();
+            Scheme::BSWCP => {
+                let _msk: CpAbeMasterKey = json::decode(&_msk_string[..]).unwrap();
+                let _pk: CpAbePublicKey = json::decode(&_pk_string[..]).unwrap();
                 let _sk = cpabe_keygen(&_pk, &_msk, &_attributes);
                 _encoded_sk = json::encode(&_sk).unwrap();
             }
-            LSWKP => {
+            Scheme::LSWKP => {
                 //let _sk = kpabe_keygen();
                 //_encoded_sk = json::encode(&_msk).unwrap();
             }
@@ -238,7 +239,7 @@ fn main() {
         Ok(())
     }
 
-    fn run_encrypt(matches: &ArgMatches, _enum: &Scheme) -> Result<(), String> {
+    fn run_encrypt(matches: &ArgMatches, _scheme: Scheme) -> Result<(), String> {
         let mut _pk_file = PK_FILE;
         let mut _file: String = String::new();
         let mut _encoded_ct: String = String::new();
@@ -262,23 +263,23 @@ fn main() {
         }
         let _pk_string = read_file(Path::new(_pk_file));
         let buffer: Vec<u8> = read_to_vec(Path::new(&_file));
-        match _enum {
-            AC17CP => {
-                let _pk: Ac17PublicKey = json::decode(&_pk_string).unwrap();
+        match _scheme {
+            Scheme::AC17CP => {
+                let _pk: Ac17PublicKey = json::decode(&_pk_string[..]).unwrap();
                 let _ct = ac17cp_encrypt(&_pk, &_policy, &buffer);
                 _encoded_ct = json::encode(&_ct).unwrap();
             }
-            AC17KP => {
-                let _pk: Ac17PublicKey = json::decode(&_pk_string).unwrap();
+            Scheme::AC17KP => {
+                let _pk: Ac17PublicKey = json::decode(&_pk_string[..]).unwrap();
                 let _ct = ac17kp_encrypt(&_pk, &_attributes, &buffer);
                 _encoded_ct = json::encode(&_ct).unwrap();
             }
-            BSWCP => {
-                let _pk: CpAbePublicKey = json::decode(&_pk_string).unwrap();
+            Scheme::BSWCP => {
+                let _pk: CpAbePublicKey = json::decode(&_pk_string[..]).unwrap();
                 let _ct = cpabe_encrypt(&_pk, &_policy, &buffer);
                 _encoded_ct = json::encode(&_ct).unwrap();
             }
-            LSWKP => {
+            Scheme::LSWKP => {
                 //let _ct = kpabe_encrypt();
                 //_encoded_ct = json::encode(&_ct).unwrap();
             }
@@ -288,7 +289,7 @@ fn main() {
         Ok(())
     }
 
-    fn run_decrypt(matches: &ArgMatches, _enum: &Scheme) -> Result<(), String> {
+    fn run_decrypt(matches: &ArgMatches, _scheme: Scheme) -> Result<(), String> {
         let mut _sk_file = SK_FILE;
         let mut _file: String = String::new();
         let mut _encoded_sk: String = String::new();
@@ -302,23 +303,23 @@ fn main() {
             None => {}
             Some(x) => _file = x.to_string(),
         }
-        match _enum {
-            AC17CP => {
-                let _sk: Ac17CpSecretKey = json::decode(&_sk_file).unwrap();
-                let _ct: Ac17CpCiphertext = json::decode(&_file).unwrap();
+        match _scheme {
+            Scheme::AC17CP => {
+                let _sk: Ac17CpSecretKey = json::decode(&_sk_file[..]).unwrap();
+                let _ct: Ac17CpCiphertext = json::decode(&_file[..]).unwrap();
                 _pt_option = ac17cp_decrypt(&_sk, &_ct);
             }
-            AC17KP => {
-                let _sk: Ac17KpSecretKey = json::decode(&_sk_file).unwrap();
-                let _ct: Ac17KpCiphertext = json::decode(&_file).unwrap();
+            Scheme::AC17KP => {
+                let _sk: Ac17KpSecretKey = json::decode(&_sk_file[..]).unwrap();
+                let _ct: Ac17KpCiphertext = json::decode(&_file[..]).unwrap();
                 _pt_option = ac17kp_decrypt(&_sk, &_ct);
             }
-            BSWCP => {
-                let _sk: CpAbeSecretKey = json::decode(&_sk_file).unwrap();
-                let _ct: CpAbeCiphertext = json::decode(&_file).unwrap();
+            Scheme::BSWCP => {
+                let _sk: CpAbeSecretKey = json::decode(&_sk_file[..]).unwrap();
+                let _ct: CpAbeCiphertext = json::decode(&_file[..]).unwrap();
                 _pt_option = cpabe_decrypt(&_sk, &_ct);
             }
-            LSWKP => {
+            Scheme::LSWKP => {
                 //let _ct = kpabe_encrypt();
                 //_encoded_ct = json::encode(&_ct).unwrap();
             }
