@@ -6,14 +6,15 @@ extern crate crypto;
 extern crate blake2_rfc;
 extern crate num_bigint;
 
-use rustc_serialize::Encodable;
+use rustc_serialize::{Encodable, Decodable};
 use num_bigint::{ToBigInt, BigInt};
 use crypto::{symmetriccipher, buffer, aes, blockmodes};
 use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
 use blake2_rfc::blake2b::blake2b;
 use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::encode;
-use rustc_serialize::hex::ToHex;
+use bincode::rustc_serialize::{encode, decode};
+use rustc_serialize::hex::{FromHex, ToHex};
+
 
 pub fn is_negative(_attr: &String) -> bool {
     let first_char = &_attr[..1];
@@ -271,6 +272,12 @@ pub fn blake2b_hash_fr(data: &String) -> bn::Fr {
 // Helper functions from here on used by CP and KP
 pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
     encode(&obj, Infinite).ok().map(|e| e.to_hex())
+}
+
+pub fn from_hex<S: Decodable>(s: &str) -> Option<S> {
+    let s = s.from_hex().unwrap();
+
+    decode(&s).ok()
 }
 
 pub fn into_dec<S: Encodable>(obj: S) -> Option<String> {
