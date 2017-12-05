@@ -13,6 +13,7 @@ mod ac17;
 mod bsw;
 mod lsw;
 mod tools;
+mod secretsharing;
 
 use rustc_serialize::json;
 use clap::{Arg, App, SubCommand, ArgMatches};
@@ -303,8 +304,10 @@ fn main() {
                 _encoded_sk = into_hex(&_sk).unwrap();
             }
             Scheme::LSWKP => {
-                //let _sk = kpabe_keygen();
-                //_encoded_sk = into_hex(&_msk).unwrap();
+                let _msk: KpAbeMasterKey = from_hex(&_msk_string).unwrap();
+                let _pk: KpAbePublicKey = from_hex(&_pk_string).unwrap();
+                let _sk = kpabe_keygen(&_pk, &_msk, &_policy);
+                _encoded_sk = into_hex(&_sk).unwrap();
             }
         }
         //println!("sk: {}", _encoded_sk);
@@ -353,8 +356,9 @@ fn main() {
                 _encoded_ct = into_hex(&_ct).unwrap();
             }
             Scheme::LSWKP => {
-                //let _ct = kpabe_encrypt();
-                //_encoded_ct = into_hex(&_ct).unwrap();
+                let _pk: KpAbePublicKey = from_hex(&_pk_string).unwrap();
+                let _ct = kpabe_encrypt(&_pk, &_attributes, &buffer);
+                _encoded_ct = into_hex(&_ct).unwrap();
             }
         }
 
@@ -394,8 +398,9 @@ fn main() {
                 _pt_option = cpabe_decrypt(&_sk, &_ct);
             }
             Scheme::LSWKP => {
-                //let _ct = kpabe_encrypt();
-                //_encoded_ct = into_hex(&_ct).unwrap();
+                let _sk: KpAbeSecretKey = from_hex(&_sk_file).unwrap();
+                let _ct: KpAbeCiphertext = from_hex(&_file).unwrap();
+                _pt_option = kpabe_decrypt(&_sk, &_ct);
             }
         }
         match _pt_option {

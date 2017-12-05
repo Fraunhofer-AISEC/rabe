@@ -14,169 +14,74 @@ use blake2_rfc::blake2b::blake2b;
 use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::{encode, decode};
 use rustc_serialize::hex::{FromHex, ToHex};
-
+use bn::*;
 
 pub fn is_negative(_attr: &String) -> bool {
     let first_char = &_attr[..1];
     return first_char == '!'.to_string();
 }
 
-pub fn calc_coefficients_str(_policy: &String) -> Option<Vec<(String, bn::Fr)>> {
-    match serde_json::from_str(_policy) {
-        Err(_) => {
-            println!("Error in policy (could not parse as json): {:?}", _policy);
-            return None;
-        }
-        Ok(pol) => {
-            let mut _coeff: Vec<(String, bn::Fr)> = Vec::new();
-            calc_coefficients(&pol, &mut _coeff, bn::Fr::one());
-            return Some(_coeff);
-        }
-    }
-}
-
-pub fn calc_coefficients(
-    _json: &serde_json::Value,
-    _coeff_vec: &mut Vec<(String, bn::Fr)>,
-    _coeff: bn::Fr,
-) {
-    if *_json == serde_json::Value::Null {
-        println!("Error: passed null as json!");
-    } else {
-        // leaf node
-        if _json["ATT"] != serde_json::Value::Null {
-            _coeff_vec.push((_json["ATT"].to_string(), _coeff));
-        }
-        // inner node
-        else if _json["AND"].is_array() {
-            let _this_coeff =
-                recover_coefficients(vec![bn::Fr::one(), (bn::Fr::one() + bn::Fr::one())]);
-            calc_coefficients(&_json["AND"][0], _coeff_vec, _coeff * _this_coeff[0]);
-            calc_coefficients(&_json["AND"][1], _coeff_vec, _coeff * _this_coeff[1]);
-        }
-        // inner node
-        else if _json["OR"].is_array() {
-            let _this_coeff = recover_coefficients(vec![bn::Fr::one()]);
-            calc_coefficients(&_json["OR"][0], _coeff_vec, _coeff * _this_coeff[0]);
-            calc_coefficients(&_json["OR"][0], _coeff_vec, _coeff * _this_coeff[0]);
-        }
-    }
-}
-
-// lagrange interpolation
-pub fn recover_coefficients(_list: Vec<bn::Fr>) -> Vec<bn::Fr> {
-    let mut _coeff: Vec<bn::Fr> = Vec::new();
-    for _i in _list.clone() {
-        let mut _result = bn::Fr::one();
-        for _j in _list.clone() {
-            if _i != _j {
-                _result = _result * ((bn::Fr::zero() - _j) * (_i - _j).inverse().unwrap());
-            }
-        }
-        _coeff.push(_result);
-    }
-    return _coeff;
-}
-
-pub fn usize_to_fr(_i: usize) -> bn::Fr {
+pub fn usize_to_fr(_i: usize) -> Fr {
     let _i = _i.to_bigint().unwrap();
-    return bn::Fr::from_str(&_i.to_str_radix(10)).unwrap();
+    return Fr::from_str(&_i.to_str_radix(10)).unwrap();
 }
 
-pub fn gen_shares_str(_secret: bn::Fr, _policy: &String) -> Option<Vec<(String, bn::Fr)>> {
+pub fn get_attribute_list(_policy: &String) -> Option<Vec<(String)>> {
     match serde_json::from_str(_policy) {
         Err(_) => {
             println!("Error parsing policy {:?}", _policy);
             return None;
         }
         Ok(pol) => {
-            return gen_shares_json(_secret, &pol);
+            let mut _list: Vec<(String)> = Vec::new();
+            get_attribute_list_json(&pol, &mut _list);
+            return Some(_list);
         }
     }
 }
 
-pub fn gen_shares_json(
-    _secret: bn::Fr,
-    _json: &serde_json::Value,
-) -> Option<Vec<(String, bn::Fr)>> {
+pub fn get_attribute_list_json(_json: &serde_json::Value, _list: &mut Vec<(String)>) {
     if *_json == serde_json::Value::Null {
         println!("Error: passed null as json!");
-        return None;
-    } else {
-        let mut _k = 0;
-        let mut _type = "";
-        let mut _result: Vec<(String, bn::Fr)> = Vec::new();
-        // leaf node
-        if _json["ATT"] != serde_json::Value::Null {
-            match _json["ATT"].as_str() {
-                Some(_s) => {
-                    _result.push((_s.to_string(), _secret));
-                    return Some(_result);
-                }
-                None => {
-                    println!("ERROR attribute value");
-                    return None;
-                }
+    }
+    // leaf node
+    if _json["ATT"] != serde_json::Value::Null {
+        match _json["ATT"].as_str() {
+            Some(_s) => {
+                _list.push(String::from(_s));
+            }
+            None => {
+                println!("Error: in attribute String");
             }
         }
-        // inner node
-        else if _json["OR"].is_array() {
-            _k = 1;
-            _type = "OR";
-        }
-        // inner node
-        else if _json["AND"].is_array() {
-            _k = 2;
-            _type = "AND";
-        }
-        let shares = gen_shares(_secret, _k, 2);
-        let left = gen_shares_json(shares[0], &_json[_type][0]).unwrap();
-        _result.extend(left);
-        let right = gen_shares_json(shares[1], &_json[_type][1]).unwrap();
-        _result.extend(right);
-        return Some(_result);
     }
-}
-
-pub fn gen_shares(_secret: bn::Fr, _k: usize, _n: usize) -> Vec<bn::Fr> {
-    let mut _shares: Vec<bn::Fr> = Vec::new();
-    if _k <= _n {
-        // random number generator
-        let _rng = &mut rand::thread_rng();
-        // polynomial coefficients
-        let mut _a: Vec<bn::Fr> = Vec::new();
-        for _i in 0.._k {
-            if _i == 0 {
-                _a.push(_secret);
-            } else {
-                _a.push(bn::Fr::random(_rng))
+    // inner node
+    else if _json["OR"].is_array() {
+        let _num_terms = _json["OR"].as_array().unwrap().len();
+        if _num_terms >= 2 {
+            for _i in 0usize.._num_terms {
+                get_attribute_list_json(&_json["OR"][_i], _list);
             }
-        }
-        for _i in 0..(_n + 1) {
-            let _polynom = polynomial(_a.clone(), usize_to_fr(_i));
-            _shares.push(_polynom);
+        } else {
+            println!("Error: Invalid policy (OR with just a single child).");
         }
     }
-    return _shares;
-}
-
-pub fn recover_secret(_shares: Vec<bn::Fr>, _policy: &String) -> bn::Fr {
-    let _coeff = calc_coefficients_str(_policy).unwrap();
-    let mut _secret = bn::Fr::zero();
-    for _i in 0usize.._shares.len() {
-        _secret = _secret + (_coeff[_i].1 * _shares[_i]);
+    // inner node
+    else if _json["AND"].is_array() {
+        let _num_terms = _json["AND"].as_array().unwrap().len();
+        if _num_terms >= 2 {
+            for _i in 0usize.._num_terms {
+                get_attribute_list_json(&_json["AND"][_i], _list);
+            }
+        } else {
+            println!("Error: Invalid policy (AND with just a single child).");
+        }
     }
-    return _secret;
-}
-
-pub fn polynomial(_coeff: Vec<bn::Fr>, _x: bn::Fr) -> bn::Fr {
-    let mut _share = bn::Fr::zero();
-    for _i in 0usize.._coeff.len() {
-        _share = _share + (_coeff[_i] * _x.pow(usize_to_fr(_i)));
+    // error
+    else {
+        println!("Error: Policy invalid. No AND or OR found");
     }
-    return _share;
 }
-
 
 pub fn traverse_str(_attr: &Vec<(String)>, _policy: &String) -> bool {
     match serde_json::from_str(_policy) {
@@ -254,19 +159,19 @@ pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
 // used to hash to G1
 pub fn blake2b_hash_g1(g: bn::G1, data: &String) -> bn::G1 {
     let hash = blake2b(64, &[], data.as_bytes());
-    return g * bn::Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
+    return g * Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
 }
 
 // used to hash to G2
 pub fn blake2b_hash_g2(g: bn::G2, data: &String) -> bn::G2 {
     let hash = blake2b(64, &[], data.as_bytes());
-    return g * bn::Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
+    return g * Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
 }
 
 // used to hash to Fr
-pub fn blake2b_hash_fr(data: &String) -> bn::Fr {
+pub fn blake2b_hash_fr(data: &String) -> Fr {
     let hash = blake2b(64, &[], data.as_bytes());
-    return bn::Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
+    return Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
 }
 
 // Helper functions from here on used by CP and KP

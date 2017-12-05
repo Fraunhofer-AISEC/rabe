@@ -11,10 +11,20 @@ extern crate num_bigint;
 extern crate blake2_rfc;
 
 use std::string::String;
-
+use bn::*;
+use crypto::digest::Digest;
+use crypto::sha3::Sha3;
+use bincode::SizeLimit::Infinite;
+use bincode::rustc_serialize::encode;
+use rustc_serialize::hex::ToHex;
+use rand::Rng;
+use policy::AbePolicy;
+use tools::*;
+use std::ops::Neg;
+use secretsharing::{gen_shares_str, calc_coefficients_str};
 
 //////////////////////////////////////////////////////
-// LSE KP-ABE structs
+// LSW KP-ABE structs
 //////////////////////////////////////////////////////
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct KpAbePublicKey {
@@ -35,6 +45,7 @@ pub struct KpAbeMasterKey {
     _h_g2: bn::G2,
 }
 
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct KpAbeSecretKey {
     _policy: String,
     _d_i: Vec<(bn::G1, bn::G2, bn::G1, bn::G1, bn::G1)>,
@@ -52,14 +63,9 @@ pub struct KpAbeCiphertext {
     _iv: [u8; 16],
 }
 
-
-/*
-
 //////////////////////////////////////////
 // LSW KP-ABE on type-3
 //////////////////////////////////////////
-
-// TODO : fix bug in coeff reconstruction
 
 // SETUP
 
@@ -108,24 +114,24 @@ pub fn kpabe_keygen(
 ) -> Option<KpAbeSecretKey> {
     // random number generator
     let _rng = &mut rand::thread_rng();
-    // an msp policy from the given String
-    let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
-    let _secret = msk._alpha1;
-    let _shares = gen_shares_str(_secret, policy).unwrap();
+    //let _attr_list = get_attribute_list(policy).unwrap();
+    let _shares = gen_shares_str(msk._alpha1, policy).unwrap();
+
     let mut _d: Vec<(bn::G1, bn::G2, bn::G1, bn::G1, bn::G1)> = Vec::new();
     let mut _d_i: (bn::G1, bn::G2, bn::G1, bn::G1, bn::G1) =
         (G1::zero(), G2::zero(), G1::zero(), G1::zero(), G1::zero());
-    for _x in 0usize..msp._pi.len() {
+
+    for (_i, _share) in _shares.iter().enumerate() {
         let _r = Fr::random(_rng);
         let mut _sum = Fr::zero();
-        if is_negative(&msp._pi[_x]) {
-            _d_i.2 = (pk._g_g1 * (msk._alpha2 * _shares[_x].1)) + (pk._g_g1_b2 * _r);
-            _d_i.3 = pk._g_g1_b * (blake2b_hash_fr(&_shares[_x].0) * _r) + (msk._h_g1 * _r);
-            _d_i.4 = pk._g_g1 * _r.neg();
-        } else {
-            _d_i.0 = (pk._g_g1 * (msk._alpha2 * _shares[_x].1)) +
-                (blake2b_hash_g1(pk._g_g1, &_shares[_x].0) * _r);
+        if !is_negative(&_share.0) {
+            _d_i.0 = (pk._g_g1 * (msk._alpha2 * _share.1)) +
+                (blake2b_hash_g1(pk._g_g1, &_share.0) * _r);
             _d_i.1 = pk._g_g2 * _r;
+        } else {
+            _d_i.2 = (pk._g_g1 * (msk._alpha2 * _share.1)) + (pk._g_g1_b2 * _r);
+            _d_i.3 = pk._g_g1_b * (blake2b_hash_fr(&_share.0) * _r) + (msk._h_g1 * _r);
+            _d_i.4 = pk._g_g1 * _r.neg();
         }
         _d.push(_d_i);
     }
@@ -149,9 +155,6 @@ pub fn kpabe_encrypt(
         let mut _e3: Vec<(bn::G1)> = Vec::new();
         let mut _e4: Vec<(bn::G1)> = Vec::new();
         let mut _e5: Vec<(bn::G1)> = Vec::new();
-        // random message
-        let _msg = Gt::one();
-        println!("_pt: {:?}", into_dec(_msg).unwrap());
         // random secret
         let _s = Fr::random(_rng);
         // sx vector
@@ -169,6 +172,9 @@ pub fn kpabe_encrypt(
                     (pk._h_g1_b * _sx[_i]),
             );
         }
+        // random message
+        let _msg = pairing(G1::random(_rng), G2::random(_rng));
+        println!("_msg_enc: {:?}", into_dec(_msg).unwrap());
         let _e1 = (pk._e_gg_alpha.pow(_s)) * _msg;
         let _e2 = pk._g_g2 * _s;
         //Encrypt plaintext using derived key from secret
@@ -205,25 +211,25 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &KpAbeCiphertext) -> Option<Vec<u8
         let mut _prod_t = Gt::one();
         let mut _coeff: Vec<(String, bn::Fr)> = calc_coefficients_str(&sk._policy).unwrap();
         for _i in 0usize.._coeff.len() {
-            let mut _z = Gt::one();
             if is_negative(&_coeff[_i].0) {
-                let _sum_e4 = G2::zero();
-                let _sum_e5 = G2::zero();
-
-            //_z = pairing(sk._d_i[_i].2, ct._e2) *
-            //    (pairing(sk._d_i[_i].3, _sum_e4) * pairing(sk._d_i[_i].4, _sum_e5)).inverse();
+                //TODO !
+                let mut _sum_e4 = G2::one();
+                let mut _sum_e5 = G2::one();
+                for _i in 0usize.._coeff.len() {}
+                _prod_t = _prod_t *
+                    (pairing(sk._d_i[_i].2, ct._e2) *
+                         (pairing(sk._d_i[_i].3, _sum_e4) * pairing(sk._d_i[_i].4, _sum_e5))
+                             .inverse())
+                        .pow(_coeff[_i].1);
             } else {
-                _z = pairing(sk._d_i[_i].0, ct._e2) * pairing(ct._e3[_i], sk._d_i[_i].1).inverse();
+                _prod_t = _prod_t *
+                    (pairing(sk._d_i[_i].0, ct._e2) * pairing(ct._e3[_i], sk._d_i[_i].1).inverse())
+                        .pow(_coeff[_i].1);
             }
-            println!(
-                "DEC_coeff[{:?}]: {:?}",
-                _coeff[_i].0,
-                into_dec(_coeff[_i].1).unwrap()
-            );
-            _prod_t = _prod_t * _z.pow(_coeff[_i].1);
+
         }
         let _msg = ct._e1 * _prod_t.inverse();
-        println!("_pt: {:?}", into_dec(_msg).unwrap());
+        println!("_msg: {:?}", into_dec(_msg).unwrap());
         // Decrypt plaintext using derived secret from cp-abe scheme
         let mut sha = Sha3::sha3_256();
         match encode(&_msg, Infinite) {
@@ -238,5 +244,3 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &KpAbeCiphertext) -> Option<Vec<u8
         }
     }
 }
-
-*/

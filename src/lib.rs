@@ -26,7 +26,9 @@ mod ac17;
 mod bsw;
 mod lsw;
 mod tools;
+mod secretsharing;
 
+use secretsharing::*;
 use tools::*;
 use ac17::*;
 use bsw::*;
@@ -140,14 +142,12 @@ mod tests {
     use Ac17KpCiphertext;
     use Ac17KpSecretKey;
     // lse kp-abe
-    /*
     use KpAbeCiphertext;
     use KpAbeSecretKey;
     use kpabe_setup;
     use kpabe_keygen;
     use kpabe_encrypt;
     use kpabe_decrypt;
-    */
     // general tools
     use traverse_str;
     //use traverse_json;
@@ -161,6 +161,19 @@ mod tests {
     use std::string::String;
     use bn::*;
     use rand;
+    use num_bigint::BigInt;
+    use bincode::rustc_serialize::encode;
+    use rustc_serialize::Encodable;
+    use bincode::SizeLimit::Infinite;
+    use rustc_serialize::hex::ToHex;
+
+    pub fn into_dec<S: Encodable>(obj: S) -> Option<String> {
+        encode(&obj, Infinite).ok().map(|e| {
+            BigInt::parse_bytes(e.to_hex().as_bytes(), 16)
+                .unwrap()
+                .to_str_radix(10)
+        })
+    }
 
     fn setup_sets() -> Vec<Vec<String>> {
 
@@ -293,8 +306,7 @@ mod tests {
         }
     }
     /*
-    // disable test because of bug in lsw kp-abe scheme
-    // TODO: fix bug
+TODO: FIX MULTIPLE ATTRIBUTES !!!!
     #[test]
     fn test_kp_abe_and() {
         // setup scheme
@@ -303,18 +315,15 @@ mod tests {
         let mut att_matching: Vec<String> = Vec::new();
         att_matching.push(String::from("A"));
         att_matching.push(String::from("B"));
-
-        // a set of two attributes NOT matching the policy
-        let mut att_not_matching: Vec<String> = Vec::new();
-        att_not_matching.push(String::from("A"));
-        att_not_matching.push(String::from("C"));
+        att_matching.push(String::from("C"));
 
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
 
         // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"OR": [{"ATT": "C"}, {"ATT": "B"}]}"#);
+        //let policy = String::from(r#"{"ATT": "A"}"#);
 
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = kpabe_encrypt(&pk, &att_matching, &plaintext)
@@ -341,8 +350,7 @@ mod tests {
         //    Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
         //}
     }
-    */
-
+*/
     #[test]
     fn test_ac17kp_and() {
         // setup scheme
@@ -434,14 +442,17 @@ mod tests {
         //println!("_random: {:?}", into_dec(_secret).unwrap());
         let _shares = gen_shares(_secret, 2, 2);
         let _k = _shares[0];
-        //println!("_original_secret: {:?}", into_dec(K).unwrap());
+        //println!("_original_secret: {:?}", into_dec(_k).unwrap());
         let mut _input: Vec<Fr> = Vec::new();
         _input.push(_shares[1]);
         _input.push(_shares[2]);
+        //println!("_share1: {:?}", into_dec(_shares[1]).unwrap());
+        //println!("_share2: {:?}", into_dec(_shares[2]).unwrap());
         let _reconstruct = recover_secret(
             _input,
             &String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
         );
+        //println!("_reconstructed: {:?}", into_dec(_reconstruct).unwrap());
         assert!(_k == _reconstruct);
     }
 
