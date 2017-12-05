@@ -8,7 +8,6 @@ extern crate rustc_serialize;
 extern crate num_bigint;
 extern crate blake2_rfc;
 
-
 mod policy;
 mod ac17;
 mod bsw;
@@ -20,6 +19,7 @@ use clap::{Arg, App, SubCommand, ArgMatches};
 use std::process;
 use ac17::*;
 use bsw::*;
+use lsw::*;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
@@ -58,70 +58,139 @@ fn main() {
                 .possible_values(&Scheme::variants())
                 .help("scheme to use."),
         )
-        .arg(
-            Arg::with_name("msk")
-                .long("msk")
-                .required(false)
-                .takes_value(true)
-                .default_value(MSK_FILE)
-                .value_name("msk")
-                .help("master secret key file."),
+        .subcommand(
+            SubCommand::with_name("setup")
+                .about("sets up a scheme, creates msk and pk.")
+                .arg(
+                    Arg::with_name("msk")
+                        .long("msk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(MSK_FILE)
+                        .value_name("msk")
+                        .help("master secret key file."),
+                )
+                .arg(
+                    Arg::with_name("pk")
+                        .long("pk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(PK_FILE)
+                        .value_name("pk")
+                        .help("public key file."),
+                ),
         )
-        .arg(
-            Arg::with_name("pk")
-                .long("pk")
-                .required(false)
-                .takes_value(true)
-                .default_value(PK_FILE)
-                .value_name("pk")
-                .help("public key file."),
+        .subcommand(
+            SubCommand::with_name("keygen")
+                .about(
+                    "creates a user key sk using attributes (cp-schemes) or a policy (kp-schemes).",
+                )
+                .arg(
+                    Arg::with_name("sk")
+                        .long("sk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(SK_FILE)
+                        .value_name("sk")
+                        .help("user key file."),
+                )
+                .arg(
+                    Arg::with_name("msk")
+                        .long("msk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(MSK_FILE)
+                        .value_name("msk")
+                        .help("master secret key file."),
+                )
+                .arg(
+                    Arg::with_name("pk")
+                        .long("pk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(PK_FILE)
+                        .value_name("pk")
+                        .help("public key file."),
+                )
+                .arg(
+                    Arg::with_name("attributes")
+                        .long("attributes")
+                        .required(false)
+                        .takes_value(true)
+                        .multiple(true)
+                        .value_name("attributes")
+                        .help("attributes to use."),
+                )
+                .arg(
+                    Arg::with_name("policy")
+                        .long("policy")
+                        .required(false)
+                        .takes_value(true)
+                        .value_name("policy")
+                        .help("policy to use."),
+                ),
         )
-        .arg(
-            Arg::with_name("attributes")
-                .long("attributes")
-                .required(false)
-                .takes_value(true)
-                .multiple(true)
-                .value_name("attributes")
-                .help("attributes to use."),
+        .subcommand(
+            SubCommand::with_name("encrypt")
+                .about(
+                    "encrypts a file using attributes (kp-schemes) or a policy (cp-schemes).",
+                )
+                .arg(
+                    Arg::with_name("pk")
+                        .long("pk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(PK_FILE)
+                        .value_name("pk")
+                        .help("public key file."),
+                )
+                .arg(
+                    Arg::with_name("attributes")
+                        .long("attributes")
+                        .required(false)
+                        .takes_value(true)
+                        .multiple(true)
+                        .value_name("attributes")
+                        .help("attributes to use."),
+                )
+                .arg(
+                    Arg::with_name("policy")
+                        .long("policy")
+                        .required(false)
+                        .takes_value(true)
+                        .value_name("policy")
+                        .help("policy to use."),
+                )
+                .arg(
+                    Arg::with_name("file")
+                        .long("file")
+                        .required(false)
+                        .takes_value(true)
+                        .value_name("file")
+                        .help("file to use."),
+                ),
         )
-        .arg(
-            Arg::with_name("policy")
-                .long("policy")
-                .required(false)
-                .takes_value(true)
-                .value_name("policy")
-                .help("policy to use."),
+        .subcommand(
+            SubCommand::with_name("decrypt")
+                .about("decrypts a file using a key.")
+                .arg(
+                    Arg::with_name("sk")
+                        .long("sk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(SK_FILE)
+                        .value_name("sk")
+                        .help("user key file."),
+                )
+                .arg(
+                    Arg::with_name("file")
+                        .long("file")
+                        .required(false)
+                        .takes_value(true)
+                        .value_name("file")
+                        .help("file to use."),
+                ),
         )
-        .arg(
-            Arg::with_name("sk")
-                .long("sk")
-                .required(false)
-                .takes_value(true)
-                .default_value(SK_FILE)
-                .value_name("sk")
-                .help("user key file."),
-        )
-        .arg(
-            Arg::with_name("file")
-                .long("file")
-                .required(false)
-                .takes_value(true)
-                .value_name("file")
-                .help("file to use."),
-        )
-        .subcommand(SubCommand::with_name("setup").about(
-            "sets up a scheme, creates msk and pk.",
-        ))
-        .subcommand(SubCommand::with_name("keygen").about(
-            "creates a user key sk using attributes (cp-schemes) or a policy (kp-schemes).",
-        ))
-        .subcommand(SubCommand::with_name("encrypt").about(
-            "encrypts a file using attributes (kp-schemes) or a policy (cp-schemes).",
-        ))
-        .subcommand(SubCommand::with_name("decrypt").about(
-            "decrypts a file using a key.",
-        ))
         .get_matches();
 
     if let Err(e) = run(_abe_app) {
@@ -157,25 +226,27 @@ fn main() {
         match _scheme {
             Scheme::AC17CP => {
                 let (_pk, _msk) = ac17_setup();
-                _encoded_msk = json::encode(&_msk).unwrap();
-                _encoded_pk = json::encode(&_pk).unwrap();
+                _encoded_msk = into_hex(&_msk).unwrap();
+                _encoded_pk = into_hex(&_pk).unwrap();
             }
             Scheme::AC17KP => {
                 let (_pk, _msk) = ac17_setup();
-                _encoded_msk = json::encode(&_msk).unwrap();
-                _encoded_pk = json::encode(&_pk).unwrap();
+                _encoded_msk = into_hex(&_msk).unwrap();
+                _encoded_pk = into_hex(&_pk).unwrap();
             }
             Scheme::BSWCP => {
                 let (_pk, _msk) = cpabe_setup();
-                _encoded_msk = json::encode(&_msk).unwrap();
-                _encoded_pk = json::encode(&_pk).unwrap();
+                _encoded_pk = into_hex(&_pk).unwrap();
+                _encoded_msk = into_hex(&_msk).unwrap();
             }
             Scheme::LSWKP => {
-                //let (_pk, _msk) = kpabe_setup();
+                let (_pk, _msk) = kpabe_setup();
+                _encoded_msk = into_hex(&_msk).unwrap();
+                _encoded_pk = into_hex(&_pk).unwrap();
             }
         }
-        //println!("msk : {}", _encoded_msk);
-        //println!("pk : {}", _encoded_pk);
+        println!("msk : {}", _encoded_msk);
+        println!("pk : {}", _encoded_pk);
         write_file(Path::new(_msk_file), _encoded_msk);
         write_file(Path::new(_pk_file), _encoded_pk);
         Ok(())
@@ -212,27 +283,28 @@ fn main() {
         }
         let _msk_string = read_file(Path::new(_msk_file));
         let _pk_string = read_file(Path::new(_pk_file));
-
+        println!("msk : {}", _msk_string);
+        println!("pk : {}", _pk_string);
         match _scheme {
             Scheme::AC17CP => {
-                let _msk: Ac17MasterKey = json::decode(&_msk_string).unwrap();
+                let _msk: Ac17MasterKey = from_hex(&_msk_string).unwrap();
                 let _sk = ac17cp_keygen(&_msk, &_attributes);
-                _encoded_sk = json::encode(&_sk).unwrap();
+                _encoded_sk = into_hex(&_sk).unwrap();
             }
             Scheme::AC17KP => {
-                let mut _msk: Ac17MasterKey = json::decode(&_msk_string).unwrap();
+                let _msk: Ac17MasterKey = from_hex(&_msk_string).unwrap();
                 let _sk = ac17kp_keygen(&_msk, &_policy);
-                _encoded_sk = json::encode(&_sk).unwrap();
+                _encoded_sk = into_hex(&_sk).unwrap();
             }
             Scheme::BSWCP => {
-                let mut _msk: CpAbeMasterKey = json::decode(&_msk_string).unwrap();
-                let mut _pk: CpAbePublicKey = json::decode(&_pk_string).unwrap();
+                let _msk: CpAbeMasterKey = from_hex(&_msk_string).unwrap();
+                let _pk: CpAbePublicKey = from_hex(&_pk_string).unwrap();
                 let _sk = cpabe_keygen(&_pk, &_msk, &_attributes);
-                _encoded_sk = json::encode(&_sk).unwrap();
+                _encoded_sk = into_hex(&_sk).unwrap();
             }
             Scheme::LSWKP => {
                 //let _sk = kpabe_keygen();
-                //_encoded_sk = json::encode(&_msk).unwrap();
+                //_encoded_sk = into_hex(&_msk).unwrap();
             }
         }
         //println!("sk: {}", _encoded_sk);
@@ -266,23 +338,23 @@ fn main() {
         let buffer: Vec<u8> = read_to_vec(Path::new(&_file));
         match _scheme {
             Scheme::AC17CP => {
-                let _pk: Ac17PublicKey = json::decode(&_pk_string).unwrap();
+                let _pk: Ac17PublicKey = from_hex(&_pk_string).unwrap();
                 let _ct = ac17cp_encrypt(&_pk, &_policy, &buffer);
-                _encoded_ct = json::encode(&_ct).unwrap();
+                _encoded_ct = into_hex(&_ct).unwrap();
             }
             Scheme::AC17KP => {
-                let _pk: Ac17PublicKey = json::decode(&_pk_string).unwrap();
+                let _pk: Ac17PublicKey = from_hex(&_pk_string).unwrap();
                 let _ct = ac17kp_encrypt(&_pk, &_attributes, &buffer);
-                _encoded_ct = json::encode(&_ct).unwrap();
+                _encoded_ct = into_hex(&_ct).unwrap();
             }
             Scheme::BSWCP => {
-                let _pk: CpAbePublicKey = json::decode(&_pk_string).unwrap();
+                let _pk: CpAbePublicKey = from_hex(&_pk_string).unwrap();
                 let _ct = cpabe_encrypt(&_pk, &_policy, &buffer);
-                _encoded_ct = json::encode(&_ct).unwrap();
+                _encoded_ct = into_hex(&_ct).unwrap();
             }
             Scheme::LSWKP => {
                 //let _ct = kpabe_encrypt();
-                //_encoded_ct = json::encode(&_ct).unwrap();
+                //_encoded_ct = into_hex(&_ct).unwrap();
             }
         }
 
@@ -307,23 +379,23 @@ fn main() {
         }
         match _scheme {
             Scheme::AC17CP => {
-                let _sk: Ac17CpSecretKey = json::decode(&_sk_file).unwrap();
-                let _ct: Ac17CpCiphertext = json::decode(&_file).unwrap();
+                let _sk: Ac17CpSecretKey = from_hex(&_sk_file).unwrap();
+                let _ct: Ac17CpCiphertext = from_hex(&_file).unwrap();
                 _pt_option = ac17cp_decrypt(&_sk, &_ct);
             }
             Scheme::AC17KP => {
-                let _sk: Ac17KpSecretKey = json::decode(&_sk_file).unwrap();
-                let _ct: Ac17KpCiphertext = json::decode(&_file).unwrap();
+                let _sk: Ac17KpSecretKey = from_hex(&_sk_file).unwrap();
+                let _ct: Ac17KpCiphertext = from_hex(&_file).unwrap();
                 _pt_option = ac17kp_decrypt(&_sk, &_ct);
             }
             Scheme::BSWCP => {
-                let _sk: CpAbeSecretKey = json::decode(&_sk_file).unwrap();
-                let _ct: CpAbeCiphertext = json::decode(&_file).unwrap();
+                let _sk: CpAbeSecretKey = from_hex(&_sk_file).unwrap();
+                let _ct: CpAbeCiphertext = from_hex(&_file).unwrap();
                 _pt_option = cpabe_decrypt(&_sk, &_ct);
             }
             Scheme::LSWKP => {
                 //let _ct = kpabe_encrypt();
-                //_encoded_ct = json::encode(&_ct).unwrap();
+                //_encoded_ct = into_hex(&_ct).unwrap();
             }
         }
         match _pt_option {
