@@ -19,6 +19,7 @@ use rustc_serialize::json;
 use clap::{Arg, App, SubCommand, ArgMatches};
 use std::process;
 use ac17::*;
+use aw11::*;
 use bsw::*;
 use lsw::*;
 use std::error::Error;
@@ -42,6 +43,7 @@ fn main() {
 	    enum Scheme {
 	        AC17CP,
 	        AC17KP,
+	        AW11,
 	        BSWCP,
 	        LSWKP
 	    }

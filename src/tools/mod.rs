@@ -15,6 +15,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::{encode, decode};
 use rustc_serialize::hex::{FromHex, ToHex};
 use bn::*;
+use aw11::{Aw11PublicKey, Aw11MasterKey};
 
 pub fn is_negative(_attr: &String) -> bool {
     let first_char = &_attr[..1];
@@ -94,6 +95,26 @@ pub fn traverse_str(_attr: &Vec<(String)>, _policy: &String) -> bool {
         }
     }
 }
+
+pub fn aw11_traverse_str(_attr: &Vec<(String, G1, G2)>, _policy: &String) -> bool {
+    match serde_json::from_str(_policy) {
+        Err(_) => {
+            println!("Error parsing policy {:?}", _policy);
+            return false;
+        }
+        Ok(pol) => {
+            let _a: Vec<String> = _attr.clone().iter().fold(
+                Vec::with_capacity(_attr.len()),
+                |mut acc, p| {
+                    acc.push(p.0);
+                    acc
+                },
+            );
+            return traverse_json(&_a, &pol);
+        }
+    }
+}
+
 // used to traverse / check policy tree
 pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
     if *_json == serde_json::Value::Null {
@@ -150,6 +171,26 @@ pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
         println!("Error: Policy invalid. No AND or OR found");
         return false;
     }
+}
+
+// AW11 Scheme functions
+
+pub fn aw11_from_pk(_pk: &Aw11PublicKey, _a: &String) -> Option<(String, usize)> {
+    for (_i, _attr) in _pk._attr.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.0.clone(), _i));
+        }
+    }
+    return None;
+}
+
+pub fn aw11_from_msk(_sk: &Aw11MasterKey, _a: &String) -> Option<(String, usize)> {
+    for (_i, _attr) in _sk._attr.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.0.clone(), _i));
+        }
+    }
+    return None;
 }
 
 /////////////////////////////////////////////////////////////////////

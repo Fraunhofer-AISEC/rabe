@@ -23,6 +23,7 @@ extern crate arrayref;
 
 mod policy;
 mod ac17;
+mod aw11;
 mod bsw;
 mod lsw;
 mod tools;
@@ -31,6 +32,7 @@ mod secretsharing;
 use secretsharing::*;
 use tools::*;
 use ac17::*;
+use aw11::*;
 use bsw::*;
 use lsw::*;
 
