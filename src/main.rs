@@ -10,6 +10,7 @@ extern crate blake2_rfc;
 
 mod policy;
 mod ac17;
+mod aw11;
 mod bsw;
 mod lsw;
 mod tools;
@@ -247,6 +248,9 @@ fn main() {
                 _encoded_msk = into_hex(&_msk).unwrap();
                 _encoded_pk = into_hex(&_pk).unwrap();
             }
+            Scheme::AW11 => {
+                // TODO
+            }            
         }
         println!("msk : {}", _encoded_msk);
         println!("pk : {}", _encoded_pk);
@@ -311,6 +315,9 @@ fn main() {
                 let _sk = kpabe_keygen(&_pk, &_msk, &_policy);
                 _encoded_sk = into_hex(&_sk).unwrap();
             }
+            Scheme::AW11 => {
+                // TODO
+            } 
         }
         //println!("sk: {}", _encoded_sk);
         write_file(Path::new(_sk_file), _encoded_sk);
@@ -362,6 +369,9 @@ fn main() {
                 let _ct = kpabe_encrypt(&_pk, &_attributes, &buffer);
                 _encoded_ct = into_hex(&_ct).unwrap();
             }
+            Scheme::AW11 => {
+                // TODO
+            } 
         }
 
         //println!("ct: {}", _encoded_ct);
@@ -404,6 +414,9 @@ fn main() {
                 let _ct: KpAbeCiphertext = from_hex(&_file).unwrap();
                 _pt_option = kpabe_decrypt(&_sk, &_ct);
             }
+            Scheme::AW11 => {
+                // TODO
+            } 
         }
         match _pt_option {
             None => {

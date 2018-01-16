@@ -15,6 +15,7 @@ use rand::Rng;
 use policy::AbePolicy;
 use secretsharing::{gen_shares_str, calc_coefficients_str};
 use tools::*;
+use std::ascii::AsciiExt;
 
 //////////////////////////////////////////////////////
 // AW11 ABE structs
@@ -64,7 +65,7 @@ pub struct Aw11Context {
 }
 
 //////////////////////////////////////////
-// AC17 KP-ABE on type-3
+// AW11 D-ABE on type-3
 //////////////////////////////////////////
 
 const ASSUMPTION_SIZE: usize = 2;
@@ -104,9 +105,10 @@ pub fn aw11_setup(
         let _alpha_i = Fr::random(_rng);
         let _y1_i = Fr::random(_rng);
         let _y2_i = Fr::random(_rng);
-        let mut _key: (String, bn::Fr, bn::Fr, bn::Fr) = (_attr.clone(), _alpha_i, _y1_i, _y2_i);
+        let mut _key: (String, bn::Fr, bn::Fr, bn::Fr) =
+            (_attr.clone().to_uppercase(), _alpha_i, _y1_i, _y2_i);
         let mut _value: (String, bn::Gt, bn::G1, bn::G2) = (
-            _attr.clone(),
+            _attr.clone().to_uppercase(),
             pairing(gk._g1, gk._g2).pow(_alpha_i),
             gk._g1 * _y1_i,
             gk._g2 * _y2_i,
@@ -114,46 +116,46 @@ pub fn aw11_setup(
         _msk.push(_key);
         _pk.push(_value);
     }
-    let _pk = Aw11PublicKey { _attr: _pk };
-    let _msk = Aw11MasterKey { _attr: _msk };
     // return PK and MSK
-    return Some((_pk, _msk));
+    return Some((
+        Aw11PublicKey { _attr: _pk },
+        Aw11MasterKey { _attr: _msk },
+    ));
 }
 
 /*
  * user key setup
- * Create a key for GID on attributes belonging to authority sk
- * sk is the private key for the releveant authority
- * the attributes are appended to bob's secret key sk
+ * Create a key for GID on attributes belonging to authority msk
+ * msk is the private key for the releveant authority
+ * the attributes are appended to the secret key sk
  */
 pub fn aw11_keygen(
     gk: &Aw11GlobalKey,
     msk: &Aw11MasterKey,
-    attributes: &Vec<String>,
+    attribute: &String,
     sk: &Aw11SecretKey,
 ) -> Option<Aw11SecretKey> {
     // if no attibutes or no gid
-    if attributes.is_empty() || sk._gid.is_empty() {
+    if attribute.is_empty() || sk._gid.is_empty() {
         return None;
     }
     let mut _values: Vec<(String, bn::G1, bn::G2)> = sk._attr.clone();
     let _h_g1 = blake2b_hash_g1(gk._g1, &sk._gid);
     let _h_g2 = blake2b_hash_g2(gk._g2, &sk._gid);
-    for _attr in attributes {
-        let _current_attr = aw11_from_msk(msk, _attr);
-        match _current_attr {
-            None => return None,
-            Some(_current) => {
-                let _attribute = msk._attr[_current.1].clone();
-                _values.push((
-                    _attr.clone(),
-                    (gk._g1 * _attribute.1) + (_h_g1 * _attribute.2),
-                    (gk._g2 * _attribute.1) + (_h_g2 * _attribute.3),
-                ));
-            }
-        }
 
+    let _sk_attr = aw11_attr_from_msk(msk, attribute);
+    match _sk_attr {
+        None => return None,
+        Some(_current) => {
+            let _attribute = msk._attr[_current.1].clone();
+            _values.push((
+                _attribute.0.clone().to_uppercase(),
+                (gk._g1 * _attribute.1) + (_h_g1 * _attribute.2),
+                (gk._g2 * _attribute.1) + (_h_g2 * _attribute.3),
+            ));
+        }
     }
+
     return Some(Aw11SecretKey {
         _attr: _values,
         _gid: sk._gid.clone(),
@@ -180,16 +182,18 @@ pub fn aw11_encrypt(
     let _num_rows = msp._m.len();
     // pick randomness
     let _s = Fr::random(_rng);
+    let _zero = Fr::zero();
     let _e_gg_s = pairing(gk._g1, gk._g2).pow(_s);
     // random msg
     let _msg = pairing(G1::random(_rng), G2::random(_rng));
     let _c_0 = _msg * _e_gg_s;
     let _s_shares = gen_shares_str(_s, policy).unwrap();
-    let _w_shares = gen_shares_str(Fr::zero(), policy).unwrap();
+    let _w_shares = gen_shares_str(_zero, policy).unwrap();
+
     let mut _c: Vec<(String, bn::Gt, bn::G1, bn::G1, bn::G2, bn::G2)> = Vec::new();
     for (_i, _tuple) in _s_shares.iter().enumerate() {
         let _r = Fr::random(_rng);
-        let _current_attr = aw11_from_pk(pk, &_tuple.0);
+        let _current_attr = aw11_attr_from_pk(pk, &_tuple.0);
         match _current_attr {
             None => return None,
             Some(_current) => {
@@ -237,7 +241,7 @@ pub fn aw11_decrypt(
     sk: &Aw11SecretKey,
     ct: &Aw11Ciphertext,
 ) -> Option<Vec<u8>> {
-    if aw11_traverse_str(&sk._attr, &ct._policy) == false {
+    if traverse_str(&flatten(&sk._attr), &ct._policy) == false {
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {

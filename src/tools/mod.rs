@@ -84,7 +84,7 @@ pub fn get_attribute_list_json(_json: &serde_json::Value, _list: &mut Vec<(Strin
     }
 }
 
-pub fn traverse_str(_attr: &Vec<(String)>, _policy: &String) -> bool {
+pub fn traverse_str(_attr: &Vec<String>, _policy: &String) -> bool {
     match serde_json::from_str(_policy) {
         Err(_) => {
             println!("Error parsing policy {:?}", _policy);
@@ -96,27 +96,19 @@ pub fn traverse_str(_attr: &Vec<(String)>, _policy: &String) -> bool {
     }
 }
 
-pub fn aw11_traverse_str(_attr: &Vec<(String, G1, G2)>, _policy: &String) -> bool {
-    match serde_json::from_str(_policy) {
-        Err(_) => {
-            println!("Error parsing policy {:?}", _policy);
-            return false;
-        }
-        Ok(pol) => {
-            let _a: Vec<String> = _attr.clone().iter().fold(
-                Vec::with_capacity(_attr.len()),
-                |mut acc, p| {
-                    acc.push(p.0);
-                    acc
-                },
-            );
-            return traverse_json(&_a, &pol);
-        }
+pub fn flatten(data: &Vec<(String, bn::G1, bn::G2)>) -> Vec<String> {
+    let mut result = Vec::with_capacity(data.len() / 3);
+    for tup in data {
+        let a = tup.clone().0;
+        result.push(a);
     }
+    result
 }
 
+
+
 // used to traverse / check policy tree
-pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
+pub fn traverse_json(_attr: &Vec<String>, _json: &serde_json::Value) -> bool {
     if *_json == serde_json::Value::Null {
         println!("Error: passed null as json!");
         return false;
@@ -158,7 +150,7 @@ pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
         match _json["ATT"].as_str() {
             Some(s) => {
                 // check if ATT in _attr list
-                return (&_attr).into_iter().any(|v| v == &s);
+                return (&_attr).into_iter().any(|x| x == s);
             }
             None => {
                 println!("Error: in attribute String");
@@ -175,7 +167,7 @@ pub fn traverse_json(_attr: &Vec<(String)>, _json: &serde_json::Value) -> bool {
 
 // AW11 Scheme functions
 
-pub fn aw11_from_pk(_pk: &Aw11PublicKey, _a: &String) -> Option<(String, usize)> {
+pub fn aw11_attr_from_pk(_pk: &Aw11PublicKey, _a: &String) -> Option<(String, usize)> {
     for (_i, _attr) in _pk._attr.iter().enumerate() {
         if _attr.0 == _a.to_string() {
             return Some((_attr.0.clone(), _i));
@@ -184,7 +176,7 @@ pub fn aw11_from_pk(_pk: &Aw11PublicKey, _a: &String) -> Option<(String, usize)>
     return None;
 }
 
-pub fn aw11_from_msk(_sk: &Aw11MasterKey, _a: &String) -> Option<(String, usize)> {
+pub fn aw11_attr_from_msk(_sk: &Aw11MasterKey, _a: &String) -> Option<(String, usize)> {
     for (_i, _attr) in _sk._attr.iter().enumerate() {
         if _attr.0 == _a.to_string() {
             return Some((_attr.0.clone(), _i));
