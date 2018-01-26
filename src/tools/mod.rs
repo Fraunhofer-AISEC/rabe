@@ -97,14 +97,21 @@ pub fn traverse_str(_attr: &Vec<String>, _policy: &String) -> bool {
 }
 
 pub fn flatten(data: &Vec<(String, bn::G1, bn::G2)>) -> Vec<String> {
-    let mut result = Vec::with_capacity(data.len() / 3);
-    for tup in data {
-        let a = tup.clone().0;
-        result.push(a);
-    }
-    result
+    data.iter()
+        .map(|triple| {
+            let (_s, _g1, _g2) = triple.clone();
+            _s
+        })
+        .collect::<Vec<_>>()
 }
 
+pub fn contains(data: &Vec<(String)>, value: &String) -> bool {
+    let len = data.into_iter()
+        .filter(|&i| i == value)
+        .collect::<Vec<_>>()
+        .len();
+    return len >= 1;
+}
 
 
 // used to traverse / check policy tree
