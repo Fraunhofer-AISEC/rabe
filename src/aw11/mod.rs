@@ -259,10 +259,16 @@ pub fn aw11_decrypt(
                     for _current in _list.iter().enumerate() {
                         let _sk_attr = aw11_attr_from_sk(sk, &_current.1).unwrap();
                         let _ct_attr = aw11_attr_from_ct(ct, &_current.1).unwrap();
-                        let num = _ct_attr.1 * pairing(_h_g1, _ct_attr.3);
-                        let dem = pairing(_sk_attr.1, _ct_attr.2);
+                        let num = _ct_attr.1 * pairing(_ct_attr.3, _h_g2) *
+                            pairing(_h_g1, _ct_attr.5);
+                        let dem = pairing(_ct_attr.2, _sk_attr.2) * pairing(_sk_attr.1, _ct_attr.4);
                         _egg_s = _egg_s *
-                            ((num * dem.inverse()).pow(aw11_get_coefficient(_current.1, &_coeffs)));
+                            ((num * dem.inverse()).pow(
+                                aw11_get_coefficient(
+                                    _current.1,
+                                    &_coeffs,
+                                ).unwrap(),
+                            ));
 
                     }
                     let _msg = ct._c_0 * _egg_s.inverse();

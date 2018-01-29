@@ -15,7 +15,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::{encode, decode};
 use rustc_serialize::hex::{FromHex, ToHex};
 use bn::*;
-use aw11::{Aw11PublicKey, Aw11MasterKey};
+use aw11::{Aw11PublicKey, Aw11MasterKey, Aw11SecretKey, Aw11Ciphertext};
 
 pub fn is_negative(_attr: &String) -> bool {
     let first_char = &_attr[..1];
@@ -193,9 +193,9 @@ pub fn aw11_attr_from_msk(_sk: &Aw11MasterKey, _a: &String) -> Option<(String, u
 }
 
 pub fn aw11_attr_from_sk(_sk: &Aw11SecretKey, _a: &String) -> Option<(String, G1, G2)> {
-    for (_i, _g1, _g2) in _sk._attr.iter().enumerate() {
+    for (_i, _attr) in _sk._attr.iter().enumerate() {
         if _attr.0 == _a.to_string() {
-            return Some((_attr.0.clone(), _g1, _g2));
+            return Some((_attr.clone()));
         }
     }
     return None;
@@ -205,9 +205,9 @@ pub fn aw11_attr_from_ct(
     _ct: &Aw11Ciphertext,
     _a: &String,
 ) -> Option<(String, Gt, G1, G1, G2, G2)> {
-    for (_attr, _c1, _c2, _c3, _c4, _c5) in _ct.c.iter().enumerate() {
+    for (_i, _attr) in _ct._c.iter().enumerate() {
         if _attr.0 == _a.to_string() {
-            return Some((_attr.0.clone(), _c1, _c2, _c3, _c4, _c5));
+            return Some((_attr.clone()));
         }
     }
     return None;
@@ -215,14 +215,13 @@ pub fn aw11_attr_from_ct(
 
 
 
-pub fn aw11_get_coefficient(_attr: &String, _coeffs: &Vec<(String, Fr)>) -> Fr {
-    let _attrs = _coeffs
-        .iter()
-        .filter(|&&(name, _)| name == _attr.to_string())
-        .map(|&(_name, _value)| _value)
-        .take(1)
-        .collect::<Vec<_>>();
-    _attrs.pop().unwrap()
+pub fn aw11_get_coefficient(_a: &String, _coeffs: &Vec<(String, Fr)>) -> Option<Fr> {
+    for (_i, _attr) in _coeffs.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.clone().1));
+        }
+    }
+    return None;
 }
 
 /////////////////////////////////////////////////////////////////////
