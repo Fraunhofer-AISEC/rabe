@@ -152,6 +152,7 @@ mod tests {
     use kpabe_decrypt;
     // general tools
     use traverse_str;
+    use calc_pruned_str;
     //use traverse_json;
     use gen_shares;
     use recover_secret;
@@ -457,6 +458,40 @@ TODO: FIX MULTIPLE ATTRIBUTES !!!!
         //println!("_reconstructed: {:?}", into_dec(_reconstruct).unwrap());
         assert!(_k == _reconstruct);
     }
+
+    #[test]
+    fn pruning_test() {
+        // a set of two attributes
+        let mut _attributes: Vec<String> = Vec::new();
+        _attributes.push(String::from("1"));
+        _attributes.push(String::from("3"));
+
+        let _result1 = calc_pruned_str(
+            &_attributes,
+            &String::from(r#"{"AND": [{"OR": [{"ATT": "1"}, {"ATT": "2"}]}, {"AND": [{"ATT": "2"}, {"ATT": "3"}]}]}"#),
+        );
+        let _result2 = calc_pruned_str(
+            &_attributes,
+            &String::from(
+                r#"{"OR": [{"ATT": "1"}, {"AND": [{"ATT": "2"}, {"ATT": "3"}]}]}"#,
+            ),
+        );
+        let _result3 = calc_pruned_str(
+            &_attributes,
+            &String::from(r#"{"AND": [{"OR": [{"ATT": "1"}, {"ATT": "2"}]}, {"OR": [{"ATT": "4"}, {"ATT": "3"}]}]}"#),
+        );
+
+        let (_match1, _list1) = _result1.unwrap();
+        assert!(_match1 == false);
+        assert!(_list1.is_empty() == true);
+        let (_match2, _list2) = _result2.unwrap();
+        assert!(_match2 == true);
+        assert!(_list2 == vec!["1".to_string()]);
+        let (_match3, _list3) = _result3.unwrap();
+        assert!(_match3 == true);
+        assert!(_list3 == vec!["1".to_string(), "3".to_string()]);
+    }
+
 
     #[test]
     fn test_secret_sharing_or() {

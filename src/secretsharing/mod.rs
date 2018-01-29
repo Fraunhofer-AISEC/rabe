@@ -6,45 +6,41 @@ use bn::*;
 use tools::{usize_to_fr, contains, flatten};
 
 
-pub fn calc_pruned_str(
-    _policy: &String,
-    _attr: &Vec<(String, G1, G2)>,
-) -> Option<(bool, Vec<(String)>)> {
+pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool, Vec<(String)>)> {
     match serde_json::from_str(_policy) {
         Err(_) => {
             println!("Error in policy (could not parse json): {:?}", _policy);
             return None;
         }
         Ok(pol) => {
-            return required_attributes(&pol, &flatten(_attr));
+            return required_attributes(_attr, &pol);
         }
     }
 }
 
 
 pub fn required_attributes(
-    _json: &serde_json::Value,
     _attr: &Vec<(String)>,
+    _json: &serde_json::Value,
 ) -> Option<(bool, Vec<(String)>)> {
     if *_json == serde_json::Value::Null {
         println!("Error: passed null as json!");
         return None;
     } else {
-        let mut _current_list: Vec<(String)> = Vec::new();
-        let _empty: Vec<(String)> = Vec::new();
+        let mut _match: bool = false;
+        let mut _emtpy_list: Vec<(String)> = Vec::new();
         if _json["OR"].is_array() {
             let _num_terms = _json["OR"].as_array().unwrap().len();
             if _num_terms >= 2 {
-                let mut found: bool = false;
                 for _i in 0usize.._num_terms {
-                    let (_found, mut _list) = required_attributes(&_json["OR"][_i], _attr).unwrap();
-                    found = found || _found;
-                    if found {
-                        _current_list.append(&mut _list);
-                        return Some((found, _current_list));
+                    let (_found, mut _list) = required_attributes(_attr, &_json["OR"][_i]).unwrap();
+                    _match = _match || _found;
+                    if _match {
+                        _emtpy_list.append(&mut _list);
+                        break;
                     }
                 }
-                return Some((false, _empty));
+                return Some((_match, _emtpy_list));
             } else {
                 println!("Error: Invalid policy (OR with just a single child).");
                 return None;
@@ -53,33 +49,35 @@ pub fn required_attributes(
         // inner node
         else if _json["AND"].is_array() {
             let _num_terms = _json["AND"].as_array().unwrap().len();
+            _match = true;
             if _num_terms >= 2 {
-                let mut found: bool = true;
                 for _i in 0usize.._num_terms {
-                    let (_found, mut _list) = required_attributes(&_json["AND"][_i], _attr)
+                    let (_found, mut _list) = required_attributes(_attr, &_json["AND"][_i])
                         .unwrap();
-                    found = found && _found;
-                    if found {
-                        _current_list.append(&mut _list);
-                        return Some((found, _current_list));
-                    } else {
-                        return Some((false, _empty));
+                    _match = _match && _found;
+                    if _match {
+                        _emtpy_list.append(&mut _list);
                     }
                 }
-                return Some((false, _empty));
+
             } else {
                 println!("Error: Invalid policy (OR with just a single child).");
                 return None;
             }
+            if !_match {
+                _emtpy_list = Vec::new();
+            }
+            return Some((_match, _emtpy_list));
+
         }
         // leaf node
         else if _json["ATT"] != serde_json::Value::Null {
             match _json["ATT"].as_str() {
                 Some(_s) => {
                     if contains(_attr, &_s.to_string()) {
-                        return Some((true, _attr.to_vec()));
+                        return Some((true, vec![_s.to_string()]));
                     } else {
-                        return None;
+                        return Some((false, _emtpy_list));
                     }
                 }
                 None => {

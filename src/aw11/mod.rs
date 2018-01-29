@@ -246,7 +246,7 @@ pub fn aw11_decrypt(
         return None;
     } else {
         let _coeffs = calc_coefficients_str(&ct._policy).unwrap();
-        let _pruned = calc_pruned_str(&ct._policy, &sk._attr);
+        let _pruned = calc_pruned_str(&flatten(&sk._attr), &ct._policy);
         match _pruned {
             None => return None,
             Some(_p) => {
