@@ -131,11 +131,11 @@ pub fn aw11_keygen(
     gk: &Aw11GlobalKey,
     msk: &Aw11MasterKey,
     attribute: &String,
-    sk: &Aw11SecretKey,
-) -> Option<Aw11SecretKey> {
+    sk: &mut Aw11SecretKey,
+) {
     // if no attibutes or no gid
     if attribute.is_empty() || sk._gid.is_empty() {
-        return None;
+        return;
     }
     let mut _values: Vec<(String, bn::G1, bn::G2)> = sk._attr.clone();
     let _h_g1 = blake2b_hash_g1(gk._g1, &sk._gid);
@@ -143,21 +143,16 @@ pub fn aw11_keygen(
 
     let _sk_attr = aw11_attr_from_msk(msk, attribute);
     match _sk_attr {
-        None => return None,
+        None => return,
         Some(_current) => {
             let _attribute = msk._attr[_current.1].clone();
-            _values.push((
+            sk._attr.push((
                 _attribute.0.clone().to_uppercase(),
                 (gk._g1 * _attribute.1) + (_h_g1 * _attribute.2),
                 (gk._g2 * _attribute.1) + (_h_g2 * _attribute.3),
             ));
         }
     }
-
-    return Some(Aw11SecretKey {
-        _attr: _values,
-        _gid: sk._gid.clone(),
-    });
 }
 
 /* encrypt
