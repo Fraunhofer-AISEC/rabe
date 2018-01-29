@@ -192,6 +192,39 @@ pub fn aw11_attr_from_msk(_sk: &Aw11MasterKey, _a: &String) -> Option<(String, u
     return None;
 }
 
+pub fn aw11_attr_from_sk(_sk: &Aw11SecretKey, _a: &String) -> Option<(String, G1, G2)> {
+    for (_i, _g1, _g2) in _sk._attr.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.0.clone(), _g1, _g2));
+        }
+    }
+    return None;
+}
+
+pub fn aw11_attr_from_ct(
+    _ct: &Aw11Ciphertext,
+    _a: &String,
+) -> Option<(String, Gt, G1, G1, G2, G2)> {
+    for (_attr, _c1, _c2, _c3, _c4, _c5) in _ct.c.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.0.clone(), _c1, _c2, _c3, _c4, _c5));
+        }
+    }
+    return None;
+}
+
+
+
+pub fn aw11_get_coefficient(_attr: &String, _coeffs: &Vec<(String, Fr)>) -> Fr {
+    let _attrs = _coeffs
+        .iter()
+        .filter(|&&(name, _)| name == _attr.to_string())
+        .map(|&(_name, _value)| _value)
+        .take(1)
+        .collect::<Vec<_>>();
+    _attrs.pop().unwrap()
+}
+
 /////////////////////////////////////////////////////////////////////
 // HASH TO GROUP FUNTIONS
 /////////////////////////////////////////////////////////////////////

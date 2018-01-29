@@ -4,7 +4,6 @@ extern crate serde;
 extern crate serde_json;
 
 use std::string::String;
-use std::ops::Neg;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
@@ -15,7 +14,6 @@ use rand::Rng;
 use policy::AbePolicy;
 use secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
 use tools::*;
-use std::ascii::AsciiExt;
 
 //////////////////////////////////////////////////////
 // AW11 ABE structs
@@ -245,40 +243,46 @@ pub fn aw11_decrypt(
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
-        let _coeffs = calc_coefficients_str(&ct._policy).unwrap();
         let _pruned = calc_pruned_str(&flatten(&sk._attr), &ct._policy);
         match _pruned {
-            None => return None,
+            None => {
+                println!("Error: attributes in sk do not match policy in ct.");
+                return None;
+            }
             Some(_p) => {
-                let _h_g1 = blake2b_hash_g1(gk._g1, &sk._gid);
-                let _h_g2 = blake2b_hash_g2(gk._g2, &sk._gid);
-                let mut _egg_s = Gt::one();
-                for (_i, _coeff) in _coeffs.iter().enumerate() {
-                    /*
-            let _current_sk_attr = aw11_get_sk_attribute(sk, &_coeff.0);
-            let _current_ct_attr = aw11_get_ct_attribute(ct, &_coeff.0);
-            */
-                    //let num = ct. ['C1'][x] * pair(h_gid, ct['C3'][x]);
-                    //let dem = pair(sk[y]['k'], ct['C2'][x]);
-                    //egg_s = _egg_s * ( (num * dem.inverse()) ** coeffs[x] );
+                let _coeffs = calc_coefficients_str(&ct._policy).unwrap();
+                let (_match, _list) = _p;
+                if _match {
+                    let _h_g1 = blake2b_hash_g1(gk._g1, &sk._gid);
+                    let _h_g2 = blake2b_hash_g2(gk._g2, &sk._gid);
+                    let mut _egg_s = Gt::one();
+                    for _current in _list.iter().enumerate() {
+                        let _sk_attr = aw11_attr_from_sk(sk, &_current.1).unwrap();
+                        let _ct_attr = aw11_attr_from_ct(ct, &_current.1).unwrap();
+                        let num = _ct_attr.1 * pairing(_h_g1, _ct_attr.3);
+                        let dem = pairing(_sk_attr.1, _ct_attr.2);
+                        _egg_s = _egg_s *
+                            ((num * dem.inverse()).pow(aw11_get_coefficient(_current.1, &_coeffs)));
 
-                }
-                let _msg = ct._c_0 * _egg_s.inverse();
-                // Decrypt plaintext using derived secret from cp-abe scheme
-                let mut sha = Sha3::sha3_256();
-                match encode(&_msg, Infinite) {
-                    Err(_) => return None,
-                    Ok(e) => {
-                        sha.input(e.to_hex().as_bytes());
-                        let mut key: [u8; 32] = [0; 32];
-                        sha.result(&mut key);
-                        let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
-                        return Some(aes);
                     }
+                    let _msg = ct._c_0 * _egg_s.inverse();
+                    // Decrypt plaintext using derived secret from cp-abe scheme
+                    let mut sha = Sha3::sha3_256();
+                    match encode(&_msg, Infinite) {
+                        Err(_) => return None,
+                        Ok(e) => {
+                            sha.input(e.to_hex().as_bytes());
+                            let mut key: [u8; 32] = [0; 32];
+                            sha.result(&mut key);
+                            let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
+                            return Some(aes);
+                        }
+                    }
+                } else {
+                    println!("Error: attributes in sk do not match policy in ct.");
+                    return None;
                 }
             }
         }
-
-
     }
 }

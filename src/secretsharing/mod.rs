@@ -5,7 +5,6 @@ extern crate rand;
 use bn::*;
 use tools::{usize_to_fr, contains, flatten};
 
-
 pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool, Vec<(String)>)> {
     match serde_json::from_str(_policy) {
         Err(_) => {

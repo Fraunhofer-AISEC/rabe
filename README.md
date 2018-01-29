@@ -5,6 +5,7 @@ Implemented Schemes:
 - BSW CP-ABE
 - AC17 CP-ABE
 - AC17 KP-ABE
+- AW11 CP-ABE
 - LSW KP-ABE (buggy! TODO: need to fix coeff reconstruction)
 
 In order to compile and test:
