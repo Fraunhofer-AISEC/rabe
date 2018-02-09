@@ -237,7 +237,6 @@ pub fn cpabe_delegate(
         println!("Error: the given attributes are not a subset of sk attributes.");
         return None;
     } else {
-
         // if no attibutes or an empty policy
         // maybe add empty msk also here
         if subset.is_empty() || subset.len() == 0 {
@@ -246,11 +245,12 @@ pub fn cpabe_delegate(
         }
         // random number generator
         let _rng = &mut rand::thread_rng();
-        // generate random r1 and r2 and sum of both
-        // compute Br as well because it will be used later too
+        // generate random r
         let _r = Fr::random(_rng);
+        // calculate derived _k_0
         let _k_0 = sk._k_0 + (pk._f * _r);
         let mut _k: Vec<(String, bn::G1, bn::G2)> = Vec::new();
+        // calculate derived attributes
         for (_attr_str, _attr_g1, _attr_g2) in sk._k.clone() {
             let _r_attr = Fr::random(_rng);
             _k.push((
