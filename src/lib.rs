@@ -318,6 +318,37 @@ mod tests {
             Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
         }
     }
+
+    #[test]
+    fn test_bsw_cp_delegate() {
+        // setup scheme
+        let (pk, msk) = cpabe_setup();
+        // a set of three attributes matching the policy
+        let mut _atts: Vec<String> = Vec::new();
+        _atts.push(String::from("A"));
+        _atts.push(String::from("B"));
+        _atts.push(String::from("C"));
+        // a set of two delegated attributes
+        let _delegate: Vec<_> = _atts[1..2].iter().cloned().collect();
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+        // a cp-abe SK key matching
+        let sk: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &_atts).unwrap();
+        // a delegated cp-abe SK key matching
+        let sk_delegate: CpAbeSecretKey = cpabe_delegate(&pk, &sk, &_delegate).unwrap();
+        // and now decrypt using delegated key
+        let _matching = cpabe_decrypt(&sk_delegate, &ct_cp);
+        match _matching {
+            None => println!("CP-ABE: Cannot decrypt using delegated sk"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+    }
+
     /* CURRENTLY TODO !!!
     #[test]
     fn test_cp_dabe_and() {
