@@ -29,6 +29,7 @@ pub struct CpAbePublicKey {
     _g1: bn::G1,
     _g2: bn::G2,
     _h: bn::G2,
+    _f: bn::G1,
     _e_gg_alpha: bn::Gt,
 }
 
@@ -50,9 +51,8 @@ pub struct CpAbeCiphertext {
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct CpAbeSecretKey {
-    _attr: Vec<(String)>,
     _k_0: bn::G1,
-    _k: Vec<(bn::G1, bn::G2)>,
+    _k: Vec<(String, bn::G1, bn::G2)>,
 }
 
 //For C
@@ -78,6 +78,7 @@ pub fn cpabe_setup() -> (CpAbePublicKey, CpAbeMasterKey) {
     // vectors
     // calulate h and f
     let _h = _g2 * _beta;
+    let _f = _g1 * _beta.inverse().unwrap();
     let _g1_alpha = _g1 * _alpha;
     // calculate the pairing between g1 and g2^alpha
     let _e_gg_alpha = pairing(_g1_alpha, _g2);
@@ -86,6 +87,7 @@ pub fn cpabe_setup() -> (CpAbePublicKey, CpAbeMasterKey) {
         _g1: _g1,
         _g2: _g2,
         _h: _h,
+        _f: _f,
         _e_gg_alpha: _e_gg_alpha,
     };
     // set values of MSK
@@ -115,21 +117,16 @@ pub fn cpabe_keygen(
     let _g1_r = pk._g1 * _r;
     let _beta_inverse = msk._beta.inverse().unwrap();
     let _k_0 = (msk._g1_alpha + _g1_r) * _beta_inverse;
-    let mut _k: Vec<(bn::G1, bn::G2)> = Vec::new();
-    let mut _attr_vec: Vec<(String)> = Vec::new();
+    let mut _k: Vec<(String, bn::G1, bn::G2)> = Vec::new();
     for _attr in attributes {
         let _r_attr = Fr::random(_rng);
-        _attr_vec.push(_attr.clone());
         _k.push((
+            _attr.clone(),
             _g1_r + (blake2b_hash_g1(pk._g1, &_attr) * _r_attr),
             pk._g2 * _r_attr,
         ));
     }
-    return Some(CpAbeSecretKey {
-        _attr: _attr_vec,
-        _k_0: _k_0,
-        _k: _k,
-    });
+    return Some(CpAbeSecretKey { _k_0: _k_0, _k: _k });
 }
 
 // ENCRYPT
@@ -203,14 +200,14 @@ pub fn cpabe_encrypt(
 // DECRYPT
 
 pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
-    if traverse_str(&sk._attr, &ct._policy) == false {
+    if traverse_str(&flatten(&sk._k), &ct._policy) == false {
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
         let mut _prod = Gt::one();
         for _i in 0usize..ct._c.len() {
             let (c_attr1, c_attr2) = ct._c[_i];
-            let (k_attr1, k_attr2) = sk._k[_i];
+            let (_str_value, k_attr1, k_attr2) = sk._k[_i].clone();
             _prod = _prod * (pairing(k_attr1, c_attr1) * pairing(c_attr2, k_attr2).inverse());
         }
         let _msg = (ct._c_m * _prod) * pairing(sk._k_0, ct._c_0).inverse();
@@ -226,5 +223,43 @@ pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &CpAbeCiphertext) -> Option<Vec<u8
                 return Some(aes);
             }
         }
+    }
+}
+
+// DELEGATE
+
+pub fn cpabe_delegate(
+    pk: &CpAbePublicKey,
+    sk: &CpAbeSecretKey,
+    subset: &Vec<String>,
+) -> Option<CpAbeSecretKey> {
+    if is_subset(&subset, &flatten(&sk._k)) == false {
+        println!("Error: the given attributes are not a subset of sk attributes.");
+        return None;
+    } else {
+
+        // if no attibutes or an empty policy
+        // maybe add empty msk also here
+        if subset.is_empty() || subset.len() == 0 {
+            println!("Error: the given attributes subset is empty.");
+            return None;
+        }
+        // random number generator
+        let _rng = &mut rand::thread_rng();
+        // generate random r1 and r2 and sum of both
+        // compute Br as well because it will be used later too
+        let _r = Fr::random(_rng);
+        let _k_0 = sk._k_0 + (pk._f * _r);
+        let mut _k: Vec<(String, bn::G1, bn::G2)> = Vec::new();
+        for (_attr_str, _attr_g1, _attr_g2) in sk._k.clone() {
+            let _r_attr = Fr::random(_rng);
+            _k.push((
+                _attr_str.clone(),
+                _attr_g1 + (pk._g1 * _r) +
+                    (blake2b_hash_g1(pk._g1, &_attr_str) * _r_attr),
+                _attr_g2 + pk._g2 * _r_attr,
+            ));
+        }
+        return Some(CpAbeSecretKey { _k_0: _k_0, _k: _k });
     }
 }

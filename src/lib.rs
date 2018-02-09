@@ -127,6 +127,7 @@ mod tests {
     use cpabe_keygen;
     use cpabe_encrypt;
     use cpabe_decrypt;
+    use cpabe_delegate;
     use CpAbeCiphertext;
     use CpAbeSecretKey;
     // ac17 abe
@@ -190,9 +191,7 @@ mod tests {
     }
 
     fn setup_sets() -> Vec<Vec<String>> {
-
         let mut _return: Vec<Vec<String>> = Vec::new();
-
         // a set of one attribute
         let mut _one: Vec<String> = Vec::new();
         _one.push(String::from("0"));
