@@ -16,25 +16,20 @@ use libc::*;
 use std::ffi::CStr;
 use std::mem::transmute;
 use std::string::String;
-use policy::AbePolicy;
+
 
 #[macro_use]
 extern crate arrayref;
 
-mod policy;
-mod ac17;
-mod aw11;
-mod bsw;
-mod lsw;
-mod tools;
-mod secretsharing;
+pub mod policy;
+pub mod ac17;
+pub mod aw11;
+pub mod bsw;
+pub mod lsw;
+pub mod tools;
+pub mod secretsharing;
 
-use secretsharing::*;
-use tools::*;
 use ac17::*;
-use aw11::*;
-use bsw::*;
-use lsw::*;
 
 //#[doc = /**
 // * DOC
