@@ -202,36 +202,41 @@ pub fn msk08_encrypt(
     policy: &String,
     plaintext: &[u8],
 ) -> Option<Msk08Ciphertext> {
-    // random number generator
-    let _rng = &mut rand::thread_rng();
-    // an msp policy from the given String
-    let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
-    let _num_cols = msp._m[0].len();
-    let _num_rows = msp._m.len();
-    // random Gt msg
-    let _msg = pairing(G1::random(_rng), G2::random(_rng));
-    // CT result vector
-    let mut _c: Vec<(String, bn::Gt, bn::G1, bn::G1, bn::G2, bn::G2)> = Vec::new();
+    // if policy is in DNF
+    if AbePolicy::is_DNF(&policy) {
+        // random number generator
+        let _rng = &mut rand::thread_rng();
+        // an msp policy from the given String
+        let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
+        let _num_cols = msp._m[0].len();
+        let _num_rows = msp._m.len();
+        // random Gt msg
+        let _msg = pairing(G1::random(_rng), G2::random(_rng));
+        // CT result vector
+        let mut _c: Vec<(String, bn::Gt, bn::G1, bn::G1, bn::G2, bn::G2)> = Vec::new();
 
-    // TODO
+        // TODO
 
-    //Encrypt plaintext using derived key from secret
-    let mut sha = Sha3::sha3_256();
-    match encode(&_msg, Infinite) {
-        Err(_) => return None,
-        Ok(e) => {
-            sha.input(e.to_hex().as_bytes());
-            let mut key: [u8; 32] = [0; 32];
-            sha.result(&mut key);
-            let mut iv: [u8; 16] = [0; 16];
-            _rng.fill_bytes(&mut iv);
-            return Some(Msk08Ciphertext {
-                _policy: policy.clone(),
-                _c: _c,
-                _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
-                _iv: iv,
-            });
+        //Encrypt plaintext using derived key from secret
+        let mut sha = Sha3::sha3_256();
+        match encode(&_msg, Infinite) {
+            Err(_) => return None,
+            Ok(e) => {
+                sha.input(e.to_hex().as_bytes());
+                let mut key: [u8; 32] = [0; 32];
+                sha.result(&mut key);
+                let mut iv: [u8; 16] = [0; 16];
+                _rng.fill_bytes(&mut iv);
+                return Some(Msk08Ciphertext {
+                    _policy: policy.clone(),
+                    _c: _c,
+                    _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
+                    _iv: iv,
+                });
+            }
         }
+    } else {
+        return None;
     }
 }
 

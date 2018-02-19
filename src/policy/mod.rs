@@ -22,6 +22,9 @@ impl AbePolicy {
     pub fn from_json(_json: &serde_json::Value) -> Option<AbePolicy> {
         json_to_msp(_json)
     }
+    pub fn is_DNF(_policy: &String) -> Option<bool> {
+        is_in_dnf(_policy)
+    }
 }
 
 fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
@@ -34,13 +37,16 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
     }
     // inner node
     if p["OR"].is_array() {
-        if p["OR"].as_array().unwrap().len() != 2 {
-            println!("Invalid policy. Number of arguments under OR != 2");
+        if p["OR"].as_array().unwrap().len() < 2 {
+            println!("Invalid policy. Number of arguments under OR < 2");
             return false;
         }
-        v_tmp_left = v.clone();
+        let mut ret = true;
+        for i in 0usize..p["OR"].as_array().unwrap().len() {
+            ret = ret && lw(msp, &p["OR"][i], v.clone())
+        }
+        return ret;
 
-        return lw(msp, &p["OR"][0], v_tmp_right) && lw(msp, &p["OR"][1], v_tmp_left);
     } else if p["AND"].is_array() {
         if p["AND"].as_array().unwrap().len() != 2 {
             println!("Invalid policy. Number of arguments under AND != 2");
@@ -74,6 +80,15 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
     }
 }
 
+fn dnf(p: &serde_json::Value, nested: bool) -> Option<bool> {
+    if *p == serde_json::Value::Null {
+        println!("Error passed null!");
+        return None;
+    }
+    // TODO
+    return Some(true);
+}
+
 
 //#[doc = /**
 // * BEWARE: policy must be in DNF!
@@ -99,6 +114,10 @@ pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
     return None;
 }
 
+pub fn json_in_dnf(json: &serde_json::Value) -> Option<bool> {
+    dnf(json, false)
+}
+
 pub fn string_to_msp(policy: &String) -> Option<AbePolicy> {
     match serde_json::from_str(policy) {
         Err(_) => {
@@ -107,6 +126,18 @@ pub fn string_to_msp(policy: &String) -> Option<AbePolicy> {
         }
         Ok(pol) => {
             return json_to_msp(&pol);
+        }
+    }
+}
+
+pub fn is_in_dnf(policy: &String) -> Option<bool> {
+    match serde_json::from_str(policy) {
+        Err(_) => {
+            println!("Error parsing policy");
+            return None;
+        }
+        Ok(pol) => {
+            return json_in_dnf(&pol);
         }
     }
 }
