@@ -231,6 +231,25 @@ pub fn aw11_get_coefficient(_a: &String, _coeffs: &Vec<(String, Fr)>) -> Option<
     return None;
 }
 
+// MSK08 functions
+pub fn from_authority(_attr: &String, _authority: &String) -> bool {
+    let split = _attr.split(":");
+    let vec: Vec<&str> = split.collect();
+    if vec[0] == _attr {
+        return true;
+    }
+    return false;
+}
+
+pub fn is_eligible(_attr: &String, _user: &String) -> bool {
+    // TODO !!!!
+    // Implement some logic to determine which user is able to own which attribute
+    return true;
+}
+
+
+
+
 /////////////////////////////////////////////////////////////////////
 // HASH TO GROUP FUNTIONS
 /////////////////////////////////////////////////////////////////////
