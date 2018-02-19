@@ -15,6 +15,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::{encode, decode};
 use rustc_serialize::hex::{FromHex, ToHex};
 use bn::*;
+use std::collections::HashSet;
 use aw11::{Aw11PublicKey, Aw11MasterKey, Aw11SecretKey, Aw11Ciphertext};
 
 pub fn is_negative(_attr: &String) -> bool {
@@ -113,6 +114,12 @@ pub fn contains(data: &Vec<(String)>, value: &String) -> bool {
     return len >= 1;
 }
 
+// used to check if a set of attributes is a subset of another
+pub fn is_subset(_subset: &Vec<String>, _attr: &Vec<String>) -> bool {
+    let super_set: HashSet<_> = _attr.iter().cloned().collect();
+    let sub_set: HashSet<_> = _subset.iter().cloned().collect();
+    return sub_set.is_subset(&super_set);
+}
 
 // used to traverse / check policy tree
 pub fn traverse_json(_attr: &Vec<String>, _json: &serde_json::Value) -> bool {
