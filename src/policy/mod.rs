@@ -94,12 +94,12 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
             println!("Invalid policy. Number of arguments under AND != 2");
             return false;
         }
-        let left = &p["AND"][0];
-        if left["OR"] != serde_json::Value::Null {
+        if p["AND"][0]["OR"] != serde_json::Value::Null &&
+            p["AND"][1]["OR"] != serde_json::Value::Null
+        {
             println!("Invalid policy. Not in DNF");
             return false;
         }
-
         v_tmp_right.resize(msp._deg, ZERO);
         v_tmp_right.push(PLUS);
         v_tmp_left.resize(msp._deg, ZERO);
@@ -134,14 +134,14 @@ fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
             return false;
         } else {
             for i in 0usize..p["OR"].as_array().unwrap().len() {
-                ret = ret && policy_in_dnf(&p["OR"][i], conjunction)
+                ret &= policy_in_dnf(&p["OR"][i], conjunction)
             }
         }
         return ret;
 
     } else if p["AND"].is_array() {
         for i in 0usize..p["AND"].as_array().unwrap().len() {
-            ret = ret && policy_in_dnf(&p["AND"][i], conjunction)
+            ret &= policy_in_dnf(&p["AND"][i], true)
         }
         return ret;
     }

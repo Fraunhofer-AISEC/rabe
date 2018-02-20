@@ -174,6 +174,7 @@ mod tests {
     //use blake2b_hash_fr;
     // general struct
     use AbePolicy;
+    use DnfPolicy;
     // other libs
     use std::string::String;
     use bn::*;
@@ -351,7 +352,7 @@ mod tests {
         }
     }
 
-    /* CURRENTLY TODO !!!
+    /* TODO !!!
     #[test]
     fn test_cp_dabe_and() {
         // global setup
@@ -618,6 +619,22 @@ TODO: FIX MULTIPLE ATTRIBUTES !!!!
             &String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#),
         );
         assert!(_k == _reconstruct);
+    }
+
+    #[test]
+    fn test_dnf() {
+        let policy_in_dnf1 = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let policy_in_dnf2 = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "D"}]}"#);
+        let policy_in_dnf3 = String::from(r#"{"OR": [{"OR": [{"AND": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+
+        let policy_not_dnf1 = String::from(r#"{"AND": [{"OR": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let policy_not_dnf2 = String::from(r#"{"OR": [{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+
+        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf1));
+        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf2));
+        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf3));
+        assert!(!DnfPolicy::is_in_dnf(&policy_not_dnf1));
+        assert!(!DnfPolicy::is_in_dnf(&policy_not_dnf2));
     }
 
     #[test]
