@@ -17,7 +17,6 @@ use std::ffi::CStr;
 use std::mem::transmute;
 use std::string::String;
 
-
 #[macro_use]
 extern crate arrayref;
 
@@ -26,6 +25,7 @@ pub mod ac17;
 pub mod aw11;
 pub mod bsw;
 pub mod lsw;
+pub mod mke08;
 pub mod tools;
 pub mod secretsharing;
 
@@ -33,6 +33,7 @@ use ac17::*;
 use bsw::*;
 use aw11::*;
 use lsw::*;
+use mke08::*;
 use tools::*;
 use policy::*;
 use secretsharing::*;
