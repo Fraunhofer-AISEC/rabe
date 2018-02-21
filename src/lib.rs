@@ -184,14 +184,8 @@ mod tests {
     use rustc_serialize::Encodable;
     use bincode::SizeLimit::Infinite;
     use rustc_serialize::hex::ToHex;
-
-    pub fn into_dec<S: Encodable>(obj: S) -> Option<String> {
-        encode(&obj, Infinite).ok().map(|e| {
-            BigInt::parse_bytes(e.to_hex().as_bytes(), 16)
-                .unwrap()
-                .to_str_radix(10)
-        })
-    }
+    use tools::{into_dec, into_hex};
+    use Mke08PublicAttributeKey;
 
     fn setup_sets() -> Vec<Vec<String>> {
         let mut _return: Vec<Vec<String>> = Vec::new();
@@ -623,18 +617,50 @@ TODO: FIX MULTIPLE ATTRIBUTES !!!!
 
     #[test]
     fn test_dnf() {
-        let policy_in_dnf1 = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let policy_in_dnf1 = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
         let policy_in_dnf2 = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "D"}]}"#);
-        let policy_in_dnf3 = String::from(r#"{"OR": [{"OR": [{"AND": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
-
+        let policy_in_dnf3 = String::from(r#"{"OR": [{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"ATT": "C"}]}, {"AND": [{"ATT": "C"}, {"ATT": "B"}]}]}"#);
         let policy_not_dnf1 = String::from(r#"{"AND": [{"OR": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         let policy_not_dnf2 = String::from(r#"{"OR": [{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
-
         assert!(DnfPolicy::is_in_dnf(&policy_in_dnf1));
         assert!(DnfPolicy::is_in_dnf(&policy_in_dnf2));
         assert!(DnfPolicy::is_in_dnf(&policy_in_dnf3));
         assert!(!DnfPolicy::is_in_dnf(&policy_not_dnf1));
         assert!(!DnfPolicy::is_in_dnf(&policy_not_dnf2));
+
+        let pk_a = Mke08PublicAttributeKey {
+            _str: String::from("A"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+            _gt: Gt::one(),
+        };
+
+        let pk_b = Mke08PublicAttributeKey {
+            _str: String::from("B"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+            _gt: Gt::one(),
+        };
+
+        let pk_c = Mke08PublicAttributeKey {
+            _str: String::from("C"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+            _gt: Gt::one(),
+        };
+
+        let mut pks: Vec<Mke08PublicAttributeKey> = Vec::new();
+        pks.push(pk_a);
+        pks.push(pk_b);
+        pks.push(pk_c);
+
+        let policy1: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf1, &pks).unwrap();
+        let policy2: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf2, &pks).unwrap();
+        let policy3: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf3, &pks).unwrap();
+
+        assert!(policy1._terms.len() == 2);
+        assert!(policy2._terms.len() == 1);
+        assert!(policy3._terms.len() == 3);
     }
 
     #[test]

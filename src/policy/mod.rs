@@ -155,43 +155,51 @@ fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
 }
 
 
+// this calcluates the sum's of all AND terms in a MKE08 DNF policy
 fn dnf(
-    dnfp: &mut DnfPolicy,
+    _dnfp: &mut DnfPolicy,
     _pks: &Vec<Mke08PublicAttributeKey>,
-    p: &serde_json::Value,
+    _p: &serde_json::Value,
     _index: usize,
 ) -> bool {
-    if *p == serde_json::Value::Null {
+
+    if *_p == serde_json::Value::Null {
         println!("Error passed null!");
         return false;
     }
     let mut ret = true;
     // inner node
-    if p["OR"].is_array() {
-        for i in 0usize..p["OR"].as_array().unwrap().len() {
-            ret &= dnf(dnfp, _pks, &p["OR"][i], _index + i)
+    if _p["OR"].is_array() {
+        let len = _p["OR"].as_array().unwrap().len();
+        for i in (0usize..len).rev() {
+            ret &= dnf(_dnfp, _pks, &_p["OR"][len - i - 1], (i + _index))
         }
         return ret;
 
-    } else if p["AND"].is_array() {
-        for i in 0usize..p["AND"].as_array().unwrap().len() {
-            ret &= dnf(dnfp, _pks, &p["AND"][i], _index)
+    } else if _p["AND"].is_array() {
+        let len = _p["AND"].as_array().unwrap().len();
+        for i in 0usize..len {
+            ret &= dnf(_dnfp, _pks, &_p["AND"][i], _index)
         }
         return ret;
     }
     //Leaf
-    else if p["ATT"] != serde_json::Value::Null {
-        match p["ATT"].as_str() {
+    else if _p["ATT"] != serde_json::Value::Null {
+        match _p["ATT"].as_str() {
             Some(s) => {
-                let mut _current = dnfp._terms[_index];
                 for pk in _pks.iter() {
                     if pk._str == s {
-                        _current.0 = _current.0 * pk._gt;
-                        _current.1 = _current.1 + pk._g1;
-                        _current.2 = _current.2 + pk._g2;
+                        if _dnfp._terms.len() > _index {
+                            _dnfp._terms[_index] = (
+                                _dnfp._terms[_index].0 * pk._gt,
+                                _dnfp._terms[_index].1 + pk._g1,
+                                _dnfp._terms[_index].2 + pk._g2,
+                            );
+                        } else {
+                            _dnfp._terms.push((pk._gt, pk._g1, pk._g2));
+                        }
                     }
                 }
-                dnfp._terms.insert(_index, _current);
             }
             None => {
                 println!("ERROR attribute value");
