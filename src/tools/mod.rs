@@ -115,6 +115,22 @@ pub fn is_satisfiable(_conjunction: &Vec<String>, _sk: &Vec<Mke08SecretAttribute
     ret
 }
 
+pub fn calc_satisfiable(
+    _conjunction: &Vec<String>,
+    _sk: &Vec<Mke08SecretAttributeKey>,
+) -> (bn::G1, bn::G2) {
+    let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
+    for _attr in _conjunction {
+        match _sk.into_iter().find(|&x| x._str == *_attr) {
+            None => {}
+            Some(_attr_sk) => {
+                ret = (ret.0 + _attr_sk._g1, ret.1 + _attr_sk._g2);
+            }
+        }
+    }
+    ret
+}
+
 pub fn flatten_mke08(_sk_a: &Vec<Mke08SecretAttributeKey>) -> Vec<String> {
     let mut tmp: Vec<(String)> = Vec::new();
     for _term in _sk_a.iter() {

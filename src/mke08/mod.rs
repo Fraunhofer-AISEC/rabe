@@ -150,7 +150,7 @@ pub fn mke08_create_user(pk: &Mke08PublicKey, mk: &Mke08MasterKey, user: &String
 pub fn mke08_create_authority(pk: &Mke08PublicKey, authority: &String) -> Mke08SecretAuthorityKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
-    // return PK and mke
+    // return secret authority key
     return Mke08SecretAuthorityKey {
         _a: authority.clone(),
         _h: Fr::random(_rng),
@@ -165,7 +165,7 @@ pub fn mke08_request_authority_pk(
 ) -> Option<Mke08PublicAttributeKey> {
     // if attribute a is from authority sk_a
     if from_authority(a, &sk_a._a) {
-        let exponent = blake2b_hash_fr(a) * sk_a._h;
+        let exponent = blake2b_hash_fr(a) * sk_a._h * blake2b_hash_fr(&sk_a._a);
         // return PK and mke
         return Some(Mke08PublicAttributeKey {
             _str: a.clone(),
@@ -180,14 +180,13 @@ pub fn mke08_request_authority_pk(
 
 // request an attribute PK from an authority
 pub fn mke08_request_authority_sk(
-    pk: &Mke08PublicKey,
     a: &String,
     sk_a: &Mke08SecretAuthorityKey,
     pk_u: &Mke08PublicUserKey,
 ) -> Option<Mke08SecretAttributeKey> {
     // if attribute a is from authority sk_a
     if from_authority(a, &sk_a._a) && is_eligible(a, &pk_u._u) {
-        let exponent = blake2b_hash_fr(a) * sk_a._h;
+        let exponent = blake2b_hash_fr(a) * sk_a._h * blake2b_hash_fr(&sk_a._a);
         // return PK and mke
         return Some(Mke08SecretAttributeKey {
             _str: a.clone(),
@@ -255,7 +254,7 @@ pub fn mke08_encrypt(
  * decrypt
  * Decrypt a ciphertext
  * SK is the user's private key dictionary sk.attr: { xxx , xxx }
-
+*/
 pub fn mke08_decrypt(
     _pk: &Mke08PublicKey,
     _ct: &Mke08Ciphertext,
@@ -267,9 +266,13 @@ pub fn mke08_decrypt(
         return None;
     } else {
         let mut _msg = Gt::zero();
-        for conjunction in _ct._c {
+        for conjunction in _ct._c.iter() {
             if is_satisfiable(&conjunction.0, &_sk._sk_a) {
-                _msg = conjunction.0 * (pairing() * pairing().inverse());
+                let _sk_sum = calc_satisfiable(&conjunction.0, &_sk._sk_a);
+                _msg = conjunction.1 *
+                    ((pairing(conjunction.2, _sk_sum.1) * pairing(_sk_sum.0, conjunction.3)) *
+                         (pairing(conjunction.4, _sk._sk_u._sk_g2).inverse() *
+                              pairing(_sk._sk_u._sk_g1, conjunction.5).inverse()));
                 break;
             }
         }
@@ -286,4 +289,4 @@ pub fn mke08_decrypt(
             }
         }
     }
-} */
+}
