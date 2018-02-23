@@ -453,6 +453,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_mke08_if_satisfiable() {
+        // A && B && C
+        let mut _conjunction: Vec<String> = Vec::new();
+        _conjunction.push(String::from("A"));
+        _conjunction.push(String::from("B"));
+        _conjunction.push(String::from("C"));
+
+        // a sk_a
+        let mut _sk_as: Vec<Mke08SecretAttributeKey> = Vec::new();
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("A"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(!is_satisfiable(&_conjunction, &_sk_as));
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("B"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(!is_satisfiable(&_conjunction, &_sk_as));
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("C"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(is_satisfiable(&_conjunction, &_sk_as));
+    }
+
+    #[test]
     fn test_traverse() {
         let policyfalse = String::from(r#"joking-around?"#);
         let policy1 = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);

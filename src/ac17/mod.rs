@@ -553,33 +553,61 @@ mod tests {
         let mut att_matching: Vec<String> = Vec::new();
         att_matching.push(String::from("A"));
         att_matching.push(String::from("B"));
-
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
-
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-
         // kp-abe ciphertext
         let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
-
         // a kp-abe SK key
         let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+        // and now decrypt again
+        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
+    }
 
-        // and now decrypt again with mathcing sk
-        let _matching = ac17kp_decrypt(&sk, &ct);
-        match _matching {
-            None => println!("AC17-KP-ABE: Cannot decrypt"),
-            Some(x) => println!("AC17-KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
-        }
+    #[test]
+    fn test_ac17kp_or() {
+        // setup scheme
+        let (pk, msk) = ac17_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("D"));
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // kp-abe ciphertext
+        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+        // and now decrypt again
+        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
+    }
 
-        // and now decrypt again without matching sk
-        //let _not_matching = kpabe_decrypt(&sk, &ct_kp_not_matching);
-        //match _not_matching {
-        //    None => println!("KP-ABE: Cannot decrypt"),
-        //    Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
-        //}
+    #[test]
+    fn test_ac17kp_and_or() {
+        // setup scheme
+        let (pk, msk) = ac17_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(
+            r#"{"AND": [{"ATT": "A"}, {"OR": [{"ATT": "B"}, {"ATT": "C"}]}]}"#,
+        );
+        // kp-abe ciphertext
+        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+        // and now decrypt again
+        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
     }
 
     #[test]
@@ -590,41 +618,60 @@ mod tests {
         let mut att_matching: Vec<String> = Vec::new();
         att_matching.push(String::from("A"));
         att_matching.push(String::from("B"));
-
-        // a set of two attributes NOT matching the policy
-        let mut att_not_matching: Vec<String> = Vec::new();
-        att_not_matching.push(String::from("A"));
-        att_not_matching.push(String::from("C"));
-
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
-
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-
         // kp-abe ciphertext
         let ct: Ac17CpCiphertext = ac17cp_encrypt(&pk, &policy, &plaintext).unwrap();
-
-        // kp-abe ciphertext
-        //let ct_kp_not_matching: KpAbeCiphertext = kpabe_encrypt(&pk, &att_not_matching, &plaintext)
-        //    .unwrap();
-
         // a kp-abe SK key
         let sk: Ac17CpSecretKey = ac17cp_keygen(&msk, &att_matching).unwrap();
+        // and now decrypt again
+        assert_eq!(ac17cp_decrypt(&sk, &ct).unwrap(), plaintext);
+    }
 
-        // and now decrypt again with mathcing sk
-        let _matching = ac17cp_decrypt(&sk, &ct);
-        match _matching {
-            None => println!("AC17-CP-ABE: Cannot decrypt"),
-            Some(x) => println!("AC17-CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
-        }
+    #[test]
+    fn test_ac17cp_or() {
+        // setup scheme
+        let (pk, msk) = ac17_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("D"));
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // kp-abe ciphertext
+        let ct: Ac17CpCiphertext = ac17cp_encrypt(&pk, &policy, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: Ac17CpSecretKey = ac17cp_keygen(&msk, &att_matching).unwrap();
+        // and now decrypt again
+        assert_eq!(ac17cp_decrypt(&sk, &ct).unwrap(), plaintext);
+    }
 
-        // and now decrypt again without matching sk
-        //let _not_matching = kpabe_decrypt(&sk, &ct_kp_not_matching);
-        //match _not_matching {
-        //    None => println!("KP-ABE: Cannot decrypt"),
-        //    Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
-        //}
+    #[test]
+    fn test_ac17cp_and_or() {
+        // setup scheme
+        let (pk, msk) = ac17_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("C"));
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(
+            r#"{"AND": [{"ATT": "A"}, {"OR": [{"ATT": "B"}, {"ATT": "C"}]}]}"#,
+        );
+        // kp-abe ciphertext
+        let ct: Ac17CpCiphertext = ac17cp_encrypt(&pk, &policy, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: Ac17CpSecretKey = ac17cp_keygen(&msk, &att_matching).unwrap();
+        // and now decrypt again
+        assert_eq!(ac17cp_decrypt(&sk, &ct).unwrap(), plaintext);
     }
 }
