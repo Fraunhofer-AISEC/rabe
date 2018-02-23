@@ -80,27 +80,24 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
     }
     // inner node
     if p["OR"].is_array() {
-        if p["OR"].as_array().unwrap().len() < 2 {
-            println!("Invalid policy. Number of arguments under OR < 2");
+        if p["OR"].as_array().unwrap().len() != 2 {
+            println!("Invalid policy. Number of arguments under OR != 2");
             return false;
         }
-        let mut ret = true;
-        for i in 0usize..p["OR"].as_array().unwrap().len() {
-            ret = ret && lw(msp, &p["OR"][i], v.clone())
-        }
-        return ret;
+        v_tmp_left = v.clone();
 
+        return lw(msp, &p["OR"][0], v_tmp_right) && lw(msp, &p["OR"][1], v_tmp_left);
     } else if p["AND"].is_array() {
         if p["AND"].as_array().unwrap().len() != 2 {
             println!("Invalid policy. Number of arguments under AND != 2");
             return false;
         }
-        if p["AND"][0]["OR"] != serde_json::Value::Null &&
-            p["AND"][1]["OR"] != serde_json::Value::Null
-        {
+        let left = &p["AND"][0];
+        if left["OR"] != serde_json::Value::Null {
             println!("Invalid policy. Not in DNF");
             return false;
         }
+
         v_tmp_right.resize(msp._deg, ZERO);
         v_tmp_right.push(PLUS);
         v_tmp_left.resize(msp._deg, ZERO);
@@ -122,6 +119,8 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
         return false;
     }
 }
+
+
 
 fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
     if *p == serde_json::Value::Null {
@@ -247,7 +246,7 @@ pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
 pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
     match serde_json::from_str(policy) {
         Err(_) => {
-            println!("Error parsing policy");
+            println!("Error parsing string as json");
             return None;
         }
         Ok(pol) => {
