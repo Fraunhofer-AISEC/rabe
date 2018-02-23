@@ -287,3 +287,76 @@ pub fn aw11_decrypt(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    /* TODO !!!
+    #[test]
+    fn test_cp_dabe_and() {
+        // global setup
+        let _gp = aw11_global();
+        
+        // setup attribute authority 1 with
+        // a set of two attributes "A" and "B"
+        let mut att_authority1: Vec<String> = Vec::new();
+        att_authority1.push(String::from("A"));
+        att_authority1.push(String::from("B"));
+        let (_auth1_pk, _auth1_msk) = aw11_setup(_gp, att_authority1);
+
+        // setup attribute authority 1 with
+        // a set of two attributes "C" and "D"
+        let mut att_authority2: Vec<String> = Vec::new();
+        att_authority2.push(String::from("C"));
+        att_authority2.push(String::from("D"));
+        let (_auth2_pk, _auth2_msk) = aw11_setup(_gp, att_authority2);
+        
+		// setup attribute authority 1 with
+        // a set of two attributes "E" and "F"
+        let mut att_authority3: Vec<String> = Vec::new();
+        att_authority3.push(String::from("E"));
+        att_authority3.push(String::from("F"));
+        let (_auth3_pk, _auth3_pk) = aw11_setup(_gp, att_authority3);
+
+		// setup a user "bob" and give him some attribute-keys
+		aw11_keygen
+
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("A"));
+        att_not_matching.push(String::from("C"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        // our policy
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+
+        // a cp-abe SK key matching
+        let sk_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_matching).unwrap();
+        // a cp-abe SK key NOT matching
+        let sk_not_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_not_matching).unwrap();
+
+
+        // and now decrypt again with mathcing sk
+        let _matching = cpabe_decrypt(&sk_matching, &ct_cp);
+        match _matching {
+            None => println!("CP-ABE: Cannot decrypt"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+
+        // and now decrypt again without matching sk
+        let _not_matching = cpabe_decrypt(&sk_not_matching, &ct_cp);
+        match _not_matching {
+            None => println!("CP-ABE: Cannot decrypt"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+    }
+*/
+}

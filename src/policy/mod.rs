@@ -271,3 +271,100 @@ pub fn json_to_dnf(
     }
     return None;
 }
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_msp_from() {
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let mut _values: Vec<Vec<Fr>> = Vec::new();
+        let mut _attributes: Vec<String> = Vec::new();
+        let _zero = 0;
+        let _plus = 1;
+        let _minus = -1;
+        let p1 = vec![_zero, _zero, _minus];
+        let p2 = vec![_plus, _zero, _plus];
+        let p3 = vec![_zero, _minus, _zero];
+        let p4 = vec![_plus, _plus, _zero];
+        let mut _msp_static = AbePolicy {
+            _m: vec![p1, p2, p3, p4],
+            _pi: vec![
+                String::from("A"),
+                String::from("B"),
+                String::from("C"),
+                String::from("D"),
+            ],
+            _deg: 3,
+        };
+        match AbePolicy::from_string(&policy) {
+            None => assert!(false),
+            Some(_msp) => {
+                for i in 0..4 {
+                    let p = &_msp._m[i];
+                    let p_test = &_msp_static._m[i];
+                    for j in 0..3 {
+                        //println!("_mspg[{:?}][{:?}]: {:?}", i, j, p[j]);
+                        //println!("_msps[{:?}][{:?}]: {:?}", i, j, p_test[j]);
+                        assert!(p[j] == p_test[j]);
+                    }
+                    //println!("_pi[{:?}]{:?} _pi[{:?}]{:?}",i,_msp_static._pi[i],i,_msp._pi[i]);
+                    assert!(_msp_static._pi[i] == _msp._pi[i]);
+                }
+                assert!(_msp_static._deg == _msp._deg);
+            }
+        }
+    }
+
+    #[test]
+    fn test_dnf_from() {
+        let policy_in_dnf1 = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
+        let policy_in_dnf2 = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "D"}]}"#);
+        let policy_in_dnf3 = String::from(r#"{"OR": [{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"ATT": "C"}]}, {"AND": [{"ATT": "C"}, {"ATT": "B"}]}]}"#);
+        let policy_not_dnf1 = String::from(r#"{"AND": [{"OR": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let policy_not_dnf2 = String::from(r#"{"OR": [{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf1));
+        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf2));
+        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf3));
+        assert!(!DnfPolicy::is_in_dnf(&policy_not_dnf1));
+        assert!(!DnfPolicy::is_in_dnf(&policy_not_dnf2));
+
+        let pk_a = Mke08PublicAttributeKey {
+            _str: String::from("A"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+            _gt: Gt::one(),
+        };
+
+        let pk_b = Mke08PublicAttributeKey {
+            _str: String::from("B"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+            _gt: Gt::one(),
+        };
+
+        let pk_c = Mke08PublicAttributeKey {
+            _str: String::from("C"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+            _gt: Gt::one(),
+        };
+
+        let mut pks: Vec<Mke08PublicAttributeKey> = Vec::new();
+        pks.push(pk_a);
+        pks.push(pk_b);
+        pks.push(pk_c);
+
+        let policy1: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf1, &pks).unwrap();
+        let policy2: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf2, &pks).unwrap();
+        let policy3: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf3, &pks).unwrap();
+
+        assert!(policy1._terms.len() == 2);
+        assert!(policy2._terms.len() == 1);
+        assert!(policy3._terms.len() == 3);
+    }
+
+}

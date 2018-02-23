@@ -244,3 +244,57 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &KpAbeCiphertext) -> Option<Vec<u8
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    /*
+TODO: FIX MULTIPLE ATTRIBUTES !!!!
+    #[test]
+    fn test_kp_abe_and() {
+        // setup scheme
+        let (pk, msk) = kpabe_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+        att_matching.push(String::from("C"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "C"}, {"ATT": "B"}]}"#);
+        //let policy = String::from(r#"{"ATT": "A"}"#);
+
+        // kp-abe ciphertext
+        let ct_kp_matching: KpAbeCiphertext = kpabe_encrypt(&pk, &att_matching, &plaintext)
+            .unwrap();
+
+        // kp-abe ciphertext
+        //let ct_kp_not_matching: KpAbeCiphertext = kpabe_encrypt(&pk, &att_not_matching, &plaintext)
+        //    .unwrap();
+
+        // a kp-abe SK key
+        let sk: KpAbeSecretKey = kpabe_keygen(&pk, &msk, &policy).unwrap();
+
+        // and now decrypt again with mathcing sk
+        let _matching = kpabe_decrypt(&sk, &ct_kp_matching);
+        match _matching {
+            None => println!("KP-ABE: Cannot decrypt"),
+            Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+
+        // and now decrypt again without matching sk
+        //let _not_matching = kpabe_decrypt(&sk, &ct_kp_not_matching);
+        //match _not_matching {
+        //    None => println!("KP-ABE: Cannot decrypt"),
+        //    Some(x) => println!("KP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        //}
+    }
+*/
+
+}

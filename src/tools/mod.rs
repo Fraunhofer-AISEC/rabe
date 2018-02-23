@@ -446,3 +446,51 @@ pub fn encrypt_aes(
 
     Ok(final_result)
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_traverse() {
+        let policyfalse = String::from(r#"joking-around?"#);
+        let policy1 = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy2 = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy3 = String::from(
+            r#"{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}"#,
+        );
+        let mut _set0: Vec<String> = Vec::new();
+        _set0.push(String::from("X"));
+        _set0.push(String::from("Y"));
+
+        let mut _set1: Vec<String> = Vec::new();
+        _set1.push(String::from("A"));
+        _set1.push(String::from("B"));
+
+        let mut _set2: Vec<String> = Vec::new();
+        _set2.push(String::from("C"));
+        _set2.push(String::from("D"));
+
+        let mut _set3: Vec<String> = Vec::new();
+        _set3.push(String::from("A"));
+        _set3.push(String::from("B"));
+        _set3.push(String::from("C"));
+        _set3.push(String::from("D"));
+
+        assert_eq!(traverse_str(&_set1, &policyfalse), false);
+
+        assert_eq!(traverse_str(&_set0, &policy1), false);
+        assert_eq!(traverse_str(&_set1, &policy1), true);
+        assert_eq!(traverse_str(&_set2, &policy1), false);
+        assert_eq!(traverse_str(&_set3, &policy1), true);
+
+        assert_eq!(traverse_str(&_set1, &policy2), true);
+        assert_eq!(traverse_str(&_set2, &policy2), false);
+        assert_eq!(traverse_str(&_set3, &policy2), true);
+
+        assert_eq!(traverse_str(&_set1, &policy3), false);
+        assert_eq!(traverse_str(&_set2, &policy3), false);
+        assert_eq!(traverse_str(&_set3, &policy3), true);
+    }
+}

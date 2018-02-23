@@ -244,3 +244,82 @@ pub fn polynomial(_coeff: Vec<Fr>, _x: Fr) -> Fr {
     }
     return _share;
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_secret_sharing_or() {
+        // OR
+        let _rng = &mut rand::thread_rng();
+        let _secret = Fr::random(_rng);
+        //println!("_random: {:?}", into_dec(_secret).unwrap());
+        let _shares = gen_shares(_secret, 1, 2);
+        let _k = _shares[0];
+        //println!("_original_secret: {:?}", into_dec(K).unwrap());
+        let mut _input: Vec<Fr> = Vec::new();
+        _input.push(_shares[1]);
+        let _reconstruct = recover_secret(
+            _input,
+            &String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#),
+        );
+        assert!(_k == _reconstruct);
+    }
+
+    #[test]
+    fn test_secret_sharing_and() {
+        // AND
+        let _rng = &mut rand::thread_rng();
+        let _secret = Fr::random(_rng);
+        //println!("_random: {:?}", into_dec(_secret).unwrap());
+        let _shares = gen_shares(_secret, 2, 2);
+        let _k = _shares[0];
+        //println!("_original_secret: {:?}", into_dec(_k).unwrap());
+        let mut _input: Vec<Fr> = Vec::new();
+        _input.push(_shares[1]);
+        _input.push(_shares[2]);
+        //println!("_share1: {:?}", into_dec(_shares[1]).unwrap());
+        //println!("_share2: {:?}", into_dec(_shares[2]).unwrap());
+        let _reconstruct = recover_secret(
+            _input,
+            &String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
+        );
+        //println!("_reconstructed: {:?}", into_dec(_reconstruct).unwrap());
+        assert!(_k == _reconstruct);
+    }
+
+    #[test]
+    fn test_pruning() {
+        // a set of two attributes
+        let mut _attributes: Vec<String> = Vec::new();
+        _attributes.push(String::from("1"));
+        _attributes.push(String::from("3"));
+
+        let _result1 = calc_pruned_str(
+            &_attributes,
+            &String::from(r#"{"AND": [{"OR": [{"ATT": "1"}, {"ATT": "2"}]}, {"AND": [{"ATT": "2"}, {"ATT": "3"}]}]}"#),
+        );
+        let _result2 = calc_pruned_str(
+            &_attributes,
+            &String::from(
+                r#"{"OR": [{"ATT": "1"}, {"AND": [{"ATT": "2"}, {"ATT": "3"}]}]}"#,
+            ),
+        );
+        let _result3 = calc_pruned_str(
+            &_attributes,
+            &String::from(r#"{"AND": [{"OR": [{"ATT": "1"}, {"ATT": "2"}]}, {"OR": [{"ATT": "4"}, {"ATT": "3"}]}]}"#),
+        );
+
+        let (_match1, _list1) = _result1.unwrap();
+        assert!(_match1 == false);
+        assert!(_list1.is_empty() == true);
+        let (_match2, _list2) = _result2.unwrap();
+        assert!(_match2 == true);
+        assert!(_list2 == vec!["1".to_string()]);
+        let (_match3, _list3) = _result3.unwrap();
+        assert!(_match3 == true);
+        assert!(_list3 == vec!["1".to_string(), "3".to_string()]);
+    }
+}

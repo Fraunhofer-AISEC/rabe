@@ -263,3 +263,84 @@ pub fn cpabe_delegate(
         return Some(CpAbeSecretKey { _k_0: _k_0, _k: _k });
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_and() {
+        // setup scheme
+        let (pk, msk) = cpabe_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("A"));
+        att_not_matching.push(String::from("C"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        // our policy
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+
+        // a cp-abe SK key matching
+        let sk_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_matching).unwrap();
+        // a cp-abe SK key NOT matching
+        let sk_not_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_not_matching).unwrap();
+
+
+        // and now decrypt again with mathcing sk
+        let _matching = cpabe_decrypt(&sk_matching, &ct_cp);
+        match _matching {
+            None => println!("CP-ABE: Cannot decrypt"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+
+        // and now decrypt again without matching sk
+        let _not_matching = cpabe_decrypt(&sk_not_matching, &ct_cp);
+        match _not_matching {
+            None => println!("CP-ABE: Cannot decrypt"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+    }
+
+    #[test]
+    fn test_delegate() {
+        // setup scheme
+        let (pk, msk) = cpabe_setup();
+        // a set of three attributes matching the policy
+        let mut _atts: Vec<String> = Vec::new();
+        _atts.push(String::from("A"));
+        _atts.push(String::from("B"));
+        _atts.push(String::from("C"));
+        // a set of two delegated attributes
+        let _delegate: Vec<_> = _atts[1..2].iter().cloned().collect();
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+        // a cp-abe SK key matching
+        let sk: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &_atts).unwrap();
+        // a delegated cp-abe SK key matching
+        let sk_delegate: CpAbeSecretKey = cpabe_delegate(&pk, &sk, &_delegate).unwrap();
+        // and now decrypt using delegated key
+        let _matching = cpabe_decrypt(&sk_delegate, &ct_cp);
+        match _matching {
+            None => println!("CP-ABE: Cannot decrypt using delegated sk"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+    }
+}
