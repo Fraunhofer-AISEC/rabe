@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 extern crate serde;
 extern crate serde_json;
 extern crate bn;
@@ -15,7 +16,7 @@ pub struct AbePolicy {
 }
 
 pub struct DnfPolicy {
-    pub _terms: Vec<(bn::Gt, bn::G1, bn::G2)>,
+    pub _terms: Vec<(Vec<(String)>, bn::Gt, bn::G1, bn::G2)>,
 }
 
 const ZERO: i32 = 0;
@@ -156,6 +157,7 @@ fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
 
 
 // this calcluates the sum's of all AND terms in a MKE08 DNF policy
+// and generates for each conjunction a random value R_j \in Z_p
 fn dnf(
     _dnfp: &mut DnfPolicy,
     _pks: &Vec<Mke08PublicAttributeKey>,
@@ -190,13 +192,17 @@ fn dnf(
                 for pk in _pks.iter() {
                     if pk._str == s {
                         if _dnfp._terms.len() > _index {
+                            _dnfp._terms[_index].0.push(s.to_string());
                             _dnfp._terms[_index] = (
-                                _dnfp._terms[_index].0 * pk._gt,
-                                _dnfp._terms[_index].1 + pk._g1,
-                                _dnfp._terms[_index].2 + pk._g2,
+                                _dnfp._terms[_index].0.clone(),
+                                _dnfp._terms[_index].1 * pk._gt,
+                                _dnfp._terms[_index].2 + pk._g1,
+                                _dnfp._terms[_index].3 + pk._g2,
                             );
                         } else {
-                            _dnfp._terms.push((pk._gt, pk._g1, pk._g2));
+                            _dnfp._terms.push(
+                                (vec![s.to_string()], pk._gt, pk._g1, pk._g2),
+                            );
                         }
                     }
                 }
@@ -250,14 +256,17 @@ pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
     }
 }
 
+// this calcluates the sum's of all conjunction terms in a MKE08 DNF policy ( see fn dnf() )
 pub fn json_to_dnf(
     _json: &serde_json::Value,
     _pks: &Vec<Mke08PublicAttributeKey>,
 ) -> Option<DnfPolicy> {
-    let mut _conjunctions: Vec<(bn::Gt, bn::G1, bn::G2)> = Vec::new();
-    _conjunctions.push((Gt::one(), G1::zero(), G2::zero()));
+    let mut _conjunctions: Vec<(Vec<(String)>, bn::Gt, bn::G1, bn::G2)> = Vec::new();
+    let mut _attrs: Vec<(String)> = Vec::new();
+    _conjunctions.push((_attrs, Gt::one(), G1::zero(), G2::zero()));
     let mut dnfp = DnfPolicy { _terms: _conjunctions };
     if dnf(&mut dnfp, _pks, _json, 0) {
+        dnfp._terms.sort_by(|a, b| a.0.len().cmp(&b.0.len()));
         return Some(dnfp);
     }
     return None;

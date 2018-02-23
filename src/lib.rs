@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[macro_use]
 extern crate serde_derive;
 extern crate libc;
@@ -164,9 +166,13 @@ mod tests {
     use Aw11MasterKey;
     use Aw11Ciphertext;
     use Aw11SecretKey;
+    // mke08 abe
+    use Mke08PublicAttributeKey;
+    use Mke08SecretAttributeKey;
     // general tools
     use traverse_str;
     use calc_pruned_str;
+    use is_satisfiable;
     //use traverse_json;
     use gen_shares;
     use recover_secret;
@@ -185,7 +191,6 @@ mod tests {
     use bincode::SizeLimit::Infinite;
     use rustc_serialize::hex::ToHex;
     use tools::{into_dec, into_hex};
-    use Mke08PublicAttributeKey;
 
     fn setup_sets() -> Vec<Vec<String>> {
         let mut _return: Vec<Vec<String>> = Vec::new();
@@ -236,7 +241,6 @@ mod tests {
         let policy3 = String::from(
             r#"{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}"#,
         );
-
         let mut _set0: Vec<String> = Vec::new();
         _set0.push(String::from("X"));
         _set0.push(String::from("Y"));
@@ -613,6 +617,36 @@ TODO: FIX MULTIPLE ATTRIBUTES !!!!
             &String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#),
         );
         assert!(_k == _reconstruct);
+    }
+
+    #[test]
+    fn test_mke08_if_satisfiable() {
+        // A && B && C
+        let mut _conjunction: Vec<String> = Vec::new();
+        _conjunction.push(String::from("A"));
+        _conjunction.push(String::from("B"));
+        _conjunction.push(String::from("C"));
+
+        // a sk_a
+        let mut _sk_as: Vec<Mke08SecretAttributeKey> = Vec::new();
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("A"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(!is_satisfiable(&_conjunction, &_sk_as));
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("B"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(!is_satisfiable(&_conjunction, &_sk_as));
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("C"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(is_satisfiable(&_conjunction, &_sk_as));
     }
 
     #[test]

@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+
 extern crate bn;
 extern crate serde;
 extern crate serde_json;
@@ -17,6 +19,7 @@ use rustc_serialize::hex::{FromHex, ToHex};
 use bn::*;
 use std::collections::HashSet;
 use aw11::{Aw11PublicKey, Aw11MasterKey, Aw11SecretKey, Aw11Ciphertext};
+use mke08::Mke08SecretAttributeKey;
 
 pub fn is_negative(_attr: &String) -> bool {
     let first_char = &_attr[..1];
@@ -95,6 +98,29 @@ pub fn traverse_str(_attr: &Vec<String>, _policy: &String) -> bool {
             return traverse_json(_attr, &pol);
         }
     }
+}
+
+pub fn is_satisfiable(_conjunction: &Vec<String>, _sk: &Vec<Mke08SecretAttributeKey>) -> bool {
+    let mut ret = true;
+    for _attr in _conjunction {
+        match _sk.into_iter().find(|&x| x._str == *_attr) {
+            None => {
+                ret &= false;
+            }
+            Some(_attr_sk) => {
+                ret &= true;
+            }
+        }
+    }
+    ret
+}
+
+pub fn flatten_mke08(_sk_a: &Vec<Mke08SecretAttributeKey>) -> Vec<String> {
+    let mut tmp: Vec<(String)> = Vec::new();
+    for _term in _sk_a.iter() {
+        tmp.push(_term._str.to_string());
+    }
+    tmp
 }
 
 pub fn flatten(data: &Vec<(String, bn::G1, bn::G2)>) -> Vec<String> {

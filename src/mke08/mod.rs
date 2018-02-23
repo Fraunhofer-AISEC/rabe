@@ -68,10 +68,17 @@ pub struct Mke08SecretAttributeKey {
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Mke08Ciphertext {
-    pub _policy: String,
-    pub _c: Vec<(String, bn::Gt, bn::G1, bn::G1, bn::G2, bn::G2)>,
+    pub _c: Vec<(Vec<String>, bn::Gt, bn::G1, bn::G2, bn::G1, bn::G2)>,
     pub _ct: Vec<u8>,
     pub _iv: [u8; 16],
+}
+
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct Mke08UserKey {
+    pub _sk_u: Mke08SecretUserKey,
+    pub _pk_u: Mke08PublicUserKey,
+    pub _sk_a: Vec<Mke08SecretAttributeKey>,
+    pub _pk_a: Vec<Mke08PublicAttributeKey>,
 }
 
 //For C
@@ -91,61 +98,61 @@ pub struct Mke08Context {
 // MKE08 DABE on type-3
 //////////////////////////////////////////
 
-// global setup
+// global key generation
 pub fn mke08_setup() -> (Mke08PublicKey, Mke08MasterKey) {
     // random number generator
     let _rng = &mut rand::thread_rng();
     let _g1 = G1::random(_rng);
     let _g2 = G2::random(_rng);
-    let _y = Fr::random(_rng);
-    let _z = Fr::random(_rng);
+    let _p1 = G1::random(_rng);
+    let _p2 = G2::random(_rng);
+    let _y_g1 = Fr::random(_rng);
+    let _y_g2 = Fr::random(_rng);
     // generator of group G1: g1 and generator of group G2: g2
     let _pk = Mke08PublicKey {
         _g1: _g1,
         _g2: _g2,
-        _p1: _g1 * _z,
-        _p2: _g2 * _z,
-        _e_gg_y: pairing(_g1, _g2).pow(_y),
+        _p1: _p1,
+        _p2: _p2,
+        _e_gg_y: pairing(_g1, _g2).pow(_y_g1).pow(_y_g2),
     };
     // generator of group G1: g1 and generator of group G2: g2
     let _mk = Mke08MasterKey {
-        _g1_y: _g1 * _y,
-        _g2_y: _g2 * _y,
+        _g1_y: _g1 * _y_g1,
+        _g2_y: _g2 * _y_g2,
     };
     // return PK and mke
     return (_pk, _mk);
 }
 
-// user setup
-pub fn mke08_create_user(
-    pk: &Mke08PublicKey,
-    mk: &Mke08MasterKey,
-    u: &String,
-) -> (Mke08PublicUserKey, Mke08SecretUserKey) {
+// user key generation
+pub fn mke08_create_user(pk: &Mke08PublicKey, mk: &Mke08MasterKey, user: &String) -> Mke08UserKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
     let _mk_u = Fr::random(_rng);
-    // return PK and mke
-    return (
-        Mke08PublicUserKey {
-            _u: u.clone(),
-            _pk_g1: pk._g1 * _mk_u,
-            _pk_g2: pk._g2 * _mk_u,
-        },
-        Mke08SecretUserKey {
+    // return pk_u and sk_u
+    return Mke08UserKey {
+        _sk_u: Mke08SecretUserKey {
             _sk_g1: mk._g1_y + (pk._p1 * _mk_u),
             _sk_g2: mk._g2_y + (pk._p2 * _mk_u),
         },
-    );
+        _pk_u: Mke08PublicUserKey {
+            _u: user.clone(),
+            _pk_g1: pk._g1 * _mk_u,
+            _pk_g2: pk._g2 * _mk_u,
+        },
+        _pk_a: Vec::new(),
+        _sk_a: Vec::new(),
+    };
 }
 
 // authority setup
-pub fn mke08_create_authority(pk: &Mke08PublicKey, a: &String) -> Mke08SecretAuthorityKey {
+pub fn mke08_create_authority(pk: &Mke08PublicKey, authority: &String) -> Mke08SecretAuthorityKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
     // return PK and mke
     return Mke08SecretAuthorityKey {
-        _a: a.clone(),
+        _a: authority.clone(),
         _h: Fr::random(_rng),
     };
 }
@@ -192,30 +199,36 @@ pub fn mke08_request_authority_sk(
     }
 }
 /* encrypt
- * M is a group element
- * pk is a dictionary with all the attributes of all authorities put together.
- * This is legal because no attribute can be shared by more than one authority
- * {i: {'e(gg)^alpha_i: , 'g^y_i'}
+ * _attr_pks is a vector of all public attribute keys
  */
 pub fn mke08_encrypt(
-    pk: &Mke08PublicKey,
-    attr_pks: &Vec<Mke08PublicAttributeKey>,
-    policy: &String,
-    plaintext: &[u8],
+    _pk: &Mke08PublicKey,
+    _attr_pks: &Vec<Mke08PublicAttributeKey>,
+    _policy: &String,
+    _plaintext: &[u8],
 ) -> Option<Mke08Ciphertext> {
     // if policy is in DNF
-    if DnfPolicy::is_in_dnf(&policy) {
+    if DnfPolicy::is_in_dnf(&_policy) {
         // random number generator
         let _rng = &mut rand::thread_rng();
         // an DNF policy from the given String
-        let dnf: DnfPolicy = DnfPolicy::from_string(&policy, attr_pks).unwrap();
+        let dnf: DnfPolicy = DnfPolicy::from_string(&_policy, _attr_pks).unwrap();
         // random Gt msg
         let _msg = pairing(G1::random(_rng), G2::random(_rng));
         // CT result vector
-        let mut _c: Vec<(String, bn::Gt, bn::G1, bn::G1, bn::G2, bn::G2)> = Vec::new();
-
-        // TODO
-
+        let mut _c: Vec<(Vec<String>, bn::Gt, bn::G1, bn::G2, bn::G1, bn::G2)> = Vec::new();
+        // now add randomness using _r_j
+        for _term in dnf._terms {
+            let _r_j = Fr::random(_rng);
+            _c.push((
+                _term.0,
+                _term.1.pow(_r_j) * _msg,
+                _pk._p1 * _r_j,
+                _pk._p2 * _r_j,
+                _term.2 * _r_j,
+                _term.3 * _r_j,
+            ));
+        }
         //Encrypt plaintext using derived key from secret
         let mut sha = Sha3::sha3_256();
         match encode(&_msg, Infinite) {
@@ -227,9 +240,8 @@ pub fn mke08_encrypt(
                 let mut iv: [u8; 16] = [0; 16];
                 _rng.fill_bytes(&mut iv);
                 return Some(Mke08Ciphertext {
-                    _policy: policy.clone(),
                     _c: _c,
-                    _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
+                    _ct: encrypt_aes(&_plaintext, &key, &iv).ok().unwrap(),
                     _iv: iv,
                 });
             }
@@ -244,13 +256,34 @@ pub fn mke08_encrypt(
  * Decrypt a ciphertext
  * SK is the user's private key dictionary sk.attr: { xxx , xxx }
 
-
-pub fn mke08_decrypt() -> Option<Vec<u8>> {
-    if traverse_str(&flatten(&sk._attr), &ct._policy) == false {
+pub fn mke08_decrypt(
+    _pk: &Mke08PublicKey,
+    _ct: &Mke08Ciphertext,
+    _sk: &Mke08UserKey,
+    _policy: &String,
+) -> Option<Vec<u8>> {
+    if traverse_str(&flatten_mke08(&_sk._sk_a), &_policy) == false {
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
-        // TODO
+        let mut _msg = Gt::zero();
+        for conjunction in _ct._c {
+            if is_satisfiable(&conjunction.0, &_sk._sk_a) {
+                _msg = conjunction.0 * (pairing() * pairing().inverse());
+                break;
+            }
+        }
+        // Decrypt plaintext using derived secret from mke08 scheme
+        let mut sha = Sha3::sha3_256();
+        match encode(&_msg, Infinite) {
+            Err(_) => return None,
+            Ok(e) => {
+                sha.input(e.to_hex().as_bytes());
+                let mut key: [u8; 32] = [0; 32];
+                sha.result(&mut key);
+                let aes = decrypt_aes(&_ct._ct[..], &key, &_ct._iv).ok().unwrap();
+                return Some(aes);
+            }
+        }
     }
-}
- */
+} */

@@ -1,9 +1,10 @@
+#[allow(dead_code)]
 extern crate serde;
 extern crate serde_json;
 extern crate rand;
 
 use bn::*;
-use tools::{usize_to_fr, contains, flatten};
+use tools::{usize_to_fr, contains};
 
 pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool, Vec<(String)>)> {
     match serde_json::from_str(_policy) {
