@@ -134,7 +134,7 @@ pub fn cpabe_delegate(
     _sk: &CpAbeSecretKey,
     _subset: &Vec<String>,
 ) -> Option<CpAbeSecretKey> {
-    if is_subset(&_subset, &flatten(&_sk._d_j)) == false {
+    if !is_subset(&_subset, &flatten(&_sk._d_j)) {
         println!("Error: the given attribute set is not a subset of the given sk.");
         return None;
     } else {
@@ -149,22 +149,21 @@ pub fn cpabe_delegate(
         // generate random r
         let _r = Fr::random(_rng);
         // calculate derived _k_0
-        let _d = _sk._d + (_pk._f * _r);
-        let mut _d_j_new: Vec<(String, bn::G1, bn::G2)> = Vec::new();
+        let mut _d_k: Vec<(String, bn::G1, bn::G2)> = Vec::new();
         // calculate derived attributes
         for _attr in _subset {
             let _r_j = Fr::random(_rng);
             let _d_j_val = get_attribute_value(&_attr, &_sk._d_j).unwrap();
-            _d_j_new.push((
+            _d_k.push((
                 _attr.clone(),
                 _d_j_val.0 + (_pk._g1 * _r_j),
                 _d_j_val.1 + (blake2b_hash_g2(_pk._g2, &_attr) * _r_j) +
-                    (_pk._g2 * _r_j),
+                    (_pk._g2 * _r),
             ));
         }
         return Some(CpAbeSecretKey {
-            _d: _d,
-            _d_j: _d_j_new,
+            _d: _sk._d + (_pk._f * _r),
+            _d_j: _d_k,
         });
     }
 }
@@ -372,7 +371,7 @@ mod tests {
         let _no_match = cpabe_decrypt(&cpabe_keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
         assert_eq!(_no_match.is_none(), true);
     }
-    /*
+
     #[test]
     fn test_delegate() {
         // setup scheme
@@ -383,7 +382,9 @@ mod tests {
         _atts.push(String::from("B"));
         _atts.push(String::from("C"));
         // a set of two delegated attributes
-        let _delegate: Vec<_> = _atts[1..2].iter().cloned().collect();
+        let mut _delegate_att: Vec<String> = Vec::new();
+        _delegate_att.push(String::from("A"));
+        _delegate_att.push(String::from("B"));
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
@@ -393,14 +394,12 @@ mod tests {
         let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
         // a cp-abe SK key matching
         let sk: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &_atts).unwrap();
-        // a delegated cp-abe SK key matching
-        let sk_delegate: CpAbeSecretKey = cpabe_delegate(&pk, &sk, &_delegate).unwrap();
-        // and now decrypt using delegated key
-        let _matching = cpabe_decrypt(&sk_delegate, &ct_cp);
-        match _matching {
-            None => println!("CP-ABE: Cannot decrypt using delegated sk"),
-            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
-        }
-    } 
-    */
+        // delegate a cp-abe SK
+        let del: CpAbeSecretKey = cpabe_delegate(&pk, &sk, &_delegate_att).unwrap();
+        // and now decrypt again with mathcing sk
+        let _match = cpabe_decrypt(&del, &ct_cp);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), plaintext);
+
+    }
 }
