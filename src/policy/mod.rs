@@ -80,13 +80,15 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
     }
     // inner node
     if p["OR"].is_array() {
-        if p["OR"].as_array().unwrap().len() != 2 {
-            println!("Invalid policy. Number of arguments under OR != 2");
+        if p["OR"].as_array().unwrap().len() < 2 {
+            println!("Invalid policy. Number of arguments under OR < 2");
             return false;
         }
-        v_tmp_left = v.clone();
-
-        return lw(msp, &p["OR"][0], v_tmp_right) && lw(msp, &p["OR"][1], v_tmp_left);
+        let mut _ret = true;
+        for _i in 0usize..p["OR"].as_array().unwrap().len() {
+            _ret &= lw(msp, &p["OR"][_i], v.clone());
+        }
+        return _ret;
     } else if p["AND"].is_array() {
         if p["AND"].as_array().unwrap().len() != 2 {
             println!("Invalid policy. Number of arguments under AND != 2");

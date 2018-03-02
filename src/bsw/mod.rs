@@ -28,7 +28,7 @@ use tools::*;
 pub struct CpAbePublicKey {
     _g1: bn::G1,
     _g2: bn::G2,
-    _h: bn::G2,
+    _h: bn::G1,
     _f: bn::G1,
     _e_gg_alpha: bn::Gt,
 }
@@ -36,7 +36,7 @@ pub struct CpAbePublicKey {
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct CpAbeMasterKey {
     _beta: bn::Fr,
-    _g1_alpha: bn::G1,
+    _g2_alpha: bn::G2,
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -51,8 +51,8 @@ pub struct CpAbeCiphertext {
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct CpAbeSecretKey {
-    _k_0: bn::G1,
-    _k: Vec<(String, bn::G1, bn::G2)>,
+    _D: bn::G2,
+    _D_j: Vec<(String, bn::G2, bn::G1)>,
 }
 
 //For C
@@ -77,11 +77,11 @@ pub fn cpabe_setup() -> (CpAbePublicKey, CpAbeMasterKey) {
     let _alpha = Fr::random(_rng);
     // vectors
     // calulate h and f
-    let _h = _g2 * _beta;
+    let _h = _g1 * _beta;
     let _f = _g1 * _beta.inverse().unwrap();
-    let _g1_alpha = _g1 * _alpha;
+    let _g2_alpha = _g2 * _alpha;
     // calculate the pairing between g1 and g2^alpha
-    let _e_gg_alpha = pairing(_g1_alpha, _g2);
+    let _e_gg_alpha = pairing(_g1, _g2_alpha);
     // set values of PK
     let _pk = CpAbePublicKey {
         _g1: _g1,
@@ -93,7 +93,7 @@ pub fn cpabe_setup() -> (CpAbePublicKey, CpAbeMasterKey) {
     // set values of MSK
     let _msk = CpAbeMasterKey {
         _beta: _beta,
-        _g1_alpha: _g1_alpha,
+        _g2_alpha: _g2_alpha,
     };
     // return PK and MSK
     return (_pk, _msk);
@@ -114,19 +114,18 @@ pub fn cpabe_keygen(
     // generate random r1 and r2 and sum of both
     // compute Br as well because it will be used later too
     let _r = Fr::random(_rng);
-    let _g1_r = pk._g1 * _r;
-    let _beta_inverse = msk._beta.inverse().unwrap();
-    let _k_0 = (msk._g1_alpha + _g1_r) * _beta_inverse;
-    let mut _k: Vec<(String, bn::G1, bn::G2)> = Vec::new();
-    for _attr in attributes {
-        let _r_attr = Fr::random(_rng);
-        _k.push((
-            _attr.clone(),
-            _g1_r + (blake2b_hash_g1(pk._g1, &_attr) * _r_attr),
-            pk._g2 * _r_attr,
+    let _g2_r = pk._g2 * _r;
+    let _D = (msk._g2_alpha + _g2_r) * msk._beta.inverse().unwrap();
+    let mut _D_j: Vec<(String, bn::G2, bn::G1)> = Vec::new();
+    for _j in attributes {
+        let _r_j = Fr::random(_rng);
+        _D_j.push((
+            _j.clone(),
+            _g2_r + (blake2b_hash_g2(pk._g2, &_j) * _r_j),
+            pk._g1 * _r_j,
         ));
     }
-    return Some(CpAbeSecretKey { _k_0: _k_0, _k: _k });
+    return Some(CpAbeSecretKey { _D: _D, _D_j: _D_j });
 }
 
 // ENCRYPT
@@ -173,6 +172,13 @@ pub fn cpabe_encrypt(
         ));
     }
     let _msg = pairing(G1::random(_rng), G2::random(_rng));
+    println!(
+        "ENC: Policy: {:?} MSP {:?},{:?} Message: {:?}, ",
+        policy,
+        msp._m,
+        msp._pi,
+        into_hex(_msg).unwrap()
+    );
     let _c_m = pk._e_gg_alpha.pow(_s) * _msg;
     //Encrypt plaintext using derived key from secret
     let mut sha = Sha3::sha3_256();
@@ -211,6 +217,11 @@ pub fn cpabe_decrypt(sk: &CpAbeSecretKey, ct: &CpAbeCiphertext) -> Option<Vec<u8
             _prod = _prod * (pairing(k_attr1, c_attr1) * pairing(c_attr2, k_attr2).inverse());
         }
         let _msg = (ct._c_m * _prod) * pairing(sk._k_0, ct._c_0).inverse();
+        println!(
+            "DEC: Policy: {:?} Message: {:?}",
+            ct._policy,
+            into_hex(_msg).unwrap()
+        );
         // Decrypt plaintext using derived secret from cp-abe scheme
         let mut sha = Sha3::sha3_256();
         match encode(&_msg, Infinite) {
@@ -298,6 +309,97 @@ mod tests {
         // a cp-abe SK key NOT matching
         let sk_not_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_not_matching).unwrap();
 
+
+        // and now decrypt again with mathcing sk
+        let _matching = cpabe_decrypt(&sk_matching, &ct_cp);
+        match _matching {
+            None => println!("CP-ABE: Cannot decrypt"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+
+        // and now decrypt again without matching sk
+        let _not_matching = cpabe_decrypt(&sk_not_matching, &ct_cp);
+        match _not_matching {
+            None => println!("CP-ABE: Cannot decrypt"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+    }
+
+    #[test]
+    fn test_or() {
+        // setup scheme
+        let (pk, msk) = cpabe_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+        att_matching.push(String::from("C"));
+
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("A"));
+        att_not_matching.push(String::from("D"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}, {"ATT": "C"}]}"#);
+
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+
+        // a cp-abe SK key matching
+        let sk_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_matching).unwrap();
+        // a cp-abe SK key NOT matching
+        let sk_not_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_not_matching).unwrap();
+
+        // and now decrypt again with mathcing sk
+        let _matching = cpabe_decrypt(&sk_matching, &ct_cp);
+        match _matching {
+            None => println!("CP-ABE: Cannot decrypt"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+
+        // and now decrypt again without matching sk
+        let _not_matching = cpabe_decrypt(&sk_not_matching, &ct_cp);
+        match _not_matching {
+            None => println!("CP-ABE: Cannot decrypt"),
+            Some(x) => println!("CP-ABE: Result: {}", String::from_utf8(x).unwrap()),
+        }
+    }
+
+    #[test]
+    fn test_or_and() {
+        // setup scheme
+        let (pk, msk) = cpabe_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+        att_matching.push(String::from("C"));
+        att_matching.push(String::from("D"));
+
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("A"));
+        att_not_matching.push(String::from("C"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        // our policy
+        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+
+        // a cp-abe SK key matching
+        let sk_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_matching).unwrap();
+        // a cp-abe SK key NOT matching
+        let sk_not_matching: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &att_not_matching).unwrap();
 
         // and now decrypt again with mathcing sk
         let _matching = cpabe_decrypt(&sk_matching, &ct_cp);

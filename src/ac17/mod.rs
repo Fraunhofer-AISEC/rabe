@@ -569,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ac17kp_or() {
+    fn test_ac17kp_or_and() {
         // setup scheme
         let (pk, msk) = ac17_setup();
         // a set of two attributes matching the policy
@@ -591,26 +591,7 @@ mod tests {
 
     /*
     TODO : FIX THIS TEST
-    #[test]
-    fn test_ac17kp_or() {
-        // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("A"));
-        att_matching.push(String::from("B"));
-        // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
-        // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-        // kp-abe ciphertext
-        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
-        // a kp-abe SK key
-        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
-        // and now decrypt again
-        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
-    }
+    
 
 	TODO : FIX THIS TEST
     #[test]
@@ -658,6 +639,27 @@ mod tests {
     /*
 	TODO : FIX THIS TEST
 	
+    #[test]
+    fn test_ac17kp_or() {
+        // setup scheme
+        let (pk, msk) = ac17_setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // kp-abe ciphertext
+        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+        // and now decrypt again
+        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
+    }
+    
     #[test]
     fn test_ac17cp_or() {
         // setup scheme

@@ -48,7 +48,7 @@ pub struct Mke08SecretUserKey {
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Mke08SecretAuthorityKey {
     pub _a: String,
-    pub _h: bn::Fr,
+    pub _r: bn::Fr,
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -153,7 +153,7 @@ pub fn mke08_create_authority(pk: &Mke08PublicKey, authority: &String) -> Mke08S
     // return secret authority key
     return Mke08SecretAuthorityKey {
         _a: authority.clone(),
-        _h: Fr::random(_rng),
+        _r: Fr::random(_rng),
     };
 }
 
@@ -165,7 +165,7 @@ pub fn mke08_request_authority_pk(
 ) -> Option<Mke08PublicAttributeKey> {
     // if attribute a is from authority sk_a
     if from_authority(a, &sk_a._a) {
-        let exponent = blake2b_hash_fr(a) * sk_a._h * blake2b_hash_fr(&sk_a._a);
+        let exponent = blake2b_hash_fr(a) * sk_a._r * blake2b_hash_fr(&sk_a._a);
         // return PK and mke
         return Some(Mke08PublicAttributeKey {
             _str: a.clone(),
@@ -186,7 +186,7 @@ pub fn mke08_request_authority_sk(
 ) -> Option<Mke08SecretAttributeKey> {
     // if attribute a is from authority sk_a
     if from_authority(a, &sk_a._a) && is_eligible(a, &pk_u._u) {
-        let exponent = blake2b_hash_fr(a) * sk_a._h * blake2b_hash_fr(&sk_a._a);
+        let exponent = blake2b_hash_fr(a) * sk_a._r * blake2b_hash_fr(&sk_a._a);
         // return PK and mke
         return Some(Mke08SecretAttributeKey {
             _str: a.clone(),
