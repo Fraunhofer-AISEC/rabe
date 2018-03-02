@@ -7,7 +7,7 @@ extern crate rustc_serialize;
 use mke08::Mke08PublicAttributeKey;
 use std::string::String;
 use bn::*;
-
+use tools::string_to_json;
 
 pub struct AbePolicy {
     pub _m: Vec<Vec<i32>>,
@@ -243,18 +243,6 @@ pub fn json_to_msp(json: &serde_json::Value) -> Option<AbePolicy> {
         return Some(msp);
     }
     return None;
-}
-
-pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
-    match serde_json::from_str(policy) {
-        Err(_) => {
-            println!("Error parsing string as json");
-            return None;
-        }
-        Ok(pol) => {
-            return Some(pol);
-        }
-    }
 }
 
 // this calcluates the sum's of all conjunction terms in a MKE08 DNF policy ( see fn dnf() )

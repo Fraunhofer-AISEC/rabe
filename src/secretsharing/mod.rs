@@ -4,16 +4,17 @@ extern crate serde_json;
 extern crate rand;
 
 use bn::*;
-use tools::{usize_to_fr, contains};
+use tools::{usize_to_fr, contains, string_to_json};
 
 pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool, Vec<(String)>)> {
-    match serde_json::from_str(_policy) {
-        Err(_) => {
+    let _json = string_to_json(_policy);
+    match _json {
+        None => {
             println!("Error in policy (could not parse json): {:?}", _policy);
             return None;
         }
-        Ok(pol) => {
-            return required_attributes(_attr, &pol);
+        Some(_json) => {
+            return required_attributes(_attr, &_json);
         }
     }
 }
@@ -92,51 +93,68 @@ pub fn required_attributes(
 }
 
 pub fn calc_coefficients_str(_policy: &String) -> Option<Vec<(String, Fr)>> {
-    match serde_json::from_str(_policy) {
-        Err(_) => {
+    let _json = string_to_json(_policy);
+    match _json {
+        None => {
             println!("Error in policy (could not parse json): {:?}", _policy);
             return None;
         }
-        Ok(pol) => {
-            let mut _coeff: Vec<(String, Fr)> = Vec::new();
-            calc_coefficients(&pol, &mut _coeff, Fr::one());
-            return Some(_coeff);
+        Some(_j) => {
+            return calc_coefficients(&_j, Fr::one());
         }
     }
 }
 
-pub fn calc_coefficients(
-    _json: &serde_json::Value,
-    _coeff_vec: &mut Vec<(String, Fr)>,
-    _coeff: Fr,
-) {
-    if *_json == serde_json::Value::Null {
-        println!("Error: passed null as json!");
-    } else {
-        // leaf node
-        if _json["ATT"] != serde_json::Value::Null {
-            match _json["ATT"].as_str() {
-                Some(_s) => {
-                    _coeff_vec.push((_s.to_string(), _coeff));
-                }
-                None => {
-                    println!("ERROR attribute value");
-                }
+pub fn calc_coefficients(_json: &serde_json::Value, _coeff: Fr) -> Option<Vec<(String, Fr)>> {
+    let mut _result: Vec<(String, Fr)> = Vec::new();
+    // leaf node
+    if _json["ATT"] != serde_json::Value::Null {
+        match _json["ATT"].as_str() {
+            Some(_s) => {
+                _result.push((_s.to_string(), _coeff));
+                return Some(_result);
+            }
+            None => {
+                println!("ERROR attribute value");
+                return None;
             }
         }
-        // inner node
-        else if _json["AND"].is_array() {
-            let _this_coeff = recover_coefficients(vec![Fr::one(), (Fr::one() + Fr::one())]);
-            calc_coefficients(&_json["AND"][0], _coeff_vec, _coeff * _this_coeff[0]);
-            calc_coefficients(&_json["AND"][1], _coeff_vec, _coeff * _this_coeff[1]);
-        }
-        // inner node
-        else if _json["OR"].is_array() {
-            let _this_coeff = recover_coefficients(vec![Fr::one()]);
-            calc_coefficients(&_json["OR"][0], _coeff_vec, _coeff * _this_coeff[0]);
-            calc_coefficients(&_json["OR"][0], _coeff_vec, _coeff * _this_coeff[0]);
-        }
     }
+    // inner node
+    else if _json["AND"].is_array() {
+        let _this_coeff = recover_coefficients(vec![Fr::one(), (Fr::one() + Fr::one())]);
+        match calc_coefficients(&_json["AND"][0], _coeff * _this_coeff[0]) {
+            None => return None,
+            Some(_left) => {
+                _result.extend(_left.iter().cloned());
+            }
+        }
+        match calc_coefficients(&_json["AND"][1], _coeff * _this_coeff[1]) {
+            None => return None,
+            Some(_right) => {
+                _result.extend(_right.iter().cloned());
+            }
+        }
+        return Some(_result);
+    }
+    // inner node
+    else if _json["OR"].is_array() {
+        let _this_coeff = recover_coefficients(vec![Fr::one()]);
+        match calc_coefficients(&_json["OR"][0], _coeff * _this_coeff[0]) {
+            None => return None,
+            Some(_left) => {
+                _result.extend(_left.iter().cloned());
+            }
+        }
+        match calc_coefficients(&_json["OR"][1], _coeff * _this_coeff[0]) {
+            None => return None,
+            Some(_right) => {
+                _result.extend(_right.iter().cloned());
+            }
+        }
+        return Some(_result);
+    }
+    return None;
 }
 
 // lagrange interpolation
@@ -155,55 +173,58 @@ pub fn recover_coefficients(_list: Vec<Fr>) -> Vec<Fr> {
 }
 
 pub fn gen_shares_str(_secret: Fr, _policy: &String) -> Option<Vec<(String, Fr)>> {
-    match serde_json::from_str(_policy) {
-        Err(_) => {
-            println!("Error parsing policy {:?}", _policy);
+    let _json = string_to_json(_policy);
+    match _json {
+        None => {
             return None;
         }
-        Ok(pol) => {
-            return gen_shares_json(_secret, &pol);
+        Some(_j) => {
+            return gen_shares_json(_secret, &_j);
         }
     }
 }
 
 pub fn gen_shares_json(_secret: Fr, _json: &serde_json::Value) -> Option<Vec<(String, Fr)>> {
-    if *_json == serde_json::Value::Null {
-        println!("Error: passed null as json!");
-        return None;
-    } else {
-        let mut _k = 0;
-        let mut _type = "";
-        let mut _result: Vec<(String, Fr)> = Vec::new();
-        // leaf node
-        if _json["ATT"] != serde_json::Value::Null {
-            match _json["ATT"].as_str() {
-                Some(_s) => {
-                    _result.push((_s.to_string(), _secret));
-                    return Some(_result);
-                }
-                None => {
-                    println!("ERROR attribute value");
-                    return None;
-                }
+    let mut _result: Vec<(String, Fr)> = Vec::new();
+    let mut _k = 0;
+    let mut _type = "";
+    // leaf node
+    if _json["ATT"] != serde_json::Value::Null {
+        match _json["ATT"].as_str() {
+            Some(_s) => {
+                _result.push((_s.to_string(), _secret));
+                return Some(_result);
+            }
+            None => {
+                println!("Error (gen_shares_json): unkown attribute value");
+                return None;
             }
         }
-        // inner node
-        else if _json["OR"].is_array() {
-            _k = 1;
-            _type = "OR";
-        }
-        // inner node
-        else if _json["AND"].is_array() {
-            _k = 2;
-            _type = "AND";
-        }
-        let shares = gen_shares(_secret, _k, 2);
-        let left = gen_shares_json(shares[0], &_json[_type][0]).unwrap();
-        _result.extend(left);
-        let right = gen_shares_json(shares[1], &_json[_type][1]).unwrap();
-        _result.extend(right);
-        return Some(_result);
     }
+    // inner node
+    else if _json["OR"].is_array() {
+        _k = 1;
+        _type = "OR";
+    }
+    // inner node
+    else if _json["AND"].is_array() {
+        _k = 2;
+        _type = "AND";
+    }
+    let shares = gen_shares(_secret, _k, 2);
+    match gen_shares_json(shares[1], &_json[_type][0]) {
+        None => return None,
+        Some(_l) => {
+            _result.extend(_l.iter().cloned());
+        }
+    }
+    match gen_shares_json(shares[2], &_json[_type][1]) {
+        None => return None,
+        Some(_r) => {
+            _result.extend(_r.iter().cloned());
+        }
+    }
+    return Some(_result);
 }
 
 pub fn gen_shares(_secret: Fr, _k: usize, _n: usize) -> Vec<Fr> {
@@ -294,32 +315,34 @@ mod tests {
     fn test_pruning() {
         // a set of two attributes
         let mut _attributes: Vec<String> = Vec::new();
-        _attributes.push(String::from("1"));
         _attributes.push(String::from("3"));
+        _attributes.push(String::from("4"));
 
         let _result1 = calc_pruned_str(
             &_attributes,
-            &String::from(r#"{"AND": [{"OR": [{"ATT": "1"}, {"ATT": "2"}]}, {"AND": [{"ATT": "2"}, {"ATT": "3"}]}]}"#),
+            &String::from(r#"{"OR": [{"AND": [{"ATT": "1"}, {"ATT": "2"}]}, {"AND": [{"ATT": "3"}, {"ATT": "4"}]}]}"#),
         );
         let _result2 = calc_pruned_str(
             &_attributes,
             &String::from(
-                r#"{"OR": [{"ATT": "1"}, {"AND": [{"ATT": "2"}, {"ATT": "3"}]}]}"#,
+                r#"{"OR": [{"ATT": "3"}, {"AND": [{"ATT": "4"}, {"ATT": "5"}]}]}"#,
             ),
         );
         let _result3 = calc_pruned_str(
             &_attributes,
-            &String::from(r#"{"AND": [{"OR": [{"ATT": "1"}, {"ATT": "2"}]}, {"OR": [{"ATT": "4"}, {"ATT": "3"}]}]}"#),
+            &String::from(r#"{"AND": [{"AND": [{"ATT": "1"}, {"ATT": "2"}]}, {"AND": [{"ATT": "3"}, {"ATT": "4"}]}]}"#),
         );
 
         let (_match1, _list1) = _result1.unwrap();
-        assert!(_match1 == false);
-        assert!(_list1.is_empty() == true);
+        assert!(_match1 == true);
+        assert!(_list1 == vec!["3".to_string(), "4".to_string()]);
+
         let (_match2, _list2) = _result2.unwrap();
         assert!(_match2 == true);
-        assert!(_list2 == vec!["1".to_string()]);
+        assert!(_list2 == vec!["3".to_string()]);
+
         let (_match3, _list3) = _result3.unwrap();
-        assert!(_match3 == true);
-        assert!(_list3 == vec!["1".to_string(), "3".to_string()]);
+        assert!(_match3 == false);
+        assert!(_list3.is_empty() == true);
     }
 }

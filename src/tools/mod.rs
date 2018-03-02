@@ -31,15 +31,25 @@ pub fn usize_to_fr(_i: usize) -> Fr {
     return Fr::from_str(&_i.to_str_radix(10)).unwrap();
 }
 
-pub fn get_attribute_list(_policy: &String) -> Option<Vec<(String)>> {
-    match serde_json::from_str(_policy) {
+pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
+    match serde_json::from_str(policy) {
         Err(_) => {
-            println!("Error parsing policy {:?}", _policy);
+            println!("Error: Tool can not parse string as json");
             return None;
         }
         Ok(pol) => {
+            return Some(pol);
+        }
+    }
+}
+
+pub fn get_attribute_list(_policy: &String) -> Option<Vec<(String)>> {
+    let _json = string_to_json(_policy);
+    match _json {
+        None => return None,
+        Some(_j) => {
             let mut _list: Vec<(String)> = Vec::new();
-            get_attribute_list_json(&pol, &mut _list);
+            get_attribute_list_json(&_j, &mut _list);
             return Some(_list);
         }
     }
@@ -97,6 +107,16 @@ pub fn traverse_str(_attr: &Vec<String>, _policy: &String) -> bool {
         Ok(pol) => {
             return traverse_json(_attr, &pol);
         }
+    }
+}
+
+pub fn get_attribute_value(
+    _attr: &String,
+    _list: &Vec<(String, bn::G1, bn::G2)>,
+) -> Option<(bn::G1, bn::G2)> {
+    match _list.into_iter().find(|&x| x.0 == *_attr) {
+        None => return None,
+        Some(_attr) => return Some((_attr.1, _attr.2)),
     }
 }
 
