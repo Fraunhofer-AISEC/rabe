@@ -9,6 +9,10 @@ use std::string::String;
 use bn::*;
 use tools::string_to_json;
 
+const ZERO: i32 = 0;
+const PLUS: i32 = 1;
+const MINUS: i32 = -1;
+
 pub struct AbePolicy {
     pub _m: Vec<Vec<i32>>,
     pub _pi: Vec<String>,
@@ -18,10 +22,6 @@ pub struct AbePolicy {
 pub struct DnfPolicy {
     pub _terms: Vec<(Vec<(String)>, bn::Gt, bn::G1, bn::G2)>,
 }
-
-const ZERO: i32 = 0;
-const PLUS: i32 = 1;
-const MINUS: i32 = -1;
 
 impl AbePolicy {
     pub fn from_string(_policy: &String) -> Option<AbePolicy> {
@@ -41,14 +41,19 @@ impl AbePolicy {
 }
 
 impl DnfPolicy {
+    pub fn new() -> DnfPolicy {
+        let _empty: Vec<(Vec<(String)>, bn::Gt, bn::G1, bn::G2)> = Vec::new();
+        DnfPolicy { _terms: _empty }
+    }
+
     pub fn from_string(_policy: &String, _pks: &Vec<Mke08PublicAttributeKey>) -> Option<DnfPolicy> {
         match string_to_json(_policy) {
             None => {
                 println!("Error parsing policy");
                 return None;
             }
-            Some(json) => {
-                return json_to_dnf(&json, _pks);
+            Some(_j) => {
+                return json_to_dnf(&_j, _pks);
             }
         }
     }
@@ -158,7 +163,6 @@ fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
 
 
 // this calcluates the sum's of all AND terms in a MKE08 DNF policy
-// and generates for each conjunction a random value R_j \in Z_p
 fn dnf(
     _dnfp: &mut DnfPolicy,
     _pks: &Vec<Mke08PublicAttributeKey>,
@@ -174,35 +178,36 @@ fn dnf(
     // inner node
     if _p["OR"].is_array() {
         let len = _p["OR"].as_array().unwrap().len();
-        for i in (0usize..len).rev() {
-            ret &= dnf(_dnfp, _pks, &_p["OR"][len - i - 1], (i + _index))
+        for i in 0usize..len {
+            ret = ret && dnf(_dnfp, _pks, &_p["OR"][i], (i + _index))
         }
         return ret;
 
     } else if _p["AND"].is_array() {
         let len = _p["AND"].as_array().unwrap().len();
         for i in 0usize..len {
-            ret &= dnf(_dnfp, _pks, &_p["AND"][i], _index)
+            ret = ret && dnf(_dnfp, _pks, &_p["AND"][i], _index)
         }
         return ret;
     }
     //Leaf
     else if _p["ATT"] != serde_json::Value::Null {
         match _p["ATT"].as_str() {
-            Some(s) => {
+            Some(_s) => {
                 for pk in _pks.iter() {
-                    if pk._str == s {
+                    if pk._str == _s {
                         if _dnfp._terms.len() > _index {
-                            _dnfp._terms[_index].0.push(s.to_string());
+                            let mut _attrs: Vec<String> = _dnfp._terms[_index].0.clone();
+                            _attrs.push(_s.to_string());
                             _dnfp._terms[_index] = (
-                                _dnfp._terms[_index].0.clone(),
-                                _dnfp._terms[_index].1 * pk._gt,
-                                _dnfp._terms[_index].2 + pk._g1,
-                                _dnfp._terms[_index].3 + pk._g2,
+                                _attrs,
+                                _dnfp._terms[_index].1.clone() * pk._gt,
+                                _dnfp._terms[_index].2.clone() + pk._g1,
+                                _dnfp._terms[_index].3.clone() + pk._g2,
                             );
                         } else {
                             _dnfp._terms.push(
-                                (vec![s.to_string()], pk._gt, pk._g1, pk._g2),
+                                (vec![_s.to_string()], pk._gt, pk._g1, pk._g2),
                             );
                         }
                     }
@@ -250,10 +255,7 @@ pub fn json_to_dnf(
     _json: &serde_json::Value,
     _pks: &Vec<Mke08PublicAttributeKey>,
 ) -> Option<DnfPolicy> {
-    let mut _conjunctions: Vec<(Vec<(String)>, bn::Gt, bn::G1, bn::G2)> = Vec::new();
-    let mut _attrs: Vec<(String)> = Vec::new();
-    _conjunctions.push((_attrs, Gt::one(), G1::zero(), G2::zero()));
-    let mut dnfp = DnfPolicy { _terms: _conjunctions };
+    let mut dnfp = DnfPolicy::new();
     if dnf(&mut dnfp, _pks, _json, 0) {
         dnfp._terms.sort_by(|a, b| a.0.len().cmp(&b.0.len()));
         return Some(dnfp);
@@ -312,7 +314,7 @@ mod tests {
     fn test_dnf_from() {
         let policy_in_dnf1 = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
         let policy_in_dnf2 = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "D"}]}"#);
-        let policy_in_dnf3 = String::from(r#"{"OR": [{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"ATT": "C"}]}, {"AND": [{"ATT": "C"}, {"ATT": "B"}]}]}"#);
+        let policy_in_dnf3 = String::from(r#"{"OR": [{"ATT": "C"}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}, {"AND": [{"ATT": "A"}, {"ATT": "D"}]}]}"#);
         let policy_not_dnf1 = String::from(r#"{"AND": [{"OR": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         let policy_not_dnf2 = String::from(r#"{"OR": [{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         assert!(DnfPolicy::is_in_dnf(&policy_in_dnf1));
@@ -354,6 +356,7 @@ mod tests {
         assert!(policy1._terms.len() == 2);
         assert!(policy2._terms.len() == 1);
         assert!(policy3._terms.len() == 3);
+
     }
 
 }

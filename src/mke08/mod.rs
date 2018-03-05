@@ -78,7 +78,6 @@ pub struct Mke08UserKey {
     pub _sk_u: Mke08SecretUserKey,
     pub _pk_u: Mke08PublicUserKey,
     pub _sk_a: Vec<Mke08SecretAttributeKey>,
-    pub _pk_a: Vec<Mke08PublicAttributeKey>,
 }
 
 //For C
@@ -108,21 +107,20 @@ pub fn mke08_setup() -> (Mke08PublicKey, Mke08MasterKey) {
     let _p2 = G2::random(_rng);
     let _y_g1 = Fr::random(_rng);
     let _y_g2 = Fr::random(_rng);
-    // generator of group G1: g1 and generator of group G2: g2
-    let _pk = Mke08PublicKey {
-        _g1: _g1,
-        _g2: _g2,
-        _p1: _p1,
-        _p2: _p2,
-        _e_gg_y: pairing(_g1, _g2).pow(_y_g1).pow(_y_g2),
-    };
-    // generator of group G1: g1 and generator of group G2: g2
-    let _mk = Mke08MasterKey {
-        _g1_y: _g1 * _y_g1,
-        _g2_y: _g2 * _y_g2,
-    };
-    // return PK and mke
-    return (_pk, _mk);
+    // return PK and MK
+    return (
+        Mke08PublicKey {
+            _g1: _g1,
+            _g2: _g2,
+            _p1: _p1,
+            _p2: _p2,
+            _e_gg_y: pairing(_g1, _g2).pow(_y_g1 * _y_g2),
+        },
+        Mke08MasterKey {
+            _g1_y: _g1 * _y_g1,
+            _g2_y: _g2 * _y_g2,
+        },
+    );
 }
 
 // user key generation
@@ -141,7 +139,6 @@ pub fn mke08_create_user(pk: &Mke08PublicKey, mk: &Mke08MasterKey, user: &String
             _pk_g1: pk._g1 * _mk_u,
             _pk_g2: pk._g2 * _mk_u,
         },
-        _pk_a: Vec::new(),
         _sk_a: Vec::new(),
     };
 }
@@ -165,13 +162,13 @@ pub fn mke08_request_authority_pk(
 ) -> Option<Mke08PublicAttributeKey> {
     // if attribute a is from authority sk_a
     if from_authority(a, &sk_a._a) {
-        let exponent = blake2b_hash_fr(a) * sk_a._r * blake2b_hash_fr(&sk_a._a);
+        let exponent = blake2b_hash_fr(a) + sk_a._r + blake2b_hash_fr(&sk_a._a);
         // return PK and mke
         return Some(Mke08PublicAttributeKey {
             _str: a.clone(),
             _g1: pk._g1 * exponent,
             _g2: pk._g2 * exponent,
-            _gt: pk._e_gg_y.pow(exponent),
+            _gt: pk._e_gg_y.pow(exponent * exponent),
         });
     } else {
         return None;
@@ -186,7 +183,7 @@ pub fn mke08_request_authority_sk(
 ) -> Option<Mke08SecretAttributeKey> {
     // if attribute a is from authority sk_a
     if from_authority(a, &sk_a._a) && is_eligible(a, &pk_u._u) {
-        let exponent = blake2b_hash_fr(a) * sk_a._r * blake2b_hash_fr(&sk_a._a);
+        let exponent = blake2b_hash_fr(a) + sk_a._r + blake2b_hash_fr(&sk_a._a);
         // return PK and mke
         return Some(Mke08SecretAttributeKey {
             _str: a.clone(),
@@ -214,6 +211,7 @@ pub fn mke08_encrypt(
         let dnf: DnfPolicy = DnfPolicy::from_string(&_policy, _attr_pks).unwrap();
         // random Gt msg
         let _msg = pairing(G1::random(_rng), G2::random(_rng));
+        println!("ENCRYPT: {:?}", into_hex(_msg).unwrap());
         // CT result vector
         let mut _c: Vec<(Vec<String>, bn::Gt, bn::G1, bn::G2, bn::G1, bn::G2)> = Vec::new();
         // now add randomness using _r_j
@@ -221,7 +219,7 @@ pub fn mke08_encrypt(
             let _r_j = Fr::random(_rng);
             _c.push((
                 _term.0,
-                _term.1.pow(_r_j) * _msg,
+                _term.1.pow(_r_j * _r_j) * _msg,
                 _pk._p1 * _r_j,
                 _pk._p2 * _r_j,
                 _term.2 * _r_j,
@@ -266,16 +264,16 @@ pub fn mke08_decrypt(
         return None;
     } else {
         let mut _msg = Gt::zero();
-        for conjunction in _ct._c.iter() {
-            if is_satisfiable(&conjunction.0, &_sk._sk_a) {
-                let _sk_sum = calc_satisfiable(&conjunction.0, &_sk._sk_a);
-                _msg = conjunction.1 *
-                    ((pairing(conjunction.2, _sk_sum.1) * pairing(_sk_sum.0, conjunction.3)) *
-                         (pairing(conjunction.4, _sk._sk_u._sk_g2).inverse() *
-                              pairing(_sk._sk_u._sk_g1, conjunction.5).inverse()));
+        for _ct in _ct._c.iter() {
+            println!("conjunction: {:?}", &_ct.0);
+            if is_satisfiable(&_ct.0, &_sk._sk_a) {
+                let _sk_sum = calc_satisfiable(&_ct.0, &_sk._sk_a);
+                _msg = _ct.1 * (pairing(_ct.2, _sk_sum.1) * pairing(_sk_sum.0, _ct.3)) *
+                    (pairing(_ct.4, _sk._sk_u._sk_g2) * pairing(_sk._sk_u._sk_g1, _ct.5)).inverse();
                 break;
             }
         }
+        println!("DECRYPT1: {:?}", into_hex(_msg).unwrap());
         // Decrypt plaintext using derived secret from mke08 scheme
         let mut sha = Sha3::sha3_256();
         match encode(&_msg, Infinite) {
@@ -297,4 +295,92 @@ mod tests {
     use super::*;
 
 
+    #[test]
+    fn test_and() {
+        // setup scheme
+        let (_pk, _msk) = mke08_setup();
+        // user1
+        let _u = String::from("user1");
+        // generate mutable user key(in order to add attribute sk's later on)
+        let mut _u_key = mke08_create_user(&_pk, &_msk, &_u);
+        // authority1
+        let _a1 = String::from("authority1");
+        let _a1_key = mke08_create_authority(&_pk, &_a1);
+        // authority2
+        let _a2 = String::from("authority2");
+        let _a2_key = mke08_create_authority(&_pk, &_a2);
+        // our attributes
+        let _att1 = String::from("A");
+        let _att2 = String::from("B");
+        // authority1 owns A
+        let _att1_pk = mke08_request_authority_pk(&_pk, &_att1, &_a1_key).unwrap();
+        // authority2 owns B
+        let _att2_pk = mke08_request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
+        // get "A"'s secret key from authority1
+        let _att1_u_sk = mke08_request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap();
+        // get "B"'s secret key from authority2
+        let _att2_u_sk = mke08_request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap();
+        // add attribute sk's to user key
+        _u_key._sk_a.push(_att1_u_sk);
+        _u_key._sk_a.push(_att2_u_sk);
+
+
+        // our plaintext
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let _policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // cp-abe ciphertext
+        let _ct: Mke08Ciphertext =
+            mke08_encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+        // and now decrypt again with mathcing sk
+        let _match = mke08_decrypt(&_pk, &_ct, &_u_key, &_policy);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), _plaintext);
+    }
+
+
+    #[test]
+    fn test_or() {
+        // setup scheme
+        let (_pk, _msk) = mke08_setup();
+        // user1
+        let _u = String::from("user1");
+        // generate mutable user key(in order to add attribute sk's later on)
+        let mut _u_key = mke08_create_user(&_pk, &_msk, &_u);
+        // authority1
+        let _a1 = String::from("authority1");
+        let _a1_key = mke08_create_authority(&_pk, &_a1);
+        // authority2
+        let _a2 = String::from("authority2");
+        let _a2_key = mke08_create_authority(&_pk, &_a2);
+        // our attributes
+        let _att1 = String::from("B");
+        let _att2 = String::from("C");
+        // authority1 owns A
+        let _att1_pk = mke08_request_authority_pk(&_pk, &_att1, &_a1_key).unwrap();
+        // authority2 owns B
+        let _att2_pk = mke08_request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
+        // get "A"'s secret key from authority1
+        let _att1_u_sk = mke08_request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap();
+        // get "B"'s secret key from authority2
+        let _att2_u_sk = mke08_request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap();
+        // add attribute sk's to user key
+        _u_key._sk_a.push(_att1_u_sk);
+        _u_key._sk_a.push(_att2_u_sk);
+
+
+        // our plaintext
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let _policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // cp-abe ciphertext
+        let _ct: Mke08Ciphertext =
+            mke08_encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+        // and now decrypt again with mathcing sk
+        let _match = mke08_decrypt(&_pk, &_ct, &_u_key, &_policy);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), _plaintext);
+    }
 }

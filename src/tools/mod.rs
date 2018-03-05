@@ -121,18 +121,17 @@ pub fn get_attribute_value(
 }
 
 pub fn is_satisfiable(_conjunction: &Vec<String>, _sk: &Vec<Mke08SecretAttributeKey>) -> bool {
-    let mut ret = true;
+    let mut _ret: bool = true;
     for _attr in _conjunction {
         match _sk.into_iter().find(|&x| x._str == *_attr) {
             None => {
-                ret &= false;
+                _ret = false;
+                break;
             }
-            Some(_attr_sk) => {
-                ret &= true;
-            }
+            Some(_attr_sk) => {}
         }
     }
-    ret
+    _ret
 }
 
 pub fn calc_satisfiable(
@@ -141,10 +140,10 @@ pub fn calc_satisfiable(
 ) -> (bn::G1, bn::G2) {
     let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
     for _attr in _conjunction {
-        match _sk.into_iter().find(|&x| x._str == *_attr) {
+        match _sk.into_iter().find(|&x| x._str == _attr.to_string()) {
             None => {}
-            Some(_attr_sk) => {
-                ret = (ret.0 + _attr_sk._g1, ret.1 + _attr_sk._g2);
+            Some(_found) => {
+                ret = (ret.0 + _found._g1, ret.1 + _found._g2);
             }
         }
     }
@@ -295,21 +294,16 @@ pub fn aw11_get_coefficient(_a: &String, _coeffs: &Vec<(String, Fr)>) -> Option<
 
 // MSK08 functions
 pub fn from_authority(_attr: &String, _authority: &String) -> bool {
-    let split = _attr.split(":");
-    let vec: Vec<&str> = split.collect();
-    if vec[0] == _attr {
-        return true;
-    }
-    return false;
+    // TODO !!!!
+    // Implement blockchain logic to determine which attribute belongs to authority
+    return true;
 }
 
 pub fn is_eligible(_attr: &String, _user: &String) -> bool {
     // TODO !!!!
-    // Implement some logic to determine which user is able to own which attribute
+    // Implement blockchain logic to determine which user is able to own which attribute
     return true;
 }
-
-
 
 
 /////////////////////////////////////////////////////////////////////
@@ -482,18 +476,22 @@ mod tests {
 
         // a sk_a
         let mut _sk_as: Vec<Mke08SecretAttributeKey> = Vec::new();
+
+
         _sk_as.push(Mke08SecretAttributeKey {
             _str: String::from("A"),
             _g1: G1::one(),
             _g2: G2::one(),
         });
         assert!(!is_satisfiable(&_conjunction, &_sk_as));
+
         _sk_as.push(Mke08SecretAttributeKey {
             _str: String::from("B"),
             _g1: G1::one(),
             _g2: G2::one(),
         });
         assert!(!is_satisfiable(&_conjunction, &_sk_as));
+
         _sk_as.push(Mke08SecretAttributeKey {
             _str: String::from("C"),
             _g1: G1::one(),
