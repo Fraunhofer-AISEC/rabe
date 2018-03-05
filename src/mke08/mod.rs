@@ -246,7 +246,7 @@ pub fn mke08_encrypt(
         println!("ENCRYPT: {:?}", into_hex(_msg).unwrap());
         //Encrypt plaintext using derived key from secret
         let mut sha = Sha3::sha3_256();
-        match encode(&(_msg * _msg2), Infinite) {
+        match encode(&_msg, Infinite) {
             Err(_) => return None,
             Ok(e) => {
                 sha.input(e.to_hex().as_bytes());
@@ -295,7 +295,6 @@ pub fn mke08_decrypt(
                     pairing(_sk_sum.0, _ct._e_j4[_i]) *
                     (pairing(_ct._e_j5[_i], _sk._sk_u._sk_g2) *
                          pairing(_sk._sk_u._sk_g1, _ct._e_j6[_i])).inverse();
-                println!("DECRYPTLOOP: {:?}", into_hex(_msg).unwrap());
                 break;
             }
         }
