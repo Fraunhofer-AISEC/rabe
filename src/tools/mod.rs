@@ -139,11 +139,17 @@ pub fn calc_satisfiable(
     _sk: &Vec<Mke08SecretAttributeKey>,
 ) -> (bn::G1, bn::G2) {
     let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
-    for _attr in _conjunction {
-        match _sk.into_iter().find(|&x| x._str == _attr.to_string()) {
+    for _i in 0usize.._conjunction.len() {
+        match _sk.into_iter().find(
+            |&x| x._str == _conjunction[_i].to_string(),
+        ) {
             None => {}
             Some(_found) => {
-                ret = (ret.0 + _found._g1, ret.1 + _found._g2);
+                if _i == 0 {
+                    ret = (_found._g1, _found._g2);
+                } else {
+                    ret = (ret.0 + _found._g1, ret.1 + _found._g2);
+                }
             }
         }
     }

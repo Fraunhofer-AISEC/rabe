@@ -167,7 +167,7 @@ fn dnf(
     _dnfp: &mut DnfPolicy,
     _pks: &Vec<Mke08PublicAttributeKey>,
     _p: &serde_json::Value,
-    _index: usize,
+    _i: usize,
 ) -> bool {
 
     if *_p == serde_json::Value::Null {
@@ -179,14 +179,14 @@ fn dnf(
     if _p["OR"].is_array() {
         let len = _p["OR"].as_array().unwrap().len();
         for i in 0usize..len {
-            ret = ret && dnf(_dnfp, _pks, &_p["OR"][i], (i + _index))
+            ret = ret && dnf(_dnfp, _pks, &_p["OR"][i], (i + _i))
         }
         return ret;
 
     } else if _p["AND"].is_array() {
         let len = _p["AND"].as_array().unwrap().len();
         for i in 0usize..len {
-            ret = ret && dnf(_dnfp, _pks, &_p["AND"][i], _index)
+            ret = ret && dnf(_dnfp, _pks, &_p["AND"][i], _i)
         }
         return ret;
     }
@@ -194,25 +194,25 @@ fn dnf(
     else if _p["ATT"] != serde_json::Value::Null {
         match _p["ATT"].as_str() {
             Some(_s) => {
-                for pk in _pks.iter() {
-                    if pk._str == _s {
-                        if _dnfp._terms.len() > _index {
-                            let mut _attrs: Vec<String> = _dnfp._terms[_index].0.clone();
-                            _attrs.push(_s.to_string());
-                            _dnfp._terms[_index] = (
-                                _attrs,
-                                _dnfp._terms[_index].1.clone() * pk._gt1,
-                                _dnfp._terms[_index].2.clone() * pk._gt2,
-                                _dnfp._terms[_index].3.clone() + pk._g1,
-                                _dnfp._terms[_index].4.clone() + pk._g2,
+                for pak in _pks.iter() {
+                    if pak._str == _s {
+                        if _dnfp._terms.len() > _i {
+                            _dnfp._terms[_i].0.push(pak._str.to_string());
+                            _dnfp._terms[_i] = (
+                                _dnfp._terms[_i].0.clone(),
+                                _dnfp._terms[_i].1 * pak._gt1,
+                                _dnfp._terms[_i].2 * pak._gt2,
+                                _dnfp._terms[_i].3 + pak._g1,
+                                _dnfp._terms[_i].4 + pak._g2,
                             );
+
                         } else {
                             _dnfp._terms.push((
-                                vec![_s.to_string()],
-                                pk._gt1,
-                                pk._gt2,
-                                pk._g1,
-                                pk._g2,
+                                vec![pak._str.to_string()],
+                                pak._gt1,
+                                pak._gt2,
+                                pak._g1,
+                                pak._g2,
                             ));
                         }
                     }
