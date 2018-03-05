@@ -23,7 +23,8 @@ pub struct Mke08PublicKey {
     pub _g2: bn::G2,
     pub _p1: bn::G1,
     pub _p2: bn::G2,
-    pub _e_gg_y: bn::Gt,
+    pub _e_gg_y1: bn::Gt,
+    pub _e_gg_y2: bn::Gt,
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -56,7 +57,8 @@ pub struct Mke08PublicAttributeKey {
     pub _str: String,
     pub _g1: bn::G1,
     pub _g2: bn::G2,
-    pub _gt: bn::Gt,
+    pub _gt1: bn::Gt,
+    pub _gt2: bn::Gt,
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -68,7 +70,7 @@ pub struct Mke08SecretAttributeKey {
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Mke08Ciphertext {
-    pub _c: Vec<(Vec<String>, bn::Gt, bn::G1, bn::G2, bn::G1, bn::G2)>,
+    pub _c: Vec<(Vec<String>, bn::Gt, bn::Gt, bn::G1, bn::G2, bn::G1, bn::G2)>,
     pub _ct: Vec<u8>,
     pub _iv: [u8; 16],
 }
@@ -105,8 +107,8 @@ pub fn mke08_setup() -> (Mke08PublicKey, Mke08MasterKey) {
     let _g2 = G2::random(_rng);
     let _p1 = G1::random(_rng);
     let _p2 = G2::random(_rng);
-    let _y_g1 = Fr::random(_rng);
-    let _y_g2 = Fr::random(_rng);
+    let _y1 = Fr::random(_rng);
+    let _y2 = Fr::random(_rng);
     // return PK and MK
     return (
         Mke08PublicKey {
@@ -114,11 +116,12 @@ pub fn mke08_setup() -> (Mke08PublicKey, Mke08MasterKey) {
             _g2: _g2,
             _p1: _p1,
             _p2: _p2,
-            _e_gg_y: pairing(_g1, _g2).pow(_y_g1 * _y_g2),
+            _e_gg_y1: pairing(_g1, _g2).pow(_y1),
+            _e_gg_y2: pairing(_g1, _g2).pow(_y2),
         },
         Mke08MasterKey {
-            _g1_y: _g1 * _y_g1,
-            _g2_y: _g2 * _y_g2,
+            _g1_y: _g1 * _y1,
+            _g2_y: _g2 * _y2,
         },
     );
 }
@@ -162,13 +165,14 @@ pub fn mke08_request_authority_pk(
 ) -> Option<Mke08PublicAttributeKey> {
     // if attribute a is from authority sk_a
     if from_authority(a, &sk_a._a) {
-        let exponent = blake2b_hash_fr(a) + sk_a._r + blake2b_hash_fr(&sk_a._a);
+        let exponent = blake2b_hash_fr(a) * sk_a._r;
         // return PK and mke
         return Some(Mke08PublicAttributeKey {
             _str: a.clone(),
             _g1: pk._g1 * exponent,
             _g2: pk._g2 * exponent,
-            _gt: pk._e_gg_y.pow(exponent * exponent),
+            _gt1: pk._e_gg_y1.pow(exponent),
+            _gt2: pk._e_gg_y2.pow(exponent),
         });
     } else {
         return None;
@@ -183,7 +187,7 @@ pub fn mke08_request_authority_sk(
 ) -> Option<Mke08SecretAttributeKey> {
     // if attribute a is from authority sk_a
     if from_authority(a, &sk_a._a) && is_eligible(a, &pk_u._u) {
-        let exponent = blake2b_hash_fr(a) + sk_a._r + blake2b_hash_fr(&sk_a._a);
+        let exponent = blake2b_hash_fr(a) * sk_a._r;
         // return PK and mke
         return Some(Mke08SecretAttributeKey {
             _str: a.clone(),
@@ -209,26 +213,28 @@ pub fn mke08_encrypt(
         let _rng = &mut rand::thread_rng();
         // an DNF policy from the given String
         let dnf: DnfPolicy = DnfPolicy::from_string(&_policy, _attr_pks).unwrap();
-        // random Gt msg
-        let _msg = pairing(G1::random(_rng), G2::random(_rng));
-        println!("ENCRYPT: {:?}", into_hex(_msg).unwrap());
+        // random Gt msgs
+        let _msg1 = pairing(G1::random(_rng), G2::random(_rng));
+        let _msg2 = pairing(G1::random(_rng), G2::random(_rng));
         // CT result vector
-        let mut _c: Vec<(Vec<String>, bn::Gt, bn::G1, bn::G2, bn::G1, bn::G2)> = Vec::new();
+        let mut _c: Vec<(Vec<String>, bn::Gt, bn::Gt, bn::G1, bn::G2, bn::G1, bn::G2)> = Vec::new();
         // now add randomness using _r_j
         for _term in dnf._terms {
             let _r_j = Fr::random(_rng);
             _c.push((
                 _term.0,
-                _term.1.pow(_r_j * _r_j) * _msg,
+                _term.1.pow(_r_j) * _msg1,
+                _term.2.pow(_r_j) * _msg2,
                 _pk._p1 * _r_j,
                 _pk._p2 * _r_j,
-                _term.2 * _r_j,
                 _term.3 * _r_j,
+                _term.4 * _r_j,
             ));
         }
+        println!("ENCRYPT: {:?}", into_hex(_msg1 * _msg2).unwrap());
         //Encrypt plaintext using derived key from secret
         let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
+        match encode(&(_msg1 * _msg2), Infinite) {
             Err(_) => return None,
             Ok(e) => {
                 sha.input(e.to_hex().as_bytes());
@@ -268,12 +274,13 @@ pub fn mke08_decrypt(
             println!("conjunction: {:?}", &_ct.0);
             if is_satisfiable(&_ct.0, &_sk._sk_a) {
                 let _sk_sum = calc_satisfiable(&_ct.0, &_sk._sk_a);
-                _msg = _ct.1 * (pairing(_ct.2, _sk_sum.1) * pairing(_sk_sum.0, _ct.3)) *
-                    (pairing(_ct.4, _sk._sk_u._sk_g2) * pairing(_sk._sk_u._sk_g1, _ct.5)).inverse();
+                _msg = _ct.1 * _ct.2 * pairing(_ct.3, _sk_sum.1) * pairing(_sk_sum.0, _ct.4) *
+                    pairing(_ct.5, _sk._sk_u._sk_g2).inverse() *
+                    pairing(_sk._sk_u._sk_g1, _ct.6).inverse();
                 break;
             }
         }
-        println!("DECRYPT1: {:?}", into_hex(_msg).unwrap());
+        println!("DECRYPT: {:?}", into_hex(_msg).unwrap());
         // Decrypt plaintext using derived secret from mke08 scheme
         let mut sha = Sha3::sha3_256();
         match encode(&_msg, Infinite) {

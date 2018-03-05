@@ -20,7 +20,7 @@ pub struct AbePolicy {
 }
 
 pub struct DnfPolicy {
-    pub _terms: Vec<(Vec<(String)>, bn::Gt, bn::G1, bn::G2)>,
+    pub _terms: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)>,
 }
 
 impl AbePolicy {
@@ -42,7 +42,7 @@ impl AbePolicy {
 
 impl DnfPolicy {
     pub fn new() -> DnfPolicy {
-        let _empty: Vec<(Vec<(String)>, bn::Gt, bn::G1, bn::G2)> = Vec::new();
+        let _empty: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)> = Vec::new();
         DnfPolicy { _terms: _empty }
     }
 
@@ -201,14 +201,19 @@ fn dnf(
                             _attrs.push(_s.to_string());
                             _dnfp._terms[_index] = (
                                 _attrs,
-                                _dnfp._terms[_index].1.clone() * pk._gt,
-                                _dnfp._terms[_index].2.clone() + pk._g1,
-                                _dnfp._terms[_index].3.clone() + pk._g2,
+                                _dnfp._terms[_index].1.clone() * pk._gt1,
+                                _dnfp._terms[_index].2.clone() * pk._gt2,
+                                _dnfp._terms[_index].3.clone() + pk._g1,
+                                _dnfp._terms[_index].4.clone() + pk._g2,
                             );
                         } else {
-                            _dnfp._terms.push(
-                                (vec![_s.to_string()], pk._gt, pk._g1, pk._g2),
-                            );
+                            _dnfp._terms.push((
+                                vec![_s.to_string()],
+                                pk._gt1,
+                                pk._gt2,
+                                pk._g1,
+                                pk._g2,
+                            ));
                         }
                     }
                 }
@@ -327,21 +332,24 @@ mod tests {
             _str: String::from("A"),
             _g1: G1::one(),
             _g2: G2::one(),
-            _gt: Gt::one(),
+            _gt1: Gt::one(),
+            _gt2: Gt::one(),
         };
 
         let pk_b = Mke08PublicAttributeKey {
             _str: String::from("B"),
             _g1: G1::one(),
             _g2: G2::one(),
-            _gt: Gt::one(),
+            _gt1: Gt::one(),
+            _gt2: Gt::one(),
         };
 
         let pk_c = Mke08PublicAttributeKey {
             _str: String::from("C"),
             _g1: G1::one(),
             _g2: G2::one(),
-            _gt: Gt::one(),
+            _gt1: Gt::one(),
+            _gt2: Gt::one(),
         };
 
         let mut pks: Vec<Mke08PublicAttributeKey> = Vec::new();
