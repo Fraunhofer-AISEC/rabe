@@ -22,7 +22,7 @@ pages:
   only:
     - master
   script:
-    - cargo doc --test
+    - cargo doc
     - cargo build --release
     - rm -rf public
     - mkdir public
