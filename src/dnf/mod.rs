@@ -22,10 +22,10 @@ pub trait PublicAttributeKey {
         G2::one()
     }
     fn _gt1(&self) -> bn::Gt {
-        Gt::zero()
+        Gt::one()
     }
     fn _gt2(&self) -> bn::Gt {
-        Gt::zero()
+        Gt::one()
     }
     // Traits can provide default method definitions.
     fn print(&self) {
