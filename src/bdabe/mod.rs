@@ -11,7 +11,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::encode;
 use rustc_serialize::hex::ToHex;
 use rand::Rng;
-use dnf::*;
+use policy::*;
 use tools::*;
 
 //////////////////////////////////////////////////////
@@ -221,11 +221,11 @@ pub fn encrypt(
     _plaintext: &[u8],
 ) -> Option<BdabeCiphertext> {
     // if policy is in DNF
-    if DnfPolicy::is_in_dnf(&_policy) {
+    if dnf::DnfPolicy::is_in_dnf(&_policy) {
         // random number generator
         let _rng = &mut rand::thread_rng();
         // an DNF policy from the given String
-        let dnf: DnfPolicy = DnfPolicy::from_string(&_policy, _attr_pks).unwrap();
+        let dnf: dnf::DnfPolicy = dnf::DnfPolicy::from_string(&_policy, _attr_pks).unwrap();
         // random Gt msg
         let _msg = pairing(G1::random(_rng), G2::random(_rng));
         // CT result vectors

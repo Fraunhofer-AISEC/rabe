@@ -668,7 +668,7 @@ mod tests {
             .into_bytes();
         // our policy
         let policy = String::from(
-            r#"{"OR": {"ATT": "A"}, {"AND": [{"ATT": "B"}, {"ATT": "C"}]}]}"#,
+            r#"{"OR": [{"ATT": "A"}, {"AND": [{"ATT": "B"}, {"ATT": "C"}]}]}"#,
         );
         // kp-abe ciphertext
         let ct: Ac17CpCiphertext = ac17cp_encrypt(&pk, &policy, &plaintext).unwrap();

@@ -16,6 +16,7 @@ mod bsw;
 mod lsw;
 mod tools;
 mod mke08;
+mod bdabe;
 mod secretsharing;
 
 use rustc_serialize::json;
@@ -25,6 +26,7 @@ use ac17::*;
 use aw11::*;
 use bsw::*;
 use mke08::*;
+use bdabe::*;
 use lsw::*;
 use std::error::Error;
 use std::fs::File;

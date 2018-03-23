@@ -4,7 +4,6 @@ extern crate serde_json;
 extern crate bn;
 extern crate rustc_serialize;
 
-use mke08::Mke08PublicAttributeKey;
 use std::string::String;
 use tools::string_to_json;
 

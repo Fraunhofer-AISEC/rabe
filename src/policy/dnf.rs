@@ -6,8 +6,8 @@ extern crate rustc_serialize;
 
 use std::string::String;
 use tools::{string_to_json, into_hex};
-use mke08::Mke08PublicAttributeKey;
-use bdabe::BdabePublicAttributeKey;
+use mke08::*;
+use bdabe::*;
 use bn::*;
 
 /// A DNF policy for the MKE08 scheme and the BDABE scheme
@@ -17,6 +17,18 @@ pub struct DnfPolicy {
 
 
 impl DnfPolicy {
+    /// Returns a new DNF policy based on a textual dnf policy.
+    ///
+    /// # Arguments
+    ///
+    /// * `policy` - A policy in JSON format as String describing the policy
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use policy::dnf::DnfPolicy;
+    /// let policy = DnfPolicy::new(String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "Y"}]}"#));
+    /// ```
     pub fn new() -> DnfPolicy {
         let _empty: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)> = Vec::new();
         DnfPolicy { _terms: _empty }
