@@ -14,6 +14,7 @@ use rustc_serialize::hex::ToHex;
 use rand::Rng;
 use policy::msp::AbePolicy;
 use tools::*;
+use secretsharing::*;
 
 /// An AC17 Public Key (PK)
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
@@ -311,29 +312,53 @@ pub fn ac17cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
-        let mut _prod1_gt = Gt::one();
-        let mut _prod2_gt = Gt::one();
-        for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-            let mut _prod_h = G1::zero();
-            let mut _prod_g = G1::zero();
-            for _j in 0usize..ct._c.len() {
-                _prod_h = _prod_h + sk._k[_j].1[_i];
-                _prod_g = _prod_g + ct._c[_j].1[_i];
+        let _pruned = calc_pruned_str(&sk._attr, &ct._policy);
+        match _pruned {
+            None => {
+                println!("Error: attributes in sk do not match policy in ct.");
+                return None;
             }
-            _prod1_gt = _prod1_gt * pairing(sk._k_p[_i] + _prod_h, ct._c_0[_i]);
-            _prod2_gt = _prod2_gt * pairing(_prod_g, sk._k_0[_i]);
-        }
-        let _msg = ct._c_p * (_prod2_gt * _prod1_gt.inverse());
-        // Decrypt plaintext using derived secret from cp-abe scheme
-        let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
-            Err(_) => return None,
-            Ok(e) => {
-                sha.input(e.to_hex().as_bytes());
-                let mut key: [u8; 32] = [0; 32];
-                sha.result(&mut key);
-                let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
-                return Some(aes);
+            Some(_p) => {
+                let (_match, _list) = _p;
+                if _match {
+                    let mut _prod1_gt = Gt::one();
+                    let mut _prod2_gt = Gt::one();
+                    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
+                        let mut _prod_h = G1::zero();
+                        let mut _prod_g = G1::zero();
+                        for _current in _list.iter() {
+                            for _attr in ct._c.iter() {
+                                if _attr.0 == _current.to_string() {
+                                    _prod_g = _prod_g + _attr.1[_i];
+                                }
+                            }
+                            for _attr in sk._k.iter() {
+                                if _attr.0 == _current.to_string() {
+                                    _prod_h = _prod_h + _attr.1[_i];
+                                }
+                            }
+                        }
+                        _prod1_gt = _prod1_gt * pairing(sk._k_p[_i] + _prod_h, ct._c_0[_i]);
+                        _prod2_gt = _prod2_gt * pairing(_prod_g, sk._k_0[_i]);
+                    }
+                    let _msg = ct._c_p * (_prod2_gt * _prod1_gt.inverse());
+                    // Decrypt plaintext using derived secret from cp-abe scheme
+                    let mut sha = Sha3::sha3_256();
+                    match encode(&_msg, Infinite) {
+                        Err(_) => return None,
+                        Ok(e) => {
+                            sha.input(e.to_hex().as_bytes());
+                            let mut key: [u8; 32] = [0; 32];
+                            sha.result(&mut key);
+                            let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
+                            return Some(aes);
+                        }
+                    }
+                } else {
+                    println!("Error: attributes in sk do not match policy in ct.");
+                    return None;
+                }
+
             }
         }
     }
@@ -646,7 +671,7 @@ mod tests {
         let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
         // and now decrypt again
         assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
-    }*/
+    }
 
     #[test]
     fn test_ac17cp_or() {
@@ -684,7 +709,7 @@ mod tests {
         assert_eq!(ac17cp_decrypt(&sk_m2, &ct).unwrap(), plaintext);
         // and now decrypt again
         assert_eq!(ac17cp_decrypt(&sk_nm, &ct).is_none(), true);
-    }
+    }*/
 
     /*
 	TODO : FIX THIS TEST
