@@ -9,7 +9,7 @@ stages:
   - deploy
 
 stable:cargo:
-  image: rustdocker/ubuntu:latest
+  image: rustdocker/ubuntu
   <<: *cargo_test
 
 #nightly:cargo:
@@ -17,7 +17,7 @@ stable:cargo:
 #  <<: *cargo_test
 
 pages:
-  image: rustdocker/ubuntu:latest
+  image: rustdocker/ubuntu
   stage: deploy
   only:
     - master
