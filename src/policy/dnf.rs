@@ -10,6 +10,51 @@ use mke08::Mke08PublicAttributeKey;
 use bdabe::BdabePublicAttributeKey;
 use bn::*;
 
+/// A DNF policy for the MKE08 scheme and the BDABE scheme
+pub struct DnfPolicy {
+    pub _terms: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)>,
+}
+
+
+impl DnfPolicy {
+    pub fn new() -> DnfPolicy {
+        let _empty: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)> = Vec::new();
+        DnfPolicy { _terms: _empty }
+    }
+
+    pub fn from_string<K: PublicAttributeKey>(
+        _policy: &String,
+        _pks: &Vec<K>,
+    ) -> Option<DnfPolicy> {
+        match string_to_json(_policy) {
+            None => {
+                println!("Error parsing policy");
+                return None;
+            }
+            Some(_j) => {
+                return json_to_dnf(&_j, _pks);
+            }
+        }
+    }
+    pub fn from_json(
+        _json: &serde_json::Value,
+        _pks: &Vec<Mke08PublicAttributeKey>,
+    ) -> Option<DnfPolicy> {
+        json_to_dnf(_json, _pks)
+    }
+    pub fn is_in_dnf(_policy: &String) -> bool {
+        match string_to_json(_policy) {
+            None => {
+                return false;
+            }
+            Some(json) => {
+                return policy_in_dnf(&json, false);
+            }
+        }
+    }
+}
+
+/// A generic Public Attribute Key (PKA) for the MKE08 scheme and the BDABE scheme
 pub trait PublicAttributeKey {
     // Instance method signatures; these will return a string.
     fn _str(&self) -> String {
@@ -77,57 +122,7 @@ fn get_pka_str(key: &PublicAttributeKey) -> String {
     key._str()
 }
 
-
-/*
- * DNF for mke08 and bdabe
- */
-
-pub struct DnfPolicy {
-    pub _terms: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)>,
-}
-
-
-impl DnfPolicy {
-    pub fn new() -> DnfPolicy {
-        let _empty: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)> = Vec::new();
-        DnfPolicy { _terms: _empty }
-    }
-
-    pub fn from_string<K: PublicAttributeKey>(
-        _policy: &String,
-        _pks: &Vec<K>,
-    ) -> Option<DnfPolicy> {
-        match string_to_json(_policy) {
-            None => {
-                println!("Error parsing policy");
-                return None;
-            }
-            Some(_j) => {
-                return json_to_dnf(&_j, _pks);
-            }
-        }
-    }
-    pub fn from_json(
-        _json: &serde_json::Value,
-        _pks: &Vec<Mke08PublicAttributeKey>,
-    ) -> Option<DnfPolicy> {
-        json_to_dnf(_json, _pks)
-    }
-    pub fn is_in_dnf(_policy: &String) -> bool {
-        match string_to_json(_policy) {
-            None => {
-                return false;
-            }
-            Some(json) => {
-                return policy_in_dnf(&json, false);
-            }
-        }
-    }
-}
-
-
-
-fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
+pub fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
     if *p == serde_json::Value::Null {
         println!("Error passed null!");
         return false;
@@ -161,7 +156,7 @@ fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
 
 
 // this calcluates the sum's of all AND terms in a Bdabe DNF policy
-fn dnf<K: PublicAttributeKey>(
+pub fn dnf<K: PublicAttributeKey>(
     _dnfp: &mut DnfPolicy,
     _pks: &Vec<K>,
     _p: &serde_json::Value,

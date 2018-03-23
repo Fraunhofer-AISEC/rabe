@@ -18,7 +18,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::encode;
 use rustc_serialize::hex::ToHex;
 use rand::Rng;
-use policy::AbePolicy;
+use policy::msp::AbePolicy;
 use tools::*;
 use std::ops::Neg;
 use secretsharing::{gen_shares_str, calc_coefficients_str};

@@ -12,7 +12,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::encode;
 use rustc_serialize::hex::ToHex;
 use rand::Rng;
-use policy::AbePolicy;
+use policy::msp::AbePolicy;
 use tools::*;
 
 /// An AC17 Public Key (PK)
@@ -40,7 +40,7 @@ pub struct Ac17Context {
     pub _pk: Ac17PublicKey,
 }
 
-/// An AC17 CP-ABE Ciphertext
+/// An AC17 CP-ABE Ciphertext (CT)
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17CpCiphertext {
     pub _policy: String,
@@ -51,6 +51,7 @@ pub struct Ac17CpCiphertext {
     pub _iv: [u8; 16],
 }
 
+/// An AC17 CP-ABE Secret Key (SK)
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17CpSecretKey {
     pub _attr: Vec<(String)>,
@@ -59,10 +60,7 @@ pub struct Ac17CpSecretKey {
     pub _k_p: Vec<bn::G1>,
 }
 
-//////////////////////////////////////////////////////
-// AC17 KP-ABE structs
-//////////////////////////////////////////////////////
-
+/// An AC17 KP-ABE Ciphertext (CT)
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17KpCiphertext {
     pub _attr: Vec<(String)>,
@@ -73,6 +71,7 @@ pub struct Ac17KpCiphertext {
     pub _iv: [u8; 16],
 }
 
+/// An AC17 KP-ABE Secret Key (SK)
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17KpSecretKey {
     pub _policy: String,
@@ -81,10 +80,7 @@ pub struct Ac17KpSecretKey {
 }
 
 
-//////////////////////////////////////////
-// AC17 KP-ABE on type-3
-//////////////////////////////////////////
-
+/// The assumption size of the pairing in the AC17 scheme.
 const ASSUMPTION_SIZE: usize = 2;
 
 // BOTH SCHEMES SHARE

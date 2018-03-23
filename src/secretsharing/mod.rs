@@ -19,7 +19,6 @@ pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool,
     }
 }
 
-
 pub fn required_attributes(
     _attr: &Vec<(String)>,
     _json: &serde_json::Value,
