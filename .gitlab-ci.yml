@@ -9,15 +9,11 @@ stages:
   - deploy
 
 stable:cargo:
-  image: "hub.docker.com/r/rustdocker/rust:stable"
-  <<: *cargo_test
-
-nightly:cargo:
-  image: "hub.docker.com/r/rustdocker/rust:nightly"
+  image: rust:1.23.0
   <<: *cargo_test
 
 pages:
-  image: rustdocker/ubuntu
+  image: rust:1.23.0
   stage: deploy
   only:
     - master
