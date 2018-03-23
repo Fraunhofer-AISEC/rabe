@@ -11,7 +11,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::encode;
 use rustc_serialize::hex::ToHex;
 use rand::Rng;
-use policydnf::*;
+use dnf::*;
 use tools::*;
 
 //////////////////////////////////////////////////////

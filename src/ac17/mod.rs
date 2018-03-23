@@ -15,9 +15,7 @@ use rand::Rng;
 use policy::AbePolicy;
 use tools::*;
 
-//////////////////////////////////////////////////////
-// AC17 ABE structs
-//////////////////////////////////////////////////////
+/// An AC17 Public Key (PK)
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17PublicKey {
     pub _g: bn::G1,
@@ -25,6 +23,7 @@ pub struct Ac17PublicKey {
     pub _e_gh_ka: Vec<bn::Gt>,
 }
 
+/// An AC17 Public Key (MK)
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17MasterKey {
     pub _g: bn::G1,
@@ -34,17 +33,14 @@ pub struct Ac17MasterKey {
     pub _b: Vec<bn::Fr>,
 }
 
-//For C
+/// An AC17 Context for C
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17Context {
     pub _msk: Ac17MasterKey,
     pub _pk: Ac17PublicKey,
 }
 
-//////////////////////////////////////////////////////
-// AC17 CP-ABE structs
-//////////////////////////////////////////////////////
-
+/// An AC17 CP-ABE Ciphertext
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17CpCiphertext {
     pub _policy: String,

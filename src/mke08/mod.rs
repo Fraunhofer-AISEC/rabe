@@ -11,7 +11,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::encode;
 use rustc_serialize::hex::ToHex;
 use rand::Rng;
-use policy::DnfPolicy;
+use dnf::*;
 use tools::*;
 
 //////////////////////////////////////////////////////
@@ -286,7 +286,7 @@ pub fn mke08_decrypt(
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
-        let mut _msg = Gt::zero();
+        let mut _msg = Gt::one();
         for _i in 0usize.._ct._str.len() {
             if is_satisfiable(&_ct._str[_i], &_sk._sk_a) {
                 let _sk_sum = calc_satisfiable(&_ct._str[_i], &_sk._sk_a);
