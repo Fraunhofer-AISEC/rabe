@@ -9,19 +9,15 @@ stages:
   - deploy
 
 stable:cargo:
-  image: rustdocker/rust:stable
+  image: rustdocker/ubuntu:latest
   <<: *cargo_test
 
-beta:cargo:
-  image: rustdocker/rust:beta
-  <<: *cargo_test
-
-nightly:cargo:
-  image: rustdocker/rust:nightly
-  <<: *cargo_test
+#nightly:cargo:
+#  image: rustdocker/rust:nightly
+#  <<: *cargo_test
 
 pages:
-  image: rustdocker/rust:stable
+  image: rustdocker/ubuntu:latest
   stage: deploy
   only:
     - master
@@ -34,5 +30,5 @@ pages:
   artifacts:
     paths:
     - public
-    - target/debug
+    - target/release
 
