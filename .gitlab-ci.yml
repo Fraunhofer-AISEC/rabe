@@ -1,34 +1,7 @@
-.cargo_test_template: &cargo_test
-  stage: test
-  script:
-    - cargo test --verbose --jobs 1
-
-stages:
-  - test
-  - deploy
-
 stable:cargo:
   image: rustdocker/rust:stable
-  <<: *cargo_test
-
-beta:cargo:
-  image: rustdocker/rust:beta
-  <<: *cargo_test
-
-nightly:cargo:
-  image: rustdocker/rust:nightly
-  <<: *cargo_test
-
-pages:
-  image: rustdocker/rust:stable
-  stage: deploy
-  only:
-    - master
+  stage: test
   script:
-    - cargo doc
-    - rm -rf public
-    - mkdir public
-    - cp -R target/doc/* public
-  artifacts:
-    paths:
-    - public
+  - rustc --version && cargo --version            # Print version info for debugging
+  - time cargo test --verbose --jobs 1 --release  # Don't paralize to make errors more readable
+
