@@ -9,11 +9,11 @@ stages:
   - deploy
 
 stable:cargo:
-  image: rust
+  image: rust:latest
   <<: *cargo_test
 
 pages:
-  image: rust
+  image: rust:latest
   stage: deploy
   only:
     - master
