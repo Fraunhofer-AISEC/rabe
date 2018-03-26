@@ -234,12 +234,12 @@ fn main() {
         }
         match _scheme {
             Scheme::AC17CP => {
-                let (_pk, _msk) = ac17_setup();
+                let (_pk, _msk) = ac17::setup();
                 _encoded_msk = into_hex(&_msk).unwrap();
                 _encoded_pk = into_hex(&_pk).unwrap();
             }
             Scheme::AC17KP => {
-                let (_pk, _msk) = ac17_setup();
+                let (_pk, _msk) = ac17::setup();
                 _encoded_msk = into_hex(&_msk).unwrap();
                 _encoded_pk = into_hex(&_pk).unwrap();
             }
@@ -300,12 +300,12 @@ fn main() {
         match _scheme {
             Scheme::AC17CP => {
                 let _msk: Ac17MasterKey = from_hex(&_msk_string).unwrap();
-                let _sk = ac17cp_keygen(&_msk, &_attributes);
+                let _sk = ac17::cp_keygen(&_msk, &_attributes);
                 _encoded_sk = into_hex(&_sk).unwrap();
             }
             Scheme::AC17KP => {
                 let _msk: Ac17MasterKey = from_hex(&_msk_string).unwrap();
-                let _sk = ac17kp_keygen(&_msk, &_policy);
+                let _sk = ac17::kp_keygen(&_msk, &_policy);
                 _encoded_sk = into_hex(&_sk).unwrap();
             }
             Scheme::BSWCP => {
@@ -356,12 +356,12 @@ fn main() {
         match _scheme {
             Scheme::AC17CP => {
                 let _pk: Ac17PublicKey = from_hex(&_pk_string).unwrap();
-                let _ct = ac17cp_encrypt(&_pk, &_policy, &buffer);
+                let _ct = ac17::cp_encrypt(&_pk, &_policy, &buffer);
                 _encoded_ct = into_hex(&_ct).unwrap();
             }
             Scheme::AC17KP => {
                 let _pk: Ac17PublicKey = from_hex(&_pk_string).unwrap();
-                let _ct = ac17kp_encrypt(&_pk, &_attributes, &buffer);
+                let _ct = ac17::kp_encrypt(&_pk, &_attributes, &buffer);
                 _encoded_ct = into_hex(&_ct).unwrap();
             }
             Scheme::BSWCP => {
@@ -402,12 +402,12 @@ fn main() {
             Scheme::AC17CP => {
                 let _sk: Ac17CpSecretKey = from_hex(&_sk_file).unwrap();
                 let _ct: Ac17CpCiphertext = from_hex(&_file).unwrap();
-                _pt_option = ac17cp_decrypt(&_sk, &_ct);
+                _pt_option = ac17::cp_decrypt(&_sk, &_ct);
             }
             Scheme::AC17KP => {
                 let _sk: Ac17KpSecretKey = from_hex(&_sk_file).unwrap();
                 let _ct: Ac17KpCiphertext = from_hex(&_file).unwrap();
-                _pt_option = ac17kp_decrypt(&_sk, &_ct);
+                _pt_option = ac17::kp_decrypt(&_sk, &_ct);
             }
             Scheme::BSWCP => {
                 let _sk: CpAbeSecretKey = from_hex(&_sk_file).unwrap();

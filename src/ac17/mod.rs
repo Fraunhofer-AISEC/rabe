@@ -34,6 +34,52 @@ pub struct Ac17MasterKey {
     pub _b: Vec<bn::Fr>,
 }
 
+/// An AC17 Ciphertext (CT)
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct Ac17Ciphertext {
+    pub _c_0: Vec<bn::G2>,
+    pub _c: Vec<(String, Vec<bn::G1>)>,
+    pub _c_p: bn::Gt,
+    pub _ct: Vec<u8>,
+    pub _iv: [u8; 16],
+}
+
+/// An AC17 CP-ABE Ciphertext (CT), composed of a policy and an Ac17Ciphertext.
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct Ac17CpCiphertext {
+    pub _policy: String,
+    pub _ct: Ac17Ciphertext,
+}
+
+/// An AC17 KP-ABE Ciphertext (CT), composed of a set of attributes and an Ac17Ciphertext.
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct Ac17KpCiphertext {
+    pub _attr: Vec<(String)>,
+    pub _ct: Ac17Ciphertext,
+}
+
+/// An AC17 Secret Key (SK)
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct Ac17SecretKey {
+    pub _k_0: Vec<bn::G2>,
+    pub _k: Vec<(String, Vec<(bn::G1)>)>,
+    pub _k_p: Vec<bn::G1>,
+}
+
+/// An AC17 KP-ABE Secret Key (SK), composed of a policy and an Ac17Ciphertext.
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct Ac17KpSecretKey {
+    pub _policy: String,
+    pub _sk: Ac17SecretKey,
+}
+
+/// An AC17 CP-ABE Secret Key (SK), composed of a set of attributes and an Ac17Ciphertext.
+#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+pub struct Ac17CpSecretKey {
+    pub _attr: Vec<(String)>,
+    pub _sk: Ac17SecretKey,
+}
+
 /// An AC17 Context for C
 #[derive(RustcEncodable, RustcDecodable, PartialEq)]
 pub struct Ac17Context {
@@ -41,52 +87,20 @@ pub struct Ac17Context {
     pub _pk: Ac17PublicKey,
 }
 
-/// An AC17 CP-ABE Ciphertext (CT)
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
-pub struct Ac17CpCiphertext {
-    pub _policy: String,
-    pub _c_0: Vec<bn::G2>,
-    pub _c: Vec<(String, Vec<bn::G1>)>,
-    pub _c_p: bn::Gt,
-    pub _ct: Vec<u8>,
-    pub _iv: [u8; 16],
-}
-
-/// An AC17 CP-ABE Secret Key (SK)
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
-pub struct Ac17CpSecretKey {
-    pub _attr: Vec<(String)>,
-    pub _k_0: Vec<bn::G2>,
-    pub _k: Vec<(String, Vec<(bn::G1)>)>,
-    pub _k_p: Vec<bn::G1>,
-}
-
-/// An AC17 KP-ABE Ciphertext (CT)
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
-pub struct Ac17KpCiphertext {
-    pub _attr: Vec<(String)>,
-    pub _c_0: Vec<bn::G2>,
-    pub _c: Vec<(String, Vec<bn::G1>)>,
-    pub _c_p: bn::Gt,
-    pub _ct: Vec<u8>,
-    pub _iv: [u8; 16],
-}
-
-/// An AC17 KP-ABE Secret Key (SK)
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
-pub struct Ac17KpSecretKey {
-    pub _policy: String,
-    pub _k_0: Vec<bn::G2>,
-    pub _k: Vec<(String, Vec<bn::G1>)>,
-}
-
-
 /// The assumption size of the pairing in the AC17 scheme.
 const ASSUMPTION_SIZE: usize = 2;
 
-// BOTH SCHEMES SHARE
 
-pub fn ac17_setup() -> (Ac17PublicKey, Ac17MasterKey) {
+/// The setup algorithm of AC17CP and AC17KP. Generates an Ac17PublicKey and an Ac17MasterKey.
+///
+/// # Examples
+///
+/// ```
+/// use rabe::ac17::*;
+///
+/// let (_pk, _msk) = ac17::setup();
+/// ```
+pub fn setup() -> (Ac17PublicKey, Ac17MasterKey) {
     // random number generator
     let _rng = &mut rand::thread_rng();
     // generator of group G1: g and generator of group G2: h
@@ -138,10 +152,14 @@ pub fn ac17_setup() -> (Ac17PublicKey, Ac17MasterKey) {
     // return PK and MSK
     return (_pk, _msk);
 }
-
-// FROM HERE ON AC17-CP-ABE
-
-pub fn ac17cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17CpSecretKey> {
+/// The keygen algorithm of AC17CP. Generates an Ac17CpSecretKey using a Ac17MasterKey and a set of attributes given as Vec<String>.
+///
+/// # Examples
+///
+/// ```
+/// let _sk = ac17::keygen(&_msk, &vec![String]);
+/// ```
+pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17CpSecretKey> {
     // if no attibutes or an empty policy
     // maybe add empty msk also here
     if attributes.is_empty() {
@@ -205,13 +223,22 @@ pub fn ac17cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac
     _k_p.push(_g_k[ASSUMPTION_SIZE] + (msk._g * _sigma.neg()));
     return Some(Ac17CpSecretKey {
         _attr: attributes.clone(),
-        _k_0: _k_0,
-        _k: _k,
-        _k_p: _k_p,
+        _sk: Ac17SecretKey {
+            _k_0: _k_0,
+            _k: _k,
+            _k_p: _k_p,
+        },
     });
 }
 
-pub fn ac17cp_encrypt(
+/// The encrypt algorithm of AC17CP. Generates an Ac17CpCiphertext using a Ac17PublicKey, an access policy given as String and some plaintext data given as [u8].
+///
+/// # Examples
+///
+/// ```
+/// let _ct = ac17::encrypt(&_pk, &String, &[u8]);
+/// ```
+pub fn cp_encrypt(
     pk: &Ac17PublicKey,
     policy: &String,
     plaintext: &[u8],
@@ -222,7 +249,6 @@ pub fn ac17cp_encrypt(
     let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
     let _num_cols = msp._m[0].len();
     let _num_rows = msp._m.len();
-    println!("Policy ({:?}) has {:?}", policy, msp._m);
     // pick randomness
     let mut _s: Vec<(bn::Fr)> = Vec::new();
     let mut _sum = Fr::zero();
@@ -297,22 +323,36 @@ pub fn ac17cp_encrypt(
             _rng.fill_bytes(&mut iv);
             return Some(Ac17CpCiphertext {
                 _policy: policy.clone(),
-                _c_0: _c_0,
-                _c: _c,
-                _c_p: _c_p,
-                _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
-                _iv: iv,
+                _ct: Ac17Ciphertext {
+                    _c_0: _c_0,
+                    _c: _c,
+                    _c_p: _c_p,
+                    _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
+                    _iv: iv,
+                },
             });
         }
     }
 }
 
-pub fn ac17cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>> {
+/// The decrypt algorithm of AC17CP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17CpCiphertext with a matching Ac17CpSecretKey.
+///
+/// # Examples
+///
+/// ```
+/// let _data = ac17::decrypt(&_sk, &_ct);
+/// ```
+pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>> {
     if traverse_str(&sk._attr, &ct._policy) == false {
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
         let _pruned = calc_pruned_str(&sk._attr, &ct._policy);
+        println!(
+            "pruned attributes: {:?} ",
+            calc_pruned_str(&sk._attr, &ct._policy).unwrap().1
+        );
+
         match _pruned {
             None => {
                 println!("Error: attributes in sk do not match policy in ct.");
@@ -327,21 +367,21 @@ pub fn ac17cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec
                         let mut _prod_h = G1::zero();
                         let mut _prod_g = G1::zero();
                         for _current in _list.iter() {
-                            for _attr in ct._c.iter() {
+                            for _attr in ct._ct._c.iter() {
                                 if _attr.0 == _current.to_string() {
                                     _prod_g = _prod_g + _attr.1[_i];
                                 }
                             }
-                            for _attr in sk._k.iter() {
+                            for _attr in sk._sk._k.iter() {
                                 if _attr.0 == _current.to_string() {
                                     _prod_h = _prod_h + _attr.1[_i];
                                 }
                             }
                         }
-                        _prod1_gt = _prod1_gt * pairing(sk._k_p[_i] + _prod_h, ct._c_0[_i]);
-                        _prod2_gt = _prod2_gt * pairing(_prod_g, sk._k_0[_i]);
+                        _prod1_gt = _prod1_gt * pairing(sk._sk._k_p[_i] + _prod_h, ct._ct._c_0[_i]);
+                        _prod2_gt = _prod2_gt * pairing(_prod_g, sk._sk._k_0[_i]);
                     }
-                    let _msg = ct._c_p * (_prod2_gt * _prod1_gt.inverse());
+                    let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
                     // Decrypt plaintext using derived secret from cp-abe scheme
                     let mut sha = Sha3::sha3_256();
                     match encode(&_msg, Infinite) {
@@ -350,7 +390,9 @@ pub fn ac17cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec
                             sha.input(e.to_hex().as_bytes());
                             let mut key: [u8; 32] = [0; 32];
                             sha.result(&mut key);
-                            let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
+                            let aes = decrypt_aes(&ct._ct._ct[..], &key, &ct._ct._iv)
+                                .ok()
+                                .unwrap();
                             return Some(aes);
                         }
                     }
@@ -364,16 +406,15 @@ pub fn ac17cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec
     }
 }
 
-// FROM HERE ON AC17-KP-ABE
 
-pub fn ac17kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey> {
+
+pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey> {
     // random number generator
     let _rng = &mut rand::thread_rng();
     // an msp policy from the given String
     let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
     let _num_cols = msp._m[0].len();
     let _num_rows = msp._m.len();
-    println!("Policy ({:?}) has {:?}", policy, msp._m);
     // pick randomness
     let mut _r: Vec<(bn::Fr)> = Vec::new();
     let mut _sum = Fr::zero();
@@ -455,12 +496,15 @@ pub fn ac17kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecre
     }
     return Some(Ac17KpSecretKey {
         _policy: policy.clone(),
-        _k_0: _k_0,
-        _k: _k,
+        _sk: Ac17SecretKey {
+            _k_0: _k_0,
+            _k: _k,
+            _k_p: Vec::new(),
+        },
     });
 }
 
-pub fn ac17kp_encrypt(
+pub fn kp_encrypt(
     pk: &Ac17PublicKey,
     attributes: &Vec<String>,
     plaintext: &[u8],
@@ -516,44 +560,86 @@ pub fn ac17kp_encrypt(
             _rng.fill_bytes(&mut iv);
             return Some(Ac17KpCiphertext {
                 _attr: attributes.clone(),
-                _c_0: _c_0,
-                _c: _c,
-                _c_p: _c_p,
-                _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
-                _iv: iv,
+                _ct: Ac17Ciphertext {
+                    _c_0: _c_0,
+                    _c: _c,
+                    _c_p: _c_p,
+                    _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
+                    _iv: iv,
+                },
             });
         }
     }
 }
 
-pub fn ac17kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec<u8>> {
+/// The decrypt algorithm of AC17KP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17KpCiphertext with a matching Ac17KpSecretKey.
+///
+/// # Examples
+///
+/// ```
+/// let _data = ac17::decrypt(&_sk, &_ct);
+/// ```
+pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec<u8>> {
     if traverse_str(&ct._attr, &sk._policy) == false {
         println!("Error: attributes in ct do not match policy in sk.");
         return None;
     } else {
-        let mut _prod1_gt = Gt::one();
-        let mut _prod2_gt = Gt::one();
-        for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-            let mut _prod_h = G1::zero();
-            let mut _prod_g = G1::zero();
-            for _j in 0usize..ct._c.len() {
-                _prod_h = _prod_h + sk._k[_j].1[_i];
-                _prod_g = _prod_g + ct._c[_j].1[_i];
+        let _pruned = calc_pruned_str(&ct._attr, &sk._policy);
+        println!(
+            "pruned attributes: {:?} ",
+            calc_pruned_str(&ct._attr, &sk._policy).unwrap().1
+        );
+        match _pruned {
+            None => {
+                println!("Error: attributes in sk do not match policy in ct.");
+                return None;
             }
-            _prod1_gt = _prod1_gt * pairing(_prod_h, ct._c_0[_i]);
-            _prod2_gt = _prod2_gt * pairing(_prod_g, sk._k_0[_i]);
-        }
-        let _msg = ct._c_p * (_prod2_gt * _prod1_gt.inverse());
-        // Decrypt plaintext using derived secret from cp-abe scheme
-        let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
-            Err(_) => return None,
-            Ok(e) => {
-                sha.input(e.to_hex().as_bytes());
-                let mut key: [u8; 32] = [0; 32];
-                sha.result(&mut key);
-                let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
-                return Some(aes);
+            Some(_p) => {
+                let (_match, _list) = _p;
+                if _match {
+                    let mut _prod1_gt = Gt::one();
+                    let mut _prod2_gt = Gt::one();
+                    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
+                        let mut _prod_h = G1::zero();
+                        let mut _prod_g = G1::zero();
+                        for _current in _list.iter() {
+                            for _attr in ct._ct._c.iter() {
+                                if _attr.0 == _current.to_string() {
+                                    _prod_g = _prod_g + _attr.1[_i];
+                                }
+                            }
+                            for _attr in sk._sk._k.iter() {
+                                if _attr.0 == _current.to_string() {
+                                    _prod_h = _prod_h + _attr.1[_i];
+                                }
+                            }
+                        }
+                        // for _j in 0usize..ct._ct._c.len() {
+                        //     _prod_h = _prod_h + sk._sk._k[_j].1[_i];
+                        //     _prod_g = _prod_g + ct._ct._c[_j].1[_i];
+                        // }
+                        _prod1_gt = _prod1_gt * pairing(_prod_h, ct._ct._c_0[_i]);
+                        _prod2_gt = _prod2_gt * pairing(_prod_g, sk._sk._k_0[_i]);
+                    }
+                    let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
+                    // Decrypt plaintext using derived secret from cp-abe scheme
+                    let mut sha = Sha3::sha3_256();
+                    match encode(&_msg, Infinite) {
+                        Err(_) => return None,
+                        Ok(e) => {
+                            sha.input(e.to_hex().as_bytes());
+                            let mut key: [u8; 32] = [0; 32];
+                            sha.result(&mut key);
+                            let aes = decrypt_aes(&ct._ct._ct[..], &key, &ct._ct._iv)
+                                .ok()
+                                .unwrap();
+                            return Some(aes);
+                        }
+                    }
+                } else {
+                    println!("Error: attributes in sk do not match policy in ct.");
+                    return None;
+                }
             }
         }
     }
@@ -565,176 +651,130 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ac17kp_and() {
+    fn ac17kp_and() {
         // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("A"));
-        att_matching.push(String::from("B"));
+        let (pk, msk) = setup();
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
-        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
+        let ct: Ac17KpCiphertext =
+            kp_encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+        let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy).unwrap();
         // and now decrypt again
-        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
+        assert_eq!(kp_decrypt(&sk, &ct).unwrap(), plaintext);
     }
 
     #[test]
-    fn test_ac17kp_or_and() {
+    fn ac17kp_or_and() {
         // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("A"));
-        att_matching.push(String::from("B"));
+        let (pk, msk) = setup();
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         // kp-abe ciphertext
-        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
+        let ct: Ac17KpCiphertext =
+            kp_encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+        let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy).unwrap();
         // and now decrypt again
-        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
-    }
-    /*
-	TODO : FIX THIS TEST
-    #[test]
-    fn test_ac17kp_or_and() {
-        // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("C"));
-        att_matching.push(String::from("D"));
-        // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
-        // our policy
-        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        assert_eq!(kp_decrypt(&sk, &ct).unwrap(), plaintext);
         // kp-abe ciphertext
-        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
+        let ct: Ac17KpCiphertext =
+            kp_encrypt(&pk, &vec!["C".to_string(), "D".to_string()], &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+        let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy).unwrap();
         // and now decrypt again
-        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
-    }
-    */
-    #[test]
-    fn test_ac17cp_and() {
-        // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("A"));
-        att_matching.push(String::from("B"));
-        // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
-        // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-        // kp-abe ciphertext
-        let ct: Ac17CpCiphertext = ac17cp_encrypt(&pk, &policy, &plaintext).unwrap();
-        // a kp-abe SK key
-        let sk: Ac17CpSecretKey = ac17cp_keygen(&msk, &att_matching).unwrap();
-        // and now decrypt again
-        assert_eq!(ac17cp_decrypt(&sk, &ct).unwrap(), plaintext);
+        assert_eq!(kp_decrypt(&sk, &ct).unwrap(), plaintext);
     }
 
-    /*
-	TODO : FIX THIS TEST
-	
     #[test]
-    fn test_ac17kp_or() {
+    fn ac17kp_or() {
         // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("A"));
-        att_matching.push(String::from("B"));
+        let (pk, msk) = setup();
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
-        let ct: Ac17KpCiphertext = ac17kp_encrypt(&pk, &att_matching, &plaintext).unwrap();
+        let ct: Ac17KpCiphertext = kp_encrypt(&pk, &vec!["B".to_string()], &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: Ac17KpSecretKey = ac17kp_keygen(&msk, &policy).unwrap();
+        let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy).unwrap();
         // and now decrypt again
-        assert_eq!(ac17kp_decrypt(&sk, &ct).unwrap(), plaintext);
+        assert_eq!(kp_decrypt(&sk, &ct).unwrap(), plaintext);
     }
 
+
     #[test]
-    fn test_ac17cp_or() {
+    fn ac17cp_and() {
         // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching1: Vec<String> = Vec::new();
-        att_matching1.push(String::from("A"));
-        // a set of two attributes matching the policy
-        let mut att_matching2: Vec<String> = Vec::new();
-        att_matching2.push(String::from("B"));
-        att_matching2.push(String::from("C"));
-        // a set of two attributes NOT matching the policy
-        let mut not_matching: Vec<String> = Vec::new();
-        not_matching.push(String::from("B"));
-        not_matching.push(String::from("C"));
+        let (pk, msk) = setup();
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(
-            r#"{"OR": [{"ATT": "A"}, {"AND": [{"ATT": "B"}, {"ATT": "C"}]}]}"#,
-        );
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
-        let ct: Ac17CpCiphertext = ac17cp_encrypt(&pk, &policy, &plaintext).unwrap();
-        // a matching kp-abe SK key
-        let sk_m1: Ac17CpSecretKey = ac17cp_keygen(&msk, &att_matching1).unwrap();
-        // a matching kp-abe SK key
-        let sk_m2: Ac17CpSecretKey = ac17cp_keygen(&msk, &att_matching2).unwrap();
-        // a matching kp-abe SK key
-        let sk_nm: Ac17CpSecretKey = ac17cp_keygen(&msk, &not_matching).unwrap();
+        let ct: Ac17CpCiphertext = cp_encrypt(&pk, &policy, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: Ac17CpSecretKey = cp_keygen(&msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
         // and now decrypt again
-        assert_eq!(ac17cp_decrypt(&sk_m1, &ct).unwrap(), plaintext);
-        // and now decrypt again
-        assert_eq!(ac17cp_decrypt(&sk_m2, &ct).unwrap(), plaintext);
-        // and now decrypt again
-        assert_eq!(ac17cp_decrypt(&sk_nm, &ct).is_none(), true);
-    }*/
+        assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
+    }
 
-    /*
-	TODO : FIX THIS TEST
-	
     #[test]
-    fn test_ac17cp_or_and() {
+    fn ac17cp_or() {
         // setup scheme
-        let (pk, msk) = ac17_setup();
-        // a set of two attributes matching the policy
-        let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("A"));
-        att_matching.push(String::from("B"));
-        att_matching.push(String::from("C"));
-        att_matching.push(String::from("D"));
+        let (pk, msk) = setup();
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}, {"ATT": "C"}]}"#);
+        // kp-abe ciphertext
+        let ct: Ac17CpCiphertext = cp_encrypt(&pk, &policy, &plaintext).unwrap();
+        // a matching kp-abe SK key
+        let sk_m1: Ac17CpSecretKey = cp_keygen(&msk, &vec!["A".to_string()]).unwrap();
+        // a matching kp-abe SK key
+        let sk_m2: Ac17CpSecretKey = cp_keygen(&msk, &vec!["B".to_string()]).unwrap();
+        // a matching kp-abe SK key
+        let sk_nm: Ac17CpSecretKey = cp_keygen(&msk, &vec!["D".to_string()]).unwrap();
+        // and now decrypt again
+        assert_eq!(cp_decrypt(&sk_m1, &ct).unwrap(), plaintext);
+        // and now decrypt again
+        assert_eq!(cp_decrypt(&sk_m2, &ct).unwrap(), plaintext);
+        // and now decrypt again
+        assert_eq!(cp_decrypt(&sk_nm, &ct).is_none(), true);
+    }
+
+    #[test]
+    fn ac17cp_or_and_and() {
+        // setup scheme
+        let (pk, msk) = setup();
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         // kp-abe ciphertext
-        let ct: Ac17CpCiphertext = ac17cp_encrypt(&pk, &policy, &plaintext).unwrap();
+        let ct: Ac17CpCiphertext = cp_encrypt(&pk, &policy, &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: Ac17CpSecretKey = ac17cp_keygen(&msk, &att_matching).unwrap();
+        let sk: Ac17CpSecretKey = cp_keygen(
+            &msk,
+            &vec![
+                "A".to_string(),
+                "B".to_string(),
+                "C".to_string(),
+                "D".to_string(),
+            ],
+        ).unwrap();
         // and now decrypt again
-        assert_eq!(ac17cp_decrypt(&sk, &ct).unwrap(), plaintext);
+        assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
     }
-    */
 }

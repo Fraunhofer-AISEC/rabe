@@ -33,7 +33,6 @@ pub mod tools;
 pub mod secretsharing;
 
 use ac17::*;
-use bdabe::*;
 //#[doc = /**
 // * AC17
 // *
@@ -41,7 +40,8 @@ use bdabe::*;
 
 #[no_mangle]
 pub extern "C" fn ac17kpabe_context_create() -> *mut Ac17Context {
-    let (pk, msk) = ac17_setup();
+
+    let (pk, msk) = setup();
     let _ctx = unsafe { transmute(Box::new(Ac17Context { _msk: msk, _pk: pk })) };
     _ctx
 }
@@ -61,12 +61,15 @@ pub extern "C" fn ac17kpabe_secret_key_create(
     let mut _policy = unsafe { CStr::from_ptr(t) };
     let pol = String::from(_policy.to_str().unwrap());
     let _ctx = unsafe { &mut *ctx };
-    let sk = ac17kp_keygen(&_ctx._msk, &pol).unwrap();
+    let sk = kp_keygen(&_ctx._msk, &pol).unwrap();
     let _sk = unsafe {
         transmute(Box::new(Ac17KpSecretKey {
             _policy: sk._policy.clone(),
-            _k: sk._k.clone(),
-            _k_0: sk._k_0.clone(),
+            _sk: Ac17SecretKey {
+                _k: sk._sk._k.clone(),
+                _k_0: sk._sk._k_0.clone(),
+                _k_p: Vec::new(),
+            },
         }))
     };
     _sk
