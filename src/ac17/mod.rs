@@ -91,15 +91,7 @@ pub struct Ac17Context {
 const ASSUMPTION_SIZE: usize = 2;
 
 
-/// The setup algorithm of AC17CP and AC17KP. Generates an Ac17PublicKey and an Ac17MasterKey.
-///
-/// # Examples
-///
-/// ```
-/// use rabe::ac17::*;
-///
-/// let (_pk, _msk) = ac17::setup();
-/// ```
+/// The setup algorithm of both AC17CP and AC17KP. Generates an Ac17PublicKey and an Ac17MasterKey.
 pub fn setup() -> (Ac17PublicKey, Ac17MasterKey) {
     // random number generator
     let _rng = &mut rand::thread_rng();
@@ -152,13 +144,8 @@ pub fn setup() -> (Ac17PublicKey, Ac17MasterKey) {
     // return PK and MSK
     return (_pk, _msk);
 }
-/// The keygen algorithm of AC17CP. Generates an Ac17CpSecretKey using a Ac17MasterKey and a set of attributes given as Vec<String>.
-///
-/// # Examples
-///
-/// ```
-/// let _sk = ac17::keygen(&_msk, &vec![String]);
-/// ```
+
+/// The key generation algorithm of AC17CP. Generates an Ac17CpSecretKey using a Ac17MasterKey and a set of attributes given as Vec<String>.
 pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17CpSecretKey> {
     // if no attibutes or an empty policy
     // maybe add empty msk also here
@@ -231,13 +218,7 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
     });
 }
 
-/// The encrypt algorithm of AC17CP. Generates an Ac17CpCiphertext using a Ac17PublicKey, an access policy given as String and some plaintext data given as [u8].
-///
-/// # Examples
-///
-/// ```
-/// let _ct = ac17::encrypt(&_pk, &String, &[u8]);
-/// ```
+/// The encrypt algorithm of AC17CP. Generates an Ac17CpCiphertext using an Ac17PublicKey, an access policy given as String and some plaintext data given as [u8].
 pub fn cp_encrypt(
     pk: &Ac17PublicKey,
     policy: &String,
@@ -336,22 +317,13 @@ pub fn cp_encrypt(
 }
 
 /// The decrypt algorithm of AC17CP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17CpCiphertext with a matching Ac17CpSecretKey.
-///
-/// # Examples
-///
-/// ```
-/// let _data = ac17::decrypt(&_sk, &_ct);
-/// ```
 pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>> {
     if traverse_str(&sk._attr, &ct._policy) == false {
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
         let _pruned = calc_pruned_str(&sk._attr, &ct._policy);
-        println!(
-            "pruned attributes: {:?} ",
-            calc_pruned_str(&sk._attr, &ct._policy).unwrap().1
-        );
+        //println!("pruned attributes: {:?} ", calc_pruned_str(&sk._attr, &ct._policy).unwrap().1);
 
         match _pruned {
             None => {
@@ -407,7 +379,7 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>
 }
 
 
-
+/// The key generation algorithm of AC17KP. Generates an Ac17KpSecretKey using an Ac17MasterKey and a policy given as String.
 pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey> {
     // random number generator
     let _rng = &mut rand::thread_rng();
@@ -504,6 +476,7 @@ pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey
     });
 }
 
+/// The encrypt algorithm of AC17KP. Generates an Ac17KpCiphertext using an Ac17PublicKey, a set of attributes given as Vec<String> and some plaintext data given as [u8].
 pub fn kp_encrypt(
     pk: &Ac17PublicKey,
     attributes: &Vec<String>,
@@ -573,22 +546,13 @@ pub fn kp_encrypt(
 }
 
 /// The decrypt algorithm of AC17KP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17KpCiphertext with a matching Ac17KpSecretKey.
-///
-/// # Examples
-///
-/// ```
-/// let _data = ac17::decrypt(&_sk, &_ct);
-/// ```
 pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec<u8>> {
     if traverse_str(&ct._attr, &sk._policy) == false {
         println!("Error: attributes in ct do not match policy in sk.");
         return None;
     } else {
         let _pruned = calc_pruned_str(&ct._attr, &sk._policy);
-        println!(
-            "pruned attributes: {:?} ",
-            calc_pruned_str(&ct._attr, &sk._policy).unwrap().1
-        );
+        //println!("pruned attributes: {:?} ",calc_pruned_str(&ct._attr, &sk._policy).unwrap().1);
         match _pruned {
             None => {
                 println!("Error: attributes in sk do not match policy in ct.");

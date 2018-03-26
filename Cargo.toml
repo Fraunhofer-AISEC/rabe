@@ -1,11 +1,11 @@
 [package]
 name = "rabe"
 version = "0.1.0"
-authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>", "Bramm, Georg <georg.bramm@aisec.fraunhofer.de>"]
+authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>", "Bramm, Georg <georg.bramm@aisec.fraunhofer.de>", "Schuette, Julian <julian.schuette@aisec.fraunhofer.de>"]
 
 [lib]
 name="rabe"
-crate-type=["dylib"]
+crate-type=["rlib", "dylib"]
 
 [dependencies]
 arrayref = "0.3.4"

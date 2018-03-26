@@ -23,13 +23,6 @@ impl AbePolicy {
     /// # Arguments
     ///
     /// * `policy` - A policy in JSON format as String describing the policy
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use policy::AbePolicy;
-    /// let policy = AbePolicy::new(String::from(r#"{"AND": [{"ATT": "X"}, {"ATT": "Y"}]}"#));
-    /// ```
     pub fn new(_policy: &String) -> Option<AbePolicy> {
         AbePolicy::from_string(_policy)
     }

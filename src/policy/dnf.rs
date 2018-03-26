@@ -22,13 +22,6 @@ impl DnfPolicy {
     /// # Arguments
     ///
     /// * `policy` - A policy in JSON format as String describing the policy
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use policy::dnf::DnfPolicy;
-    /// let policy = DnfPolicy::new(String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "Y"}]}"#));
-    /// ```
     pub fn new() -> DnfPolicy {
         let _empty: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)> = Vec::new();
         DnfPolicy { _terms: _empty }
