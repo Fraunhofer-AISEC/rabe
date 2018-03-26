@@ -16,7 +16,7 @@ stable:cargo:
   image: rust:latest
   <<: *cargo_test
 
-pages:
+lib:
   image: rust:latest
   stage: deploy
   only:
