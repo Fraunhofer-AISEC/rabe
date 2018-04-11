@@ -8,16 +8,15 @@ extern crate crypto;
 extern crate blake2_rfc;
 extern crate num_bigint;
 
-use rustc_serialize::{Encodable, Decodable};
 use num_bigint::{ToBigInt, BigInt};
 use crypto::{symmetriccipher, buffer, aes, blockmodes};
 use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
+use crypto::sha3::Sha3;
 use blake2_rfc::blake2b::blake2b;
-use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::{encode, decode};
-use rustc_serialize::hex::{FromHex, ToHex};
+use bincode::*;
 use bn::*;
 use std::collections::HashSet;
+use rand::thread_rng;
 use aw11::{Aw11PublicKey, Aw11MasterKey, Aw11SecretKey, Aw11Ciphertext};
 use mke08::Mke08SecretAttributeKey;
 
@@ -334,25 +333,6 @@ pub fn blake2b_hash_fr(data: &String) -> Fr {
     return Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
 }
 
-// Helper functions from here on used by CP and KP
-pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
-    encode(&obj, Infinite).ok().map(|e| e.to_hex())
-}
-
-pub fn from_hex<S: Decodable>(s: &str) -> Option<S> {
-    let s = s.from_hex().unwrap();
-
-    decode(&s).ok()
-}
-
-pub fn into_dec<S: Encodable>(obj: S) -> Option<String> {
-    encode(&obj, Infinite).ok().map(|e| {
-        BigInt::parse_bytes(e.to_hex().as_bytes(), 16)
-            .unwrap()
-            .to_str_radix(10)
-    })
-}
-
 pub fn combine_two_strings(text: &String, j: usize) -> String {
     let mut _combined: String = text.to_owned();
     _combined.push_str(&j.to_string());
@@ -369,6 +349,44 @@ pub fn combine_three_strings(text: &String, j: usize, t: usize) -> String {
 
 // AES functions from here on
 
+/// Key Encapsulation Mechanism (Encryption Function)
+pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Option<Vec<u8>> {
+    let mut _ret: Vec<u8> = Vec::new();
+    let mut _sha = Sha3::sha3_256();
+    let mut _rng = thread_rng();
+    match serialize(&_msg) {
+        Err(_) => return None,
+        Ok(_serialized_msg) => {
+            _sha.input(&_serialized_msg);
+            let mut _key: [u8; 32] = [0; 32];
+            _sha.result(&mut _key);
+            let mut _iv: Vec<u8> = vec![0; 16];
+            _rng.fill_bytes(&mut _iv);
+            _ret.append(&mut _iv);
+            let mut encrypted_data = encrypt_aes(&_plaintext, &_key, &_iv).ok().unwrap();
+            _ret.append(encrypted_data);
+            return Some(_ret);
+        }
+    }
+}
+/// Key Encapsulation Mechanism (Decryption Function)
+pub fn decrypt_symmetric(_msg: &bn::Gt, _iv_ct: &Vec<u8>) -> Option<Vec<u8>> {
+    let _data = _iv_ct.split_off(16);
+    let mut _sha = Sha3::sha3_256();
+    let mut _rng = thread_rng();
+    match serialize(&_msg) {
+        Err(_) => return None,
+        Ok(_serialized_msg) => {
+            _sha.input(&_serialized_msg);
+            let mut _key: [u8; 32] = [0; 32];
+            _sha.result(&mut _key);
+            let decrypted_data = decrypt_aes(&_data, &_key, &_iv_ct).ok().unwrap();
+            return Some(decrypted_data);
+        }
+    }
+}
+
+
 // Decrypts a buffer with the given key and iv using
 // AES-256/CBC/Pkcs encryption.
 //
@@ -376,43 +394,19 @@ pub fn combine_three_strings(text: &String, j: usize, t: usize) -> String {
 // comments in that function. In non-example code, if desired, it is possible to
 // share much of the implementation using closures to hide the operation
 // being performed. However, such code would make this example less clear.
-pub fn decrypt_aes(
-    encrypted_data: &[u8],
-    key: &[u8],
-    iv: &[u8],
-) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
-    let mut decryptor =
-        aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
-
-    let mut final_result = Vec::<u8>::new();
-    let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
-    let mut buffer = [0; 4096];
-    let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
-
-    loop {
-        let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
-        final_result.extend(
-            write_buffer
-                .take_read_buffer()
-                .take_remaining()
-                .iter()
-                .map(|&i| i),
-        );
-        match result {
-            BufferResult::BufferUnderflow => break,
-            BufferResult::BufferOverflow => {}
-        }
-    }
-    return Ok(final_result);
-}
-
-pub fn encrypt_aes(
+// Encrypt a buffer with the given key and iv using
+// AES-256/CBC/Pkcs encryption.
+fn encrypt_aes(
     data: &[u8],
     key: &[u8],
     iv: &[u8],
 ) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
+
+    // Create an encryptor instance of the best performing
+    // type available for the platform.
     let mut encryptor =
         aes::cbc_encryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
+
     // Each encryption operation encrypts some data from
     // an input buffer into an output buffer. Those buffers
     // must be instances of RefReaderBuffer and RefWriteBuffer
@@ -466,6 +460,45 @@ pub fn encrypt_aes(
 
     Ok(final_result)
 }
+
+// Decrypts a buffer with the given key and iv using
+// AES-256/CBC/Pkcs encryption.
+//
+// This function is very similar to encrypt(), so, please reference
+// comments in that function. In non-example code, if desired, it is possible to
+// share much of the implementation using closures to hide the operation
+// being performed. However, such code would make this example less clear.
+fn decrypt_aes(
+    encrypted_data: &[u8],
+    key: &[u8],
+    iv: &[u8],
+) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
+    let mut decryptor =
+        aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
+
+    let mut final_result = Vec::<u8>::new();
+    let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
+    let mut buffer = [0; 4096];
+    let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
+
+    loop {
+        let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
+        final_result.extend(
+            write_buffer
+                .take_read_buffer()
+                .take_remaining()
+                .iter()
+                .map(|&i| i),
+        );
+        match result {
+            BufferResult::BufferUnderflow => break,
+            BufferResult::BufferOverflow => {}
+        }
+    }
+
+    Ok(final_result)
+}
+
 
 #[cfg(test)]
 mod tests {

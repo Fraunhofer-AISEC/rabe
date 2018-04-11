@@ -6,7 +6,6 @@ extern crate rand;
 extern crate byteorder;
 extern crate crypto;
 extern crate bincode;
-extern crate rustc_serialize;
 extern crate num_bigint;
 extern crate blake2_rfc;
 
@@ -14,9 +13,7 @@ use std::string::String;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::encode;
-use rustc_serialize::hex::ToHex;
+use bincode::*;
 use rand::Rng;
 use secretsharing::{gen_shares_str, calc_pruned_str, calc_coefficients_str};
 use tools::*;
@@ -24,7 +21,7 @@ use tools::*;
 //////////////////////////////////////////////////////
 // BSW CP-ABE structs
 //////////////////////////////////////////////////////
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct CpAbePublicKey {
     _g1: bn::G1,
     _g2: bn::G2,
@@ -33,30 +30,29 @@ pub struct CpAbePublicKey {
     _e_gg_alpha: bn::Gt,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct CpAbeMasterKey {
     _beta: bn::Fr,
     _g2_alpha: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct CpAbeCiphertext {
     _policy: String,
     _c: bn::G1,
     _c_p: bn::Gt,
     _c_y: Vec<(String, bn::G1, bn::G2)>,
     _ct: Vec<u8>,
-    _iv: [u8; 16],
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct CpAbeSecretKey {
     _d: bn::G2,
     _d_j: Vec<(String, bn::G1, bn::G2)>,
 }
 
 //For C
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct CpAbeContext {
     pub _msk: CpAbeMasterKey,
     pub _pk: CpAbePublicKey,
@@ -194,26 +190,14 @@ pub fn cpabe_encrypt(
         ));
     }
     //Encrypt plaintext using derived key from secret
-    let mut sha = Sha3::sha3_256();
-    match encode(&_msg, Infinite) {
-        Err(_) => return None,
-        Ok(e) => {
-            sha.input(e.to_hex().as_bytes());
-            let mut key: [u8; 32] = [0; 32];
-            sha.result(&mut key);
-            let mut iv: [u8; 16] = [0; 16];
-            _rng.fill_bytes(&mut iv);
-            let ct = CpAbeCiphertext {
-                _policy: _policy.clone(),
-                _c: _c,
-                _c_p: _c_p,
-                _c_y: _c_y,
-                _ct: encrypt_aes(&_plaintext, &key, &iv).ok().unwrap(),
-                _iv: iv,
-            };
-            return Some(ct);
-        }
-    }
+    return Some(CpAbeCiphertext {
+        _policy: _policy.clone(),
+        _c: _c,
+        _c_p: _c_p,
+        _c_y: _c_y,
+        _ct: encrypt_symmetric(&_msg, &_plaintext).unwrap(),
+    });
+
 }
 
 // DECRYPT
@@ -248,17 +232,7 @@ pub fn cpabe_decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<
                     }
                     let _msg = _ct._c_p * ((pairing(_ct._c, _sk._d)) * _a.inverse()).inverse();
                     // Decrypt plaintext using derived secret from cp-abe scheme
-                    let mut sha = Sha3::sha3_256();
-                    match encode(&_msg, Infinite) {
-                        Err(_) => return None,
-                        Ok(e) => {
-                            sha.input(e.to_hex().as_bytes());
-                            let mut key: [u8; 32] = [0; 32];
-                            sha.result(&mut key);
-                            let aes = decrypt_aes(&_ct._ct[..], &key, &_ct._iv).ok().unwrap();
-                            return Some(aes);
-                        }
-                    }
+                    return decrypt_symmetric(&_msg, &_ct._ct);
                 }
             }
         }

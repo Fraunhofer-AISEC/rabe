@@ -2,10 +2,9 @@
 extern crate serde;
 extern crate serde_json;
 extern crate bn;
-extern crate rustc_serialize;
 
 use std::string::String;
-use tools::{string_to_json, into_hex};
+use tools::string_to_json;
 use mke08::*;
 use bdabe::*;
 use bn::*;
@@ -76,17 +75,6 @@ pub trait PublicAttributeKey {
     }
     fn _gt2(&self) -> bn::Gt {
         Gt::one()
-    }
-    // Traits can provide default method definitions.
-    fn print(&self) {
-        println!(
-            "{} represented by g1:{}, g2:{}, gt1:{}, gt2:{}",
-            self._str(),
-            into_hex(self._g1()).unwrap(),
-            into_hex(self._g2()).unwrap(),
-            into_hex(self._gt1()).unwrap(),
-            into_hex(self._gt2()).unwrap(),
-        );
     }
 }
 

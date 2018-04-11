@@ -2,7 +2,6 @@
 extern crate serde;
 extern crate serde_json;
 extern crate bn;
-extern crate rustc_serialize;
 
 use std::string::String;
 use tools::string_to_json;

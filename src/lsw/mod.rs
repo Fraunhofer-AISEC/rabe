@@ -6,7 +6,6 @@ extern crate rand;
 extern crate byteorder;
 extern crate crypto;
 extern crate bincode;
-extern crate rustc_serialize;
 extern crate num_bigint;
 extern crate blake2_rfc;
 
@@ -14,9 +13,7 @@ use std::string::String;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::encode;
-use rustc_serialize::hex::ToHex;
+use bincode::*;
 use rand::Rng;
 use policy::msp::AbePolicy;
 use tools::*;
@@ -26,7 +23,7 @@ use secretsharing::{gen_shares_str, calc_coefficients_str};
 //////////////////////////////////////////////////////
 // LSW KP-ABE structs
 //////////////////////////////////////////////////////
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct KpAbePublicKey {
     _g_g1: bn::G1,
     _g_g2: bn::G2,
@@ -36,7 +33,7 @@ pub struct KpAbePublicKey {
     _e_gg_alpha: bn::Gt,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct KpAbeMasterKey {
     _alpha1: bn::Fr,
     _alpha2: bn::Fr,
@@ -45,13 +42,13 @@ pub struct KpAbeMasterKey {
     _h_g2: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct KpAbeSecretKey {
     _policy: String,
     _d_i: Vec<(bn::G1, bn::G2, bn::G1, bn::G1, bn::G1)>,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct KpAbeCiphertext {
     _attr: Vec<(String)>,
     _e1: bn::Gt,
@@ -60,7 +57,6 @@ pub struct KpAbeCiphertext {
     _e4: Vec<(bn::G1)>,
     _e5: Vec<(bn::G1)>,
     _ct: Vec<u8>,
-    _iv: [u8; 16],
 }
 
 //////////////////////////////////////////
@@ -143,10 +139,10 @@ pub fn kpabe_keygen(
 
 pub fn kpabe_encrypt(
     pk: &KpAbePublicKey,
-    attributes: &Vec<String>,
-    plaintext: &[u8],
+    _attributes: &Vec<String>,
+    _plaintext: &[u8],
 ) -> Option<KpAbeCiphertext> {
-    if attributes.is_empty() || plaintext.is_empty() {
+    if _attributes.is_empty() || _plaintext.is_empty() {
         return None;
     } else {
         // random number generator
@@ -160,46 +156,33 @@ pub fn kpabe_encrypt(
         // sx vector
         let mut _sx: Vec<(bn::Fr)> = Vec::new();
         _sx.push(_s);
-        for _i in 0usize..attributes.len() {
+        for _i in 0usize.._attributes.len() {
             _sx.push(Fr::random(_rng));
             _sx[0] = _sx[0] - _sx[_i];
         }
-        for _i in 0usize..attributes.len() {
-            _e3.push(blake2b_hash_g1(pk._g_g1, &attributes[_i]) * _s);
+        for _i in 0usize.._attributes.len() {
+            _e3.push(blake2b_hash_g1(pk._g_g1, &_attributes[_i]) * _s);
             _e4.push(pk._g_g1_b * _sx[_i]);
             _e5.push(
-                (pk._g_g1_b2 * (_sx[_i] * blake2b_hash_fr(&attributes[_i]))) +
+                (pk._g_g1_b2 * (_sx[_i] * blake2b_hash_fr(&_attributes[_i]))) +
                     (pk._h_g1_b * _sx[_i]),
             );
         }
         // random message
         let _msg = pairing(G1::random(_rng), G2::random(_rng));
-        println!("_msg_enc: {:?}", into_dec(_msg).unwrap());
         let _e1 = (pk._e_gg_alpha.pow(_s)) * _msg;
         let _e2 = pk._g_g2 * _s;
         //Encrypt plaintext using derived key from secret
-        let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
-            Err(_) => return None,
-            Ok(e) => {
-                sha.input(e.to_hex().as_bytes());
-                let mut key: [u8; 32] = [0; 32];
-                sha.result(&mut key);
-                let mut iv: [u8; 16] = [0; 16];
-                _rng.fill_bytes(&mut iv);
-                let _ct = KpAbeCiphertext {
-                    _attr: attributes.clone(),
-                    _e1: _e1,
-                    _e2: _e2,
-                    _e3: _e3,
-                    _e4: _e4,
-                    _e5: _e5,
-                    _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
-                    _iv: iv,
-                };
-                return Some(_ct);
-            }
-        }
+        return Some(KpAbeCiphertext {
+            _attr: _attributes.clone(),
+            _e1: _e1,
+            _e2: _e2,
+            _e3: _e3,
+            _e4: _e4,
+            _e5: _e5,
+            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
+        });
+
     }
 }
 
@@ -229,19 +212,8 @@ pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &KpAbeCiphertext) -> Option<Vec<u8
 
         }
         let _msg = ct._e1 * _prod_t.inverse();
-        println!("_msg: {:?}", into_dec(_msg).unwrap());
         // Decrypt plaintext using derived secret from cp-abe scheme
-        let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
-            Err(_) => return None,
-            Ok(e) => {
-                sha.input(e.to_hex().as_bytes());
-                let mut key: [u8; 32] = [0; 32];
-                sha.result(&mut key);
-                let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
-                return Some(aes);
-            }
-        }
+        return decrypt_symmetric(&_msg, &ct._ct);
     }
 }
 

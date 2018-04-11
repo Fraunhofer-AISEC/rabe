@@ -7,9 +7,7 @@ use std::string::String;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::encode;
-use rustc_serialize::hex::ToHex;
+use bincode::*;
 use rand::Rng;
 use policy::dnf::DnfPolicy;
 use tools::*;
@@ -17,7 +15,7 @@ use tools::*;
 //////////////////////////////////////////////////////
 // MKE08 ABE structs
 //////////////////////////////////////////////////////
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08PublicKey {
     pub _g1: bn::G1,
     pub _g2: bn::G2,
@@ -27,39 +25,39 @@ pub struct Mke08PublicKey {
     pub _e_gg_y2: bn::Gt,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08MasterKey {
     pub _g1_y: bn::G1,
     pub _g2_y: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08UserKey {
     pub _sk_u: Mke08SecretUserKey,
     pub _pk_u: Mke08PublicUserKey,
     pub _sk_a: Vec<Mke08SecretAttributeKey>,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08PublicUserKey {
     pub _u: String,
     pub _pk_g1: bn::G1,
     pub _pk_g2: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08SecretUserKey {
     pub _sk_g1: bn::G1,
     pub _sk_g2: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08SecretAuthorityKey {
     pub _a: String,
     pub _r: bn::Fr,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08PublicAttributeKey {
     pub _str: String,
     pub _g1: bn::G1,
@@ -68,14 +66,14 @@ pub struct Mke08PublicAttributeKey {
     pub _gt2: bn::Gt,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08SecretAttributeKey {
     pub _str: String,
     pub _g1: bn::G1,
     pub _g2: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08Ciphertext {
     pub _str: Vec<Vec<String>>,
     pub _e_j1: Vec<bn::Gt>,
@@ -85,18 +83,17 @@ pub struct Mke08Ciphertext {
     pub _e_j5: Vec<bn::G1>,
     pub _e_j6: Vec<bn::G2>,
     pub _ct: Vec<u8>,
-    pub _iv: [u8; 16],
 }
 
 
 //For C
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08GlobalContext {
     pub _gk: Mke08PublicKey,
 }
 
 //For C
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08Context {
     pub _mk: Mke08MasterKey,
     pub _pk: Mke08PublicKey,
@@ -244,28 +241,16 @@ pub fn mke08_encrypt(
             _e_j6.push(_term.4 * _r_j);
         }
         //Encrypt plaintext using derived key from secret
-        let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
-            Err(_) => return None,
-            Ok(e) => {
-                sha.input(e.to_hex().as_bytes());
-                let mut key: [u8; 32] = [0; 32];
-                sha.result(&mut key);
-                let mut iv: [u8; 16] = [0; 16];
-                _rng.fill_bytes(&mut iv);
-                return Some(Mke08Ciphertext {
-                    _str: _e_str,
-                    _e_j1: _e_j1,
-                    _e_j2: _e_j2,
-                    _e_j3: _e_j3,
-                    _e_j4: _e_j4,
-                    _e_j5: _e_j5,
-                    _e_j6: _e_j6,
-                    _ct: encrypt_aes(&_plaintext, &key, &iv).ok().unwrap(),
-                    _iv: iv,
-                });
-            }
-        }
+        return Some(Mke08Ciphertext {
+            _str: _e_str,
+            _e_j1: _e_j1,
+            _e_j2: _e_j2,
+            _e_j3: _e_j3,
+            _e_j4: _e_j4,
+            _e_j5: _e_j5,
+            _e_j6: _e_j6,
+            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
+        });
     } else {
         return None;
     }
@@ -298,17 +283,7 @@ pub fn mke08_decrypt(
             }
         }
         // Decrypt plaintext using derived secret from mke08 scheme
-        let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
-            Err(_) => return None,
-            Ok(e) => {
-                sha.input(e.to_hex().as_bytes());
-                let mut key: [u8; 32] = [0; 32];
-                sha.result(&mut key);
-                let aes = decrypt_aes(&_ct._ct[..], &key, &_ct._iv).ok().unwrap();
-                return Some(aes);
-            }
-        }
+        return decrypt_symmetric(&_msg, &_ct._ct);
     }
 }
 
@@ -316,7 +291,6 @@ pub fn mke08_decrypt(
 mod tests {
 
     use super::*;
-
 
     #[test]
     fn test_and() {

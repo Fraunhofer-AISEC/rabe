@@ -7,9 +7,7 @@ use std::string::String;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::encode;
-use rustc_serialize::hex::ToHex;
+use bincode::*;
 use rand::Rng;
 use policy::msp::AbePolicy;
 use secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
@@ -18,45 +16,44 @@ use tools::*;
 //////////////////////////////////////////////////////
 // AW11 ABE structs
 //////////////////////////////////////////////////////
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Aw11GlobalKey {
     pub _g1: bn::G1,
     pub _g2: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Aw11PublicKey {
     pub _attr: Vec<(String, bn::Gt, bn::G1, bn::G2)>,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Aw11MasterKey {
     pub _attr: Vec<(String, bn::Fr, bn::Fr, bn::Fr)>,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Aw11Ciphertext {
     pub _policy: String,
     pub _c_0: bn::Gt,
     pub _c: Vec<(String, bn::Gt, bn::G1, bn::G1, bn::G2, bn::G2)>,
     pub _ct: Vec<u8>,
-    pub _iv: [u8; 16],
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Aw11SecretKey {
     pub _gid: String,
     pub _attr: Vec<(String, bn::G1, bn::G2)>,
 }
 
 //For C
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Aw11GlobalContext {
     pub _gk: Aw11GlobalKey,
 }
 
 //For C
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Aw11Context {
     pub _msk: Aw11MasterKey,
     pub _pk: Aw11PublicKey,
@@ -165,7 +162,7 @@ pub fn aw11_encrypt(
     gk: &Aw11GlobalKey,
     pk: &Aw11PublicKey,
     policy: &String,
-    plaintext: &[u8],
+    _plaintext: &[u8],
 ) -> Option<Aw11Ciphertext> {
     // random number generator
     let _rng = &mut rand::thread_rng();
@@ -203,24 +200,13 @@ pub fn aw11_encrypt(
         }
     }
     //Encrypt plaintext using derived key from secret
-    let mut sha = Sha3::sha3_256();
-    match encode(&_msg, Infinite) {
-        Err(_) => return None,
-        Ok(e) => {
-            sha.input(e.to_hex().as_bytes());
-            let mut key: [u8; 32] = [0; 32];
-            sha.result(&mut key);
-            let mut iv: [u8; 16] = [0; 16];
-            _rng.fill_bytes(&mut iv);
-            return Some(Aw11Ciphertext {
-                _policy: policy.clone(),
-                _c_0: _c_0,
-                _c: _c,
-                _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
-                _iv: iv,
-            });
-        }
-    }
+    return Some(Aw11Ciphertext {
+        _policy: policy.clone(),
+        _c_0: _c_0,
+        _c: _c,
+        _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
+    });
+
 }
 
 /*
@@ -268,17 +254,7 @@ pub fn aw11_decrypt(
                     }
                     let _msg = ct._c_0 * _egg_s.inverse();
                     // Decrypt plaintext using derived secret from cp-abe scheme
-                    let mut sha = Sha3::sha3_256();
-                    match encode(&_msg, Infinite) {
-                        Err(_) => return None,
-                        Ok(e) => {
-                            sha.input(e.to_hex().as_bytes());
-                            let mut key: [u8; 32] = [0; 32];
-                            sha.result(&mut key);
-                            let aes = decrypt_aes(&ct._ct[..], &key, &ct._iv).ok().unwrap();
-                            return Some(aes);
-                        }
-                    }
+                    return decrypt_symmetric(&_msg, &ct._ct);
                 } else {
                     println!("Error: attributes in sk do not match policy in ct.");
                     return None;

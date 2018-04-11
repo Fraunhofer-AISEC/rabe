@@ -8,16 +8,14 @@ use std::ops::Neg;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::encode;
-use rustc_serialize::hex::ToHex;
+use bincode::*;
 use rand::Rng;
 use policy::msp::AbePolicy;
 use tools::*;
 use secretsharing::*;
 
 /// An AC17 Public Key (PK)
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17PublicKey {
     pub _g: bn::G1,
     pub _h_a: Vec<bn::G2>,
@@ -25,7 +23,7 @@ pub struct Ac17PublicKey {
 }
 
 /// An AC17 Public Key (MK)
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17MasterKey {
     pub _g: bn::G1,
     pub _h: bn::G2,
@@ -35,31 +33,30 @@ pub struct Ac17MasterKey {
 }
 
 /// An AC17 Ciphertext (CT)
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17Ciphertext {
     pub _c_0: Vec<bn::G2>,
     pub _c: Vec<(String, Vec<bn::G1>)>,
     pub _c_p: bn::Gt,
     pub _ct: Vec<u8>,
-    pub _iv: [u8; 16],
 }
 
 /// An AC17 CP-ABE Ciphertext (CT), composed of a policy and an Ac17Ciphertext.
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17CpCiphertext {
     pub _policy: String,
     pub _ct: Ac17Ciphertext,
 }
 
 /// An AC17 KP-ABE Ciphertext (CT), composed of a set of attributes and an Ac17Ciphertext.
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17KpCiphertext {
     pub _attr: Vec<(String)>,
     pub _ct: Ac17Ciphertext,
 }
 
 /// An AC17 Secret Key (SK)
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17SecretKey {
     pub _k_0: Vec<bn::G2>,
     pub _k: Vec<(String, Vec<(bn::G1)>)>,
@@ -67,21 +64,21 @@ pub struct Ac17SecretKey {
 }
 
 /// An AC17 KP-ABE Secret Key (SK), composed of a policy and an Ac17Ciphertext.
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17KpSecretKey {
     pub _policy: String,
     pub _sk: Ac17SecretKey,
 }
 
 /// An AC17 CP-ABE Secret Key (SK), composed of a set of attributes and an Ac17Ciphertext.
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17CpSecretKey {
     pub _attr: Vec<(String)>,
     pub _sk: Ac17SecretKey,
 }
 
 /// An AC17 Context for C
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct Ac17Context {
     pub _msk: Ac17MasterKey,
     pub _pk: Ac17PublicKey,
@@ -222,7 +219,7 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
 pub fn cp_encrypt(
     pk: &Ac17PublicKey,
     policy: &String,
-    plaintext: &[u8],
+    _plaintext: &[u8],
 ) -> Option<Ac17CpCiphertext> {
     // random number generator
     let _rng = &mut rand::thread_rng();
@@ -293,27 +290,16 @@ pub fn cp_encrypt(
     _c_p = _c_p * _msg;
 
     //Encrypt plaintext using derived key from secret
-    let mut sha = Sha3::sha3_256();
-    match encode(&_msg, Infinite) {
-        Err(_) => return None,
-        Ok(e) => {
-            sha.input(e.to_hex().as_bytes());
-            let mut key: [u8; 32] = [0; 32];
-            sha.result(&mut key);
-            let mut iv: [u8; 16] = [0; 16];
-            _rng.fill_bytes(&mut iv);
-            return Some(Ac17CpCiphertext {
-                _policy: policy.clone(),
-                _ct: Ac17Ciphertext {
-                    _c_0: _c_0,
-                    _c: _c,
-                    _c_p: _c_p,
-                    _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
-                    _iv: iv,
-                },
-            });
-        }
-    }
+    return Some(Ac17CpCiphertext {
+        _policy: policy.clone(),
+        _ct: Ac17Ciphertext {
+            _c_0: _c_0,
+            _c: _c,
+            _c_p: _c_p,
+            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
+        },
+    });
+
 }
 
 /// The decrypt algorithm of AC17CP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17CpCiphertext with a matching Ac17CpSecretKey.
@@ -355,19 +341,7 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>
                     }
                     let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
                     // Decrypt plaintext using derived secret from cp-abe scheme
-                    let mut sha = Sha3::sha3_256();
-                    match encode(&_msg, Infinite) {
-                        Err(_) => return None,
-                        Ok(e) => {
-                            sha.input(e.to_hex().as_bytes());
-                            let mut key: [u8; 32] = [0; 32];
-                            sha.result(&mut key);
-                            let aes = decrypt_aes(&ct._ct._ct[..], &key, &ct._ct._iv)
-                                .ok()
-                                .unwrap();
-                            return Some(aes);
-                        }
-                    }
+                    return decrypt_symmetric(&_msg, &ct._ct._ct);
                 } else {
                     println!("Error: attributes in sk do not match policy in ct.");
                     return None;
@@ -480,7 +454,7 @@ pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey
 pub fn kp_encrypt(
     pk: &Ac17PublicKey,
     attributes: &Vec<String>,
-    plaintext: &[u8],
+    _plaintext: &[u8],
 ) -> Option<Ac17KpCiphertext> {
     // random number generator
     let _rng = &mut rand::thread_rng();
@@ -522,27 +496,15 @@ pub fn kp_encrypt(
     let _msg = pairing(G1::random(_rng), G2::random(_rng));
     _c_p = _c_p * _msg;
     //Encrypt plaintext using derived key from secret
-    let mut sha = Sha3::sha3_256();
-    match encode(&_msg, Infinite) {
-        Err(_) => return None,
-        Ok(e) => {
-            sha.input(e.to_hex().as_bytes());
-            let mut key: [u8; 32] = [0; 32];
-            sha.result(&mut key);
-            let mut iv: [u8; 16] = [0; 16];
-            _rng.fill_bytes(&mut iv);
-            return Some(Ac17KpCiphertext {
-                _attr: attributes.clone(),
-                _ct: Ac17Ciphertext {
-                    _c_0: _c_0,
-                    _c: _c,
-                    _c_p: _c_p,
-                    _ct: encrypt_aes(&plaintext, &key, &iv).ok().unwrap(),
-                    _iv: iv,
-                },
-            });
-        }
-    }
+    return Some(Ac17KpCiphertext {
+        _attr: attributes.clone(),
+        _ct: Ac17Ciphertext {
+            _c_0: _c_0,
+            _c: _c,
+            _c_p: _c_p,
+            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
+        },
+    });
 }
 
 /// The decrypt algorithm of AC17KP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17KpCiphertext with a matching Ac17KpSecretKey.
@@ -587,19 +549,7 @@ pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec<u8>
                     }
                     let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
                     // Decrypt plaintext using derived secret from cp-abe scheme
-                    let mut sha = Sha3::sha3_256();
-                    match encode(&_msg, Infinite) {
-                        Err(_) => return None,
-                        Ok(e) => {
-                            sha.input(e.to_hex().as_bytes());
-                            let mut key: [u8; 32] = [0; 32];
-                            sha.result(&mut key);
-                            let aes = decrypt_aes(&ct._ct._ct[..], &key, &ct._ct._iv)
-                                .ok()
-                                .unwrap();
-                            return Some(aes);
-                        }
-                    }
+                    return decrypt_symmetric(&_msg, &ct._ct._ct);
                 } else {
                     println!("Error: attributes in sk do not match policy in ct.");
                     return None;

@@ -5,7 +5,6 @@ extern crate bn;
 extern crate rand;
 extern crate crypto;
 extern crate bincode;
-extern crate rustc_serialize;
 extern crate num_bigint;
 extern crate blake2_rfc;
 

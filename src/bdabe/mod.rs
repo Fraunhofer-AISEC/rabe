@@ -7,9 +7,7 @@ use std::string::String;
 use bn::*;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::encode;
-use rustc_serialize::hex::ToHex;
+use bincode::*;
 use rand::Rng;
 use policy::*;
 use tools::*;
@@ -17,7 +15,7 @@ use tools::*;
 //////////////////////////////////////////////////////
 // BDABE ABE structs
 //////////////////////////////////////////////////////
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabePublicKey {
     pub _g1: bn::G1,
     pub _g2: bn::G2,
@@ -26,32 +24,32 @@ pub struct BdabePublicKey {
     pub _e_gg_y: bn::Gt,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeMasterKey {
     pub _y: bn::Fr,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeUserKey {
     pub _sk: BdabeSecretUserKey,
     pub _pk: BdabePublicUserKey,
     pub _ska: Vec<BdabeSecretAttributeKey>,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabePublicUserKey {
     pub _u: String,
     pub _u1: bn::G1,
     pub _u2: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeSecretUserKey {
     pub _u1: bn::G1,
     pub _u2: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeSecretAuthorityKey {
     pub _a1: bn::G1,
     pub _a2: bn::G2,
@@ -59,7 +57,7 @@ pub struct BdabeSecretAuthorityKey {
     pub _a: String,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabePublicAttributeKey {
     pub _str: String,
     pub _a1: bn::G1,
@@ -67,13 +65,13 @@ pub struct BdabePublicAttributeKey {
     pub _a3: bn::Gt,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeSecretAttributeKey {
     pub _au1: bn::G1,
     pub _au2: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeCiphertextTuple {
     pub _str: Vec<String>,
     pub _e1: bn::Gt,
@@ -83,7 +81,7 @@ pub struct BdabeCiphertextTuple {
     pub _e5: bn::G2,
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeCiphertext {
     pub _j: Vec<BdabeCiphertextTuple>,
     pub _ct: Vec<u8>,
@@ -91,13 +89,13 @@ pub struct BdabeCiphertext {
 }
 
 //For C
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeGlobalContext {
     pub _gk: BdabePublicKey,
 }
 
 //For C
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeContext {
     pub _mk: BdabeMasterKey,
     pub _pk: BdabePublicKey,
@@ -243,22 +241,11 @@ pub fn encrypt(
             });
         }
         //Encrypt plaintext using derived key from secret
-        let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
-            Err(_) => return None,
-            Ok(e) => {
-                sha.input(e.to_hex().as_bytes());
-                let mut key: [u8; 32] = [0; 32];
-                sha.result(&mut key);
-                let mut iv: [u8; 16] = [0; 16];
-                _rng.fill_bytes(&mut iv);
-                return Some(BdabeCiphertext {
-                    _j: _j,
-                    _ct: encrypt_aes(&_plaintext, &key, &iv).ok().unwrap(),
-                    _iv: iv,
-                });
-            }
-        }
+        return Some(BdabeCiphertext {
+            _policy: _policy.clone(),
+            _j: _j,
+            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
+        });
     } else {
         return None;
     }
@@ -291,17 +278,7 @@ pub fn decrypt(
             }
         }
         // Decrypt plaintext using derived secret from Bdabe scheme
-        let mut sha = Sha3::sha3_256();
-        match encode(&_msg, Infinite) {
-            Err(_) => return None,
-            Ok(e) => {
-                sha.input(e.to_hex().as_bytes());
-                let mut key: [u8; 32] = [0; 32];
-                sha.result(&mut key);
-                let aes = decrypt_aes(&_ct._ct[..], &key, &_ct._iv).ok().unwrap();
-                return Some(aes);
-            }
-        }
+        return decrypt_symmetric(&_msg, &_ct._ct);
     }
 }
 */
