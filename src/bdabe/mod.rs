@@ -83,9 +83,9 @@ pub struct BdabeCiphertextTuple {
 
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeCiphertext {
+    pub _policy: String,
     pub _j: Vec<BdabeCiphertextTuple>,
     pub _ct: Vec<u8>,
-    pub _iv: [u8; 16],
 }
 
 //For C

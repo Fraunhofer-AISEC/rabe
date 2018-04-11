@@ -12,11 +12,12 @@ use num_bigint::{ToBigInt, BigInt};
 use crypto::{symmetriccipher, buffer, aes, blockmodes};
 use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
 use crypto::sha3::Sha3;
+use crypto::digest::Digest;
 use blake2_rfc::blake2b::blake2b;
 use bincode::*;
 use bn::*;
 use std::collections::HashSet;
-use rand::thread_rng;
+use rand::{Rng, thread_rng};
 use aw11::{Aw11PublicKey, Aw11MasterKey, Aw11SecretKey, Aw11Ciphertext};
 use mke08::Mke08SecretAttributeKey;
 
@@ -364,14 +365,15 @@ pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Option<Vec<u8>>
             _rng.fill_bytes(&mut _iv);
             _ret.append(&mut _iv);
             let mut encrypted_data = encrypt_aes(&_plaintext, &_key, &_iv).ok().unwrap();
-            _ret.append(encrypted_data);
+            _ret.append(&mut encrypted_data);
             return Some(_ret);
         }
     }
 }
 /// Key Encapsulation Mechanism (Decryption Function)
 pub fn decrypt_symmetric(_msg: &bn::Gt, _iv_ct: &Vec<u8>) -> Option<Vec<u8>> {
-    let _data = _iv_ct.split_off(16);
+    let mut _iv = _iv_ct.clone();
+    let _data = _iv.split_off(16);
     let mut _sha = Sha3::sha3_256();
     let mut _rng = thread_rng();
     match serialize(&_msg) {
@@ -380,7 +382,7 @@ pub fn decrypt_symmetric(_msg: &bn::Gt, _iv_ct: &Vec<u8>) -> Option<Vec<u8>> {
             _sha.input(&_serialized_msg);
             let mut _key: [u8; 32] = [0; 32];
             _sha.result(&mut _key);
-            let decrypted_data = decrypt_aes(&_data, &_key, &_iv_ct).ok().unwrap();
+            let decrypted_data = decrypt_aes(&_data, &_key, &_iv).ok().unwrap();
             return Some(decrypted_data);
         }
     }
@@ -400,7 +402,7 @@ fn encrypt_aes(
     data: &[u8],
     key: &[u8],
     iv: &[u8],
-) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
+) -> ::std::result::Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
 
     // Create an encryptor instance of the best performing
     // type available for the platform.
@@ -472,7 +474,7 @@ fn decrypt_aes(
     encrypted_data: &[u8],
     key: &[u8],
     iv: &[u8],
-) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
+) -> ::std::result::Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
     let mut decryptor =
         aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
 

@@ -1,7 +1,11 @@
 #[allow(dead_code)]
 #[macro_use]
+extern crate serde_derive;
+#[macro_use]
 extern crate clap;
 extern crate bn;
+extern crate serde;
+extern crate serde_json;
 extern crate rand;
 extern crate crypto;
 extern crate bincode;
@@ -18,7 +22,6 @@ mod mke08;
 mod bdabe;
 mod secretsharing;
 
-use rustc_serialize::json;
 use clap::{Arg, App, SubCommand, ArgMatches};
 use std::process;
 use ac17::*;
@@ -31,8 +34,6 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use tools::into_hex;
-use tools::from_hex;
 
 #[macro_use]
 extern crate arrayref;
@@ -234,23 +235,23 @@ fn main() {
         match _scheme {
             Scheme::AC17CP => {
                 let (_pk, _msk) = ac17::setup();
-                _encoded_msk = into_hex(&_msk).unwrap();
-                _encoded_pk = into_hex(&_pk).unwrap();
+                _encoded_msk = serde_json::to_string(&_msk).unwrap();
+                _encoded_pk = serde_json::to_string(&_pk).unwrap();
             }
             Scheme::AC17KP => {
                 let (_pk, _msk) = ac17::setup();
-                _encoded_msk = into_hex(&_msk).unwrap();
-                _encoded_pk = into_hex(&_pk).unwrap();
+                _encoded_msk = serde_json::to_string(&_msk).unwrap();
+                _encoded_pk = serde_json::to_string(&_pk).unwrap();
             }
             Scheme::BSWCP => {
                 let (_pk, _msk) = cpabe_setup();
-                _encoded_pk = into_hex(&_pk).unwrap();
-                _encoded_msk = into_hex(&_msk).unwrap();
+                _encoded_pk = serde_json::to_string(&_pk).unwrap();
+                _encoded_msk = serde_json::to_string(&_msk).unwrap();
             }
             Scheme::LSWKP => {
                 let (_pk, _msk) = kpabe_setup();
-                _encoded_msk = into_hex(&_msk).unwrap();
-                _encoded_pk = into_hex(&_pk).unwrap();
+                _encoded_msk = serde_json::to_string(&_msk).unwrap();
+                _encoded_pk = serde_json::to_string(&_pk).unwrap();
             }
             Scheme::AW11 => {
                 // TODO
@@ -298,26 +299,26 @@ fn main() {
         println!("pk : {}", _pk_string);
         match _scheme {
             Scheme::AC17CP => {
-                let _msk: Ac17MasterKey = from_hex(&_msk_string).unwrap();
+                let _msk: Ac17MasterKey = serde_json::from_str(&_msk_string).unwrap();
                 let _sk = ac17::cp_keygen(&_msk, &_attributes);
-                _encoded_sk = into_hex(&_sk).unwrap();
+                _encoded_sk = serde_json::to_string(&_sk).unwrap();
             }
             Scheme::AC17KP => {
-                let _msk: Ac17MasterKey = from_hex(&_msk_string).unwrap();
+                let _msk: Ac17MasterKey = serde_json::from_str(&_msk_string).unwrap();
                 let _sk = ac17::kp_keygen(&_msk, &_policy);
-                _encoded_sk = into_hex(&_sk).unwrap();
+                _encoded_sk = serde_json::to_string(&_sk).unwrap();
             }
             Scheme::BSWCP => {
-                let _msk: CpAbeMasterKey = from_hex(&_msk_string).unwrap();
-                let _pk: CpAbePublicKey = from_hex(&_pk_string).unwrap();
+                let _msk: CpAbeMasterKey = serde_json::from_str(&_msk_string).unwrap();
+                let _pk: CpAbePublicKey = serde_json::from_str(&_pk_string).unwrap();
                 let _sk = cpabe_keygen(&_pk, &_msk, &_attributes);
-                _encoded_sk = into_hex(&_sk).unwrap();
+                _encoded_sk = serde_json::to_string(&_sk).unwrap();
             }
             Scheme::LSWKP => {
-                let _msk: KpAbeMasterKey = from_hex(&_msk_string).unwrap();
-                let _pk: KpAbePublicKey = from_hex(&_pk_string).unwrap();
+                let _msk: KpAbeMasterKey = serde_json::from_str(&_msk_string).unwrap();
+                let _pk: KpAbePublicKey = serde_json::from_str(&_pk_string).unwrap();
                 let _sk = kpabe_keygen(&_pk, &_msk, &_policy);
-                _encoded_sk = into_hex(&_sk).unwrap();
+                _encoded_sk = serde_json::to_string(&_sk).unwrap();
             }
             Scheme::AW11 => {
                 // TODO
@@ -354,24 +355,24 @@ fn main() {
         let buffer: Vec<u8> = read_to_vec(Path::new(&_file));
         match _scheme {
             Scheme::AC17CP => {
-                let _pk: Ac17PublicKey = from_hex(&_pk_string).unwrap();
+                let _pk: Ac17PublicKey = serde_json::from_str(&_pk_string).unwrap();
                 let _ct = ac17::cp_encrypt(&_pk, &_policy, &buffer);
-                _encoded_ct = into_hex(&_ct).unwrap();
+                _encoded_ct = serde_json::to_string(&_ct).unwrap();
             }
             Scheme::AC17KP => {
-                let _pk: Ac17PublicKey = from_hex(&_pk_string).unwrap();
+                let _pk: Ac17PublicKey = serde_json::from_str(&_pk_string).unwrap();
                 let _ct = ac17::kp_encrypt(&_pk, &_attributes, &buffer);
-                _encoded_ct = into_hex(&_ct).unwrap();
+                _encoded_ct = serde_json::to_string(&_ct).unwrap();
             }
             Scheme::BSWCP => {
-                let _pk: CpAbePublicKey = from_hex(&_pk_string).unwrap();
+                let _pk: CpAbePublicKey = serde_json::from_str(&_pk_string).unwrap();
                 let _ct = cpabe_encrypt(&_pk, &_policy, &buffer);
-                _encoded_ct = into_hex(&_ct).unwrap();
+                _encoded_ct = serde_json::to_string(&_ct).unwrap();
             }
             Scheme::LSWKP => {
-                let _pk: KpAbePublicKey = from_hex(&_pk_string).unwrap();
+                let _pk: KpAbePublicKey = serde_json::from_str(&_pk_string).unwrap();
                 let _ct = kpabe_encrypt(&_pk, &_attributes, &buffer);
-                _encoded_ct = into_hex(&_ct).unwrap();
+                _encoded_ct = serde_json::to_string(&_ct).unwrap();
             }
             Scheme::AW11 => {
                 // TODO
@@ -399,23 +400,23 @@ fn main() {
         }
         match _scheme {
             Scheme::AC17CP => {
-                let _sk: Ac17CpSecretKey = from_hex(&_sk_file).unwrap();
-                let _ct: Ac17CpCiphertext = from_hex(&_file).unwrap();
+                let _sk: Ac17CpSecretKey = serde_json::from_str(&_sk_file).unwrap();
+                let _ct: Ac17CpCiphertext = serde_json::from_str(&_file).unwrap();
                 _pt_option = ac17::cp_decrypt(&_sk, &_ct);
             }
             Scheme::AC17KP => {
-                let _sk: Ac17KpSecretKey = from_hex(&_sk_file).unwrap();
-                let _ct: Ac17KpCiphertext = from_hex(&_file).unwrap();
+                let _sk: Ac17KpSecretKey = serde_json::from_str(&_sk_file).unwrap();
+                let _ct: Ac17KpCiphertext = serde_json::from_str(&_file).unwrap();
                 _pt_option = ac17::kp_decrypt(&_sk, &_ct);
             }
             Scheme::BSWCP => {
-                let _sk: CpAbeSecretKey = from_hex(&_sk_file).unwrap();
-                let _ct: CpAbeCiphertext = from_hex(&_file).unwrap();
+                let _sk: CpAbeSecretKey = serde_json::from_str(&_sk_file).unwrap();
+                let _ct: CpAbeCiphertext = serde_json::from_str(&_file).unwrap();
                 _pt_option = cpabe_decrypt(&_sk, &_ct);
             }
             Scheme::LSWKP => {
-                let _sk: KpAbeSecretKey = from_hex(&_sk_file).unwrap();
-                let _ct: KpAbeCiphertext = from_hex(&_file).unwrap();
+                let _sk: KpAbeSecretKey = serde_json::from_str(&_sk_file).unwrap();
+                let _ct: KpAbeCiphertext = serde_json::from_str(&_file).unwrap();
                 _pt_option = kpabe_decrypt(&_sk, &_ct);
             }
             Scheme::AW11 => {
