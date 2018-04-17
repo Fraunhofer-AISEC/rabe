@@ -295,26 +295,26 @@ mod tests {
     #[test]
     fn test_and() {
         // setup scheme
-        let (_pk, _msk) = mke08_setup();
+        let (_pk, _msk) = setup();
         // generate mutable user key(in order to add attribute sk's later on)
-        let mut _u_key = mke08_create_user(&_pk, &_msk, &String::from("user1"));
+        let mut _u_key = keygen(&_pk, &_msk, &String::from("user1"));
         // authority1
-        let _a1_key = mke08_create_authority(&String::from("authority1"));
+        let _a1_key = authgen(&String::from("authority1"));
         // authority2
-        let _a2_key = mke08_create_authority(&String::from("authority2"));
+        let _a2_key = authgen(&String::from("authority2"));
         // our attributes
         let _att1 = String::from("A");
         let _att2 = String::from("B");
         // authority1 owns A
-        let _att1_pk = mke08_request_authority_pk(&_pk, &_att1, &_a1_key).unwrap();
+        let _att1_pk = request_authority_pk(&_pk, &_att1, &_a1_key).unwrap();
         // authority2 owns B
-        let _att2_pk = mke08_request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
+        let _att2_pk = request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
         // add attribute sk's to user key
         _u_key._sk_a.push(
-            mke08_request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap(),
+            request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap(),
         );
         _u_key._sk_a.push(
-            mke08_request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap(),
+            request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap(),
         );
         // our plaintext
         let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
@@ -322,10 +322,10 @@ mod tests {
         // our policy
         let _policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // cp-abe ciphertext
-        let _ct: Mke08Ciphertext =
-            mke08_encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+            .unwrap();
         // and now decrypt again with mathcing sk
-        let _match = mke08_decrypt(&_pk, &_ct, &_u_key, &_policy);
+        let _match = decrypt(&_pk, &_u_key, &_ct, &_policy);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
@@ -334,26 +334,26 @@ mod tests {
     #[test]
     fn test_or() {
         // setup scheme
-        let (_pk, _msk) = mke08_setup();
+        let (_pk, _msk) = setup();
         // generate mutable user key(in order to add attribute sk's later on)
-        let mut _u_key = mke08_create_user(&_pk, &_msk, &String::from("user1"));
+        let mut _u_key = keygen(&_pk, &_msk, &String::from("user1"));
         // authority1
-        let _a1_key = mke08_create_authority(&String::from("authority1"));
+        let _a1_key = authgen(&String::from("authority1"));
         // authority2
-        let _a2_key = mke08_create_authority(&String::from("authority2"));
+        let _a2_key = authgen(&String::from("authority2"));
         // our attributes
         let _att1 = String::from("C");
         let _att2 = String::from("B");
         // authority1 owns A
-        let _att1_pk = mke08_request_authority_pk(&_pk, &_att1, &_a1_key).unwrap();
+        let _att1_pk = request_authority_pk(&_pk, &_att1, &_a1_key).unwrap();
         // authority2 owns B
-        let _att2_pk = mke08_request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
+        let _att2_pk = request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
         // add attribute sk's to user key
         _u_key._sk_a.push(
-            mke08_request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap(),
+            request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap(),
         );
         _u_key._sk_a.push(
-            mke08_request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap(),
+            request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap(),
         );
         // our plaintext
         let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
@@ -361,10 +361,10 @@ mod tests {
         // our policy
         let _policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // cp-abe ciphertext
-        let _ct: Mke08Ciphertext =
-            mke08_encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+            .unwrap();
         // and now decrypt again with mathcing sk
-        let _match = mke08_decrypt(&_pk, &_ct, &_u_key, &_policy);
+        let _match = decrypt(&_pk, &_u_key, &_ct, &_policy);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }

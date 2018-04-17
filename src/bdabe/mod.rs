@@ -285,12 +285,12 @@ mod tests {
         // setup scheme
         let (_pk, _msk) = setup();
         // authority1
-        let _a1_key = create_authority(&_pk, &_msk, &String::from("aa1"));
+        let _a1_key = authgen(&_pk, &_msk, &String::from("aa1"));
         // authority2
-        let _a2_key = create_authority(&_pk, &_msk, &String::from("aa2"));
+        let _a2_key = authgen(&_pk, &_msk, &String::from("aa2"));
         // our attributes
         // generate mutable user key(in order to add attribute sk's later on)
-        let mut _u_key = create_user(&_pk, &_a1_key, &String::from("u1"));
+        let mut _u_key = keygen(&_pk, &_a1_key, &String::from("u1"));
         let _att1 = String::from("A");
         let _att2 = String::from("B");
         // authority1 owns A
@@ -332,11 +332,11 @@ mod tests {
         // setup scheme
         let (_pk, _msk) = setup();
         // authority1
-        let _a1_key = create_authority(&_pk, &_msk, &String::from("aa1"));
+        let _a1_key = authgen(&_pk, &_msk, &String::from("aa1"));
         // authority2
-        let _a2_key = create_authority(&_pk, &_msk, &String::from("aa2"));
+        let _a2_key = authgen(&_pk, &_msk, &String::from("aa2"));
         // generate mutable user key(in order to add attribute sk's later on)
-        let mut _u_key = create_user(&_pk, &_a2_key, &String::from("u1"));
+        let mut _u_key = keygen(&_pk, &_a2_key, &String::from("u1"));
         // our attributes
         let _att1 = String::from("C");
         let _att2 = String::from("B");

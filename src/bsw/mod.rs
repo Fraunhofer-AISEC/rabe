@@ -248,7 +248,7 @@ mod tests {
     #[test]
     fn test_or() {
         // setup scheme
-        let (pk, msk) = cpabe_setup();
+        let (pk, msk) = setup();
         // a set of two attributes matching the policy
         let mut att_matching: Vec<String> = Vec::new();
         att_matching.push(String::from("D"));
@@ -267,21 +267,21 @@ mod tests {
         let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
 
         // cp-abe ciphertext
-        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
 
         // and now decrypt again with mathcing sk
-        let _match = cpabe_decrypt(&cpabe_keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
+        let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), plaintext);
 
-        let _no_match = cpabe_decrypt(&cpabe_keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
+        let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
         assert_eq!(_no_match.is_none(), true);
     }
 
     #[test]
     fn test_and() {
         // setup scheme
-        let (pk, msk) = cpabe_setup();
+        let (pk, msk) = setup();
         // a set of two attributes matching the policy
         let mut att_matching: Vec<String> = Vec::new();
         att_matching.push(String::from("A"));
@@ -301,13 +301,13 @@ mod tests {
         let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
 
         // cp-abe ciphertext
-        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
 
         // and now decrypt again with mathcing sk
-        let _match = cpabe_decrypt(&cpabe_keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
+        let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), plaintext);
-        let _no_match = cpabe_decrypt(&cpabe_keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
+        let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
         assert_eq!(_no_match.is_none(), true);
     }
 
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn test_or_and() {
         // setup scheme
-        let (pk, msk) = cpabe_setup();
+        let (pk, msk) = setup();
         // a set of two attributes matching the policy
         let mut att_matching: Vec<String> = Vec::new();
         att_matching.push(String::from("A"));
@@ -336,20 +336,20 @@ mod tests {
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
 
         // cp-abe ciphertext
-        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
 
         // and now decrypt again with mathcing sk
-        let _match = cpabe_decrypt(&cpabe_keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
+        let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), plaintext);
-        let _no_match = cpabe_decrypt(&cpabe_keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
+        let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
         assert_eq!(_no_match.is_none(), true);
     }
 
     #[test]
     fn test_delegate() {
         // setup scheme
-        let (pk, msk) = cpabe_setup();
+        let (pk, msk) = setup();
         // a set of three attributes matching the policy
         let mut _atts: Vec<String> = Vec::new();
         _atts.push(String::from("A"));
@@ -365,13 +365,13 @@ mod tests {
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // cp-abe ciphertext
-        let ct_cp: CpAbeCiphertext = cpabe_encrypt(&pk, &policy, &plaintext).unwrap();
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
         // a cp-abe SK key matching
-        let sk: CpAbeSecretKey = cpabe_keygen(&pk, &msk, &_atts).unwrap();
+        let sk: CpAbeSecretKey = keygen(&pk, &msk, &_atts).unwrap();
         // delegate a cp-abe SK
-        let del: CpAbeSecretKey = cpabe_delegate(&pk, &sk, &_delegate_att).unwrap();
+        let del: CpAbeSecretKey = delegate(&pk, &sk, &_delegate_att).unwrap();
         // and now decrypt again with mathcing sk
-        let _match = cpabe_decrypt(&del, &ct_cp);
+        let _match = decrypt(&del, &ct_cp);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), plaintext);
 
