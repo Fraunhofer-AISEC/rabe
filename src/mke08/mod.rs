@@ -104,7 +104,7 @@ pub struct Mke08Context {
 //////////////////////////////////////////
 
 // global key generation
-pub fn mke08_setup() -> (Mke08PublicKey, Mke08MasterKey) {
+pub fn setup() -> (Mke08PublicKey, Mke08MasterKey) {
     // random number generator
     let _rng = &mut rand::thread_rng();
     let _g1 = G1::random(_rng);
@@ -131,7 +131,7 @@ pub fn mke08_setup() -> (Mke08PublicKey, Mke08MasterKey) {
 }
 
 // user key generation
-pub fn mke08_create_user(_pk: &Mke08PublicKey, _mk: &Mke08MasterKey, _u: &String) -> Mke08UserKey {
+pub fn keygen(_pk: &Mke08PublicKey, _mk: &Mke08MasterKey, _u: &String) -> Mke08UserKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
     let _mk_u = Fr::random(_rng);
@@ -151,7 +151,7 @@ pub fn mke08_create_user(_pk: &Mke08PublicKey, _mk: &Mke08MasterKey, _u: &String
 }
 
 // authority setup
-pub fn mke08_create_authority(_a: &String) -> Mke08SecretAuthorityKey {
+pub fn authgen(_a: &String) -> Mke08SecretAuthorityKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
     // return secret authority key
@@ -162,7 +162,7 @@ pub fn mke08_create_authority(_a: &String) -> Mke08SecretAuthorityKey {
 }
 
 // request an attribute PK from an authority
-pub fn mke08_request_authority_pk(
+pub fn request_authority_pk(
     _pk: &Mke08PublicKey,
     _a: &String,
     _sk_a: &Mke08SecretAuthorityKey,
@@ -184,7 +184,7 @@ pub fn mke08_request_authority_pk(
 }
 
 // request an attribute PK from an authority
-pub fn mke08_request_authority_sk(
+pub fn request_authority_sk(
     _a: &String,
     _sk_a: &Mke08SecretAuthorityKey,
     _pk_u: &Mke08PublicUserKey,
@@ -205,7 +205,7 @@ pub fn mke08_request_authority_sk(
 /* encrypt
  * _attr_pks is a vector of all public attribute keys
  */
-pub fn mke08_encrypt(
+pub fn encrypt(
     _pk: &Mke08PublicKey,
     _attr_pks: &Vec<Mke08PublicAttributeKey>,
     _policy: &String,
@@ -261,10 +261,10 @@ pub fn mke08_encrypt(
  * Decrypt a ciphertext
  * SK is the user's private key dictionary sk.attr: { xxx , xxx }
 */
-pub fn mke08_decrypt(
+pub fn decrypt(
     _pk: &Mke08PublicKey,
-    _ct: &Mke08Ciphertext,
     _sk: &Mke08UserKey,
+    _ct: &Mke08Ciphertext,
     _policy: &String,
 ) -> Option<Vec<u8>> {
     if traverse_str(&flatten_mke08(&_sk._sk_a), &_policy) == false {

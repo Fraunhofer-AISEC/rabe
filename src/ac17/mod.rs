@@ -87,7 +87,6 @@ pub struct Ac17Context {
 /// The assumption size of the pairing in the AC17 scheme.
 const ASSUMPTION_SIZE: usize = 2;
 
-
 /// The setup algorithm of both AC17CP and AC17KP. Generates an Ac17PublicKey and an Ac17MasterKey.
 pub fn setup() -> (Ac17PublicKey, Ac17MasterKey) {
     // random number generator

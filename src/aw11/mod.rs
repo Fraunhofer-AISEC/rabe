@@ -68,7 +68,7 @@ const ASSUMPTION_SIZE: usize = 2;
 // BOTH SCHEMES SHARE
 
 // global setup
-pub fn aw11_global() -> Aw11GlobalKey {
+pub fn setup() -> Aw11GlobalKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
     // generator of group G1: g1 and generator of group G2: g2
@@ -80,7 +80,7 @@ pub fn aw11_global() -> Aw11GlobalKey {
     return _gk;
 }
 // authority setup for a given set of attributes
-pub fn aw11_setup(
+pub fn authgen(
     gk: &Aw11GlobalKey,
     attributes: &Vec<String>,
 ) -> Option<(Aw11PublicKey, Aw11MasterKey)> {
@@ -124,7 +124,28 @@ pub fn aw11_setup(
  * msk is the private key for the releveant authority
  * the attributes are appended to the secret key sk
  */
-pub fn aw11_keygen(
+pub fn keygen(
+    gk: &Aw11GlobalKey,
+    msk: &Aw11MasterKey,
+    _name: &String,
+    _attributes: &Vec<String>,
+) -> Option<Aw11SecretKey> {
+    // if no attibutes or no gid
+    if _attributes.is_empty() || _name.is_empty() {
+        return None;
+    }
+    let mut _sk: Aw11SecretKey = Aw11SecretKey {
+        _gid: _name.clone(),
+        _attr: Vec::new(),
+    };
+    for _attribute in _attributes {
+        add_attribute(gk, msk, _attribute, &mut _sk);
+    }
+    return Some(_sk);
+}
+
+// add attribute to already generated key
+pub fn add_attribute(
     gk: &Aw11GlobalKey,
     msk: &Aw11MasterKey,
     attribute: &String,
@@ -158,7 +179,7 @@ pub fn aw11_keygen(
  * This is legal because no attribute can be shared by more than one authority
  * {i: {'e(gg)^alpha_i: , 'g^y_i'}
  */
-pub fn aw11_encrypt(
+pub fn encrypt(
     gk: &Aw11GlobalKey,
     pk: &Aw11PublicKey,
     policy: &String,
@@ -215,11 +236,7 @@ pub fn aw11_encrypt(
  * SK is the user's private key dictionary sk.attr: { xxx , xxx }
  */
 
-pub fn aw11_decrypt(
-    gk: &Aw11GlobalKey,
-    sk: &Aw11SecretKey,
-    ct: &Aw11Ciphertext,
-) -> Option<Vec<u8>> {
+pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> Option<Vec<u8>> {
     if traverse_str(&flatten(&sk._attr), &ct._policy) == false {
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
@@ -273,7 +290,7 @@ mod tests {
     #[test]
     fn test_cp_dabe_and() {
         // global setup
-        let _gp = aw11_global();
+        let _gp = setup();
         
         // setup attribute authority 1 with
         // a set of two attributes "A" and "B"

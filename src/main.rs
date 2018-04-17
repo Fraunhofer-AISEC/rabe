@@ -34,13 +34,41 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use std::fmt;
 
 #[macro_use]
 extern crate arrayref;
 
-const MSK_FILE: &'static str = "msk.key";
-const PK_FILE: &'static str = "pk.key";
-const SK_FILE: &'static str = "sk.key";
+const CT_EXTENSION: &'static str = ".rabe";
+const KEY_EXTENSION: &'static str = ".key";
+const GP_FILE: &'static str = "gp";
+const MSK_FILE: &'static str = "msk";
+const SK_FILE: &'static str = "sk";
+const SKA_FILE: &'static str = "ska";
+const PK_FILE: &'static str = "pk";
+
+#[derive(Debug)]
+struct RabeError {
+    details: String,
+}
+
+impl RabeError {
+    fn new(msg: &str) -> RabeError {
+        RabeError { details: msg.to_string() }
+    }
+}
+
+impl fmt::Display for RabeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for RabeError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
 
 fn main() {
 
@@ -50,14 +78,16 @@ fn main() {
 	        AC17CP,
 	        AC17KP,
 	        AW11,
-	        BSWCP,
-	        LSWKP
+	        BDABE,
+	        BSW,
+	        LSW,
+	        MKE08
 	    }
 	}
-    let _abe_app = App::new("ABE")
-        .version("0.1.0")
+    let _abe_app = App::new("R-ABE")
+        .version("0.1.1")
         .author(crate_authors!("\n"))
-        .about("ABE schemes written in Rust")
+        .about("ABE in Rust")
         .arg(
             Arg::with_name("scheme")
                 .long("scheme")
@@ -69,7 +99,7 @@ fn main() {
         )
         .subcommand(
             SubCommand::with_name("setup")
-                .about("sets up a scheme, creates msk and pk.")
+                .about("sets up a scheme, creates msk and pk or gp.")
                 .arg(
                     Arg::with_name("msk")
                         .long("msk")
@@ -87,12 +117,89 @@ fn main() {
                         .default_value(PK_FILE)
                         .value_name("pk")
                         .help("public key file."),
+                )
+                .arg(
+                    Arg::with_name("gp")
+                        .long("gp")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(GP_FILE)
+                        .value_name("gk")
+                        .help("global parameters file."),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("authgen")
+                .about(
+                    "creates a new authority using attributes (cp-schemes) or a policy (kp-schemes).",
+                )
+                .arg(
+                    Arg::with_name("gp")
+                        .long("gp")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(GP_FILE)
+                        .value_name("gp")
+                        .help("global parameters file."),
+                )
+                .arg(
+                    Arg::with_name("msk")
+                        .long("msk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(MSK_FILE)
+                        .value_name("msk")
+                        .help("master secret key file."),
+                )
+                .arg(
+                    Arg::with_name("pk")
+                        .long("pk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(PK_FILE)
+                        .value_name("pk")
+                        .help("public key file."),
+                )
+                .arg(
+                    Arg::with_name("attributes")
+                        .long("attributes")
+                        .short("attr")
+                        .required(false)
+                        .takes_value(true)
+                        .multiple(true)
+                        .value_name("attributes")
+                        .help("attributes to use."),
+                )
+                .arg(
+                    Arg::with_name("policy")
+                        .long("policy")
+                        .required(false)
+                        .takes_value(true)
+                        .value_name("policy")
+                        .help("policy to use."),
+                )
+                .arg(
+                    Arg::with_name("name")
+                        .long("name")
+                        .required(false)
+                        .takes_value(true)
+                        .value_name("name")
+                        .help("name of the attribute authority (MKE08/BDABE)"),
                 ),
         )
         .subcommand(
             SubCommand::with_name("keygen")
                 .about(
                     "creates a user key sk using attributes (cp-schemes) or a policy (kp-schemes).",
+                )
+                .arg(
+                    Arg::with_name("gp")
+                        .long("gp")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(GP_FILE)
+                        .value_name("gp")
+                        .help("global parameters file."),
                 )
                 .arg(
                     Arg::with_name("sk")
@@ -102,6 +209,15 @@ fn main() {
                         .default_value(SK_FILE)
                         .value_name("sk")
                         .help("user key file."),
+                )
+                .arg(
+                    Arg::with_name("ska")
+                        .long("ska")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(SK_FILE)
+                        .value_name("ska")
+                        .help("authrotiy secret key file."),
                 )
                 .arg(
                     Arg::with_name("msk")
@@ -137,12 +253,60 @@ fn main() {
                         .takes_value(true)
                         .value_name("policy")
                         .help("policy to use."),
+                )
+                .arg(
+                    Arg::with_name("name")
+                        .long("name")
+                        .required(false)
+                        .takes_value(true)
+                        .value_name("name")
+                        .help("name (gid) of the user (AW11)"),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("delegate")
+                .about("delegates some user key attributes (cp-schemes)")
+                .arg(
+                    Arg::with_name("sk")
+                        .long("sk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(SK_FILE)
+                        .value_name("sk")
+                        .help("user key file."),
+                )
+                .arg(
+                    Arg::with_name("pk")
+                        .long("pk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(PK_FILE)
+                        .value_name("pk")
+                        .help("public key file."),
+                )
+                .arg(
+                    Arg::with_name("attributes")
+                        .long("attributes")
+                        .required(false)
+                        .takes_value(true)
+                        .multiple(true)
+                        .value_name("attributes")
+                        .help("attributes to use."),
                 ),
         )
         .subcommand(
             SubCommand::with_name("encrypt")
                 .about(
                     "encrypts a file using attributes (kp-schemes) or a policy (cp-schemes).",
+                )
+                .arg(
+                    Arg::with_name("gp")
+                        .long("gp")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(GP_FILE)
+                        .value_name("gp")
+                        .help("global parameters file."),
                 )
                 .arg(
                     Arg::with_name("pk")
@@ -177,11 +341,37 @@ fn main() {
                         .takes_value(true)
                         .value_name("file")
                         .help("file to use."),
+                )
+                .arg(
+                    Arg::with_name("file")
+                        .long("file")
+                        .required(false)
+                        .takes_value(true)
+                        .value_name("file")
+                        .help("file to use."),
                 ),
         )
         .subcommand(
             SubCommand::with_name("decrypt")
                 .about("decrypts a file using a key.")
+                .arg(
+                    Arg::with_name("gp")
+                        .long("gp")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(GP_FILE)
+                        .value_name("gp")
+                        .help("global parameters file."),
+                )
+                .arg(
+                    Arg::with_name("pk")
+                        .long("pk")
+                        .required(false)
+                        .takes_value(true)
+                        .default_value(PK_FILE)
+                        .value_name("pk")
+                        .help("public key file."),
+                )
                 .arg(
                     Arg::with_name("sk")
                         .long("sk")
@@ -207,229 +397,588 @@ fn main() {
         process::exit(1);
     }
 
-    fn run(matches: ArgMatches) -> Result<(), String> {
+    fn run(matches: ArgMatches) -> Result<(), RabeError> {
         let _scheme = value_t!(matches.value_of("scheme"), Scheme).unwrap();
-        println!("using scheme: {:?}", _scheme);
         match matches.subcommand() {
             ("setup", Some(matches)) => run_setup(matches, _scheme),
+            ("authgen", Some(matches)) => run_authgen(matches, _scheme),
             ("keygen", Some(matches)) => run_keygen(matches, _scheme),
+            ("delegate", Some(matches)) => run_delegate(matches, _scheme),
             ("encrypt", Some(matches)) => run_encrypt(matches, _scheme),
             ("decrypt", Some(matches)) => run_decrypt(matches, _scheme),
             _ => Ok(()),
         }
     }
 
-    fn run_setup(matches: &ArgMatches, _scheme: Scheme) -> Result<(), String> {
-        let mut _msk_file = MSK_FILE;
-        let mut _pk_file = PK_FILE;
-        let mut _encoded_msk: String = String::new();
-        let mut _encoded_pk: String = String::new();
-        match matches.value_of("msk") {
-            None => {}
-            Some(x) => _msk_file = x,
+    fn run_setup(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+        let mut _msk_file = String::from("");
+        let mut _pk_file = String::from("");
+        let mut _gp_file = String::from("");
+        match arguments.value_of(MSK_FILE) {
+            None => {
+                _msk_file.push_str(MSK_FILE);
+                _msk_file.push_str(".");
+                _msk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _msk_file = _file.to_string(),
         }
-        match matches.value_of("pk") {
-            None => {}
-            Some(x) => _pk_file = x,
+        match arguments.value_of(PK_FILE) {
+            None => {
+                _pk_file.push_str(PK_FILE);
+                _pk_file.push_str(".");
+                _pk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _pk_file = _file.to_string(),
+        }
+        match arguments.value_of(GP_FILE) {
+            None => {
+                _gp_file.push_str(GP_FILE);
+                _gp_file.push_str(".");
+                _gp_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _gp_file = _file.to_string(),
         }
         match _scheme {
             Scheme::AC17CP => {
                 let (_pk, _msk) = ac17::setup();
-                _encoded_msk = serde_json::to_string(&_msk).unwrap();
-                _encoded_pk = serde_json::to_string(&_pk).unwrap();
+                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
+                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
             }
             Scheme::AC17KP => {
                 let (_pk, _msk) = ac17::setup();
-                _encoded_msk = serde_json::to_string(&_msk).unwrap();
-                _encoded_pk = serde_json::to_string(&_pk).unwrap();
-            }
-            Scheme::BSWCP => {
-                let (_pk, _msk) = cpabe_setup();
-                _encoded_pk = serde_json::to_string(&_pk).unwrap();
-                _encoded_msk = serde_json::to_string(&_msk).unwrap();
-            }
-            Scheme::LSWKP => {
-                let (_pk, _msk) = kpabe_setup();
-                _encoded_msk = serde_json::to_string(&_msk).unwrap();
-                _encoded_pk = serde_json::to_string(&_pk).unwrap();
+                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
+                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
             }
             Scheme::AW11 => {
-                // TODO
-            }            
-        }
-        println!("msk : {}", _encoded_msk);
-        println!("pk : {}", _encoded_pk);
-        write_file(Path::new(_msk_file), _encoded_msk);
-        write_file(Path::new(_pk_file), _encoded_pk);
-        Ok(())
-    }
-
-    fn run_keygen(matches: &ArgMatches, _scheme: Scheme) -> Result<(), String> {
-        let mut _sk_file = SK_FILE;
-        let mut _msk_file = MSK_FILE;
-        let mut _pk_file = PK_FILE;
-        let mut _encoded_msk: String = String::new();
-        let mut _encoded_pk: String = String::new();
-        let mut _encoded_sk: String = String::new();
-        let mut _policy: String = String::new();
-        let mut _attributes: Vec<String> = Vec::new();
-        match matches.value_of("msk") {
-            None => {}
-            Some(x) => _msk_file = x,
-        }
-        match matches.value_of("pk") {
-            None => {}
-            Some(x) => _pk_file = x,
-        }
-        match matches.value_of("sk") {
-            None => {}
-            Some(x) => _sk_file = x,
-        }
-        match matches.values_of("attributes") {
-            None => {}
-            Some(x) => _attributes = x.map(|s| s.to_string()).collect(),
-        }
-        match matches.value_of("policy") {
-            None => {}
-            Some(x) => _policy = x.to_string(),
-        }
-        let _msk_string = read_file(Path::new(_msk_file));
-        let _pk_string = read_file(Path::new(_pk_file));
-        println!("msk : {}", _msk_string);
-        println!("pk : {}", _pk_string);
-        match _scheme {
-            Scheme::AC17CP => {
-                let _msk: Ac17MasterKey = serde_json::from_str(&_msk_string).unwrap();
-                let _sk = ac17::cp_keygen(&_msk, &_attributes);
-                _encoded_sk = serde_json::to_string(&_sk).unwrap();
+                let _gp = aw11::setup();
+                write_file(Path::new(&_gp_file), serde_json::to_string(&_gp).unwrap());
             }
-            Scheme::AC17KP => {
-                let _msk: Ac17MasterKey = serde_json::from_str(&_msk_string).unwrap();
-                let _sk = ac17::kp_keygen(&_msk, &_policy);
-                _encoded_sk = serde_json::to_string(&_sk).unwrap();
+            Scheme::BDABE => {
+                let (_pk, _msk) = bdabe::setup();
+                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
+                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
             }
-            Scheme::BSWCP => {
-                let _msk: CpAbeMasterKey = serde_json::from_str(&_msk_string).unwrap();
-                let _pk: CpAbePublicKey = serde_json::from_str(&_pk_string).unwrap();
-                let _sk = cpabe_keygen(&_pk, &_msk, &_attributes);
-                _encoded_sk = serde_json::to_string(&_sk).unwrap();
+            Scheme::BSW => {
+                let (_pk, _msk) = bsw::setup();
+                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
+                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
             }
-            Scheme::LSWKP => {
-                let _msk: KpAbeMasterKey = serde_json::from_str(&_msk_string).unwrap();
-                let _pk: KpAbePublicKey = serde_json::from_str(&_pk_string).unwrap();
-                let _sk = kpabe_keygen(&_pk, &_msk, &_policy);
-                _encoded_sk = serde_json::to_string(&_sk).unwrap();
-            }
-            Scheme::AW11 => {
-                // TODO
+            Scheme::LSW => {
+                let (_pk, _msk) = lsw::setup();
+                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
+                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
             } 
+            Scheme::MKE08 => {
+                let (_pk, _msk) = mke08::setup();
+                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
+                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+            }          
         }
-        //println!("sk: {}", _encoded_sk);
-        write_file(Path::new(_sk_file), _encoded_sk);
         Ok(())
     }
 
-    fn run_encrypt(matches: &ArgMatches, _scheme: Scheme) -> Result<(), String> {
-        let mut _pk_file = PK_FILE;
-        let mut _file: String = String::new();
-        let mut _encoded_ct: String = String::new();
+    fn run_authgen(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
         let mut _policy: String = String::new();
         let mut _attributes: Vec<String> = Vec::new();
-        match matches.value_of("pk") {
-            None => {}
-            Some(x) => _pk_file = x,
+        let mut _name: String = String::from("");
+        let mut _msk_file = String::from("");
+        let mut _pk_file = String::from("");
+        let mut _gp_file = String::from("");
+        let mut _au_file = String::from("");
+        match arguments.value_of(MSK_FILE) {
+            None => {
+                _msk_file.push_str(MSK_FILE);
+                _msk_file.push_str(".");
+                _msk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _msk_file = _file.to_string(),
         }
-        match matches.values_of("attributes") {
+        match arguments.value_of(PK_FILE) {
+            None => {
+                _pk_file.push_str(PK_FILE);
+                _pk_file.push_str(".");
+                _pk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _pk_file = _file.to_string(),
+        }
+        match arguments.value_of(GP_FILE) {
+            None => {
+                _gp_file.push_str(GP_FILE);
+                _gp_file.push_str(".");
+                _gp_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _gp_file = _file.to_string(),
+        }
+        match arguments.values_of("attributes") {
+            None => {}
+            Some(_attr) => _attributes = _attr.map(|s| s.to_string()).collect(),
+        }
+        match arguments.value_of("policy") {
+            None => {}
+            Some(_pol) => _policy = _pol.to_string(),
+        }
+        match arguments.value_of("name") {
+            None => {}
+            Some(_n) => {
+                _name = _n.to_string();
+                _au_file.push_str(&_n.to_string());
+                _au_file.push_str(".");
+                _au_file.push_str(KEY_EXTENSION)
+            }
+        }
+        match _scheme { 
+            Scheme::AC17CP => {
+                return Err(RabeError::new("AC17CP is not a multi-authoriy scheme"));
+            }
+            Scheme::AC17KP => {
+                return Err(RabeError::new("AC17KP is not a multi-authoriy scheme"));
+            }
+            Scheme::BSW => {
+                return Err(RabeError::new("BSW is not a multi-authoriy scheme"));
+            }
+            Scheme::LSW => {
+                return Err(RabeError::new("LSW is not a multi-authoriy scheme"));
+            }
+            Scheme::AW11 => {
+                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
+                    .unwrap();
+                match aw11::authgen(&_gp, &_attributes) {
+                    None => {
+                        return Err(RabeError::new(
+                            "could not generate authority. Attribute set empty.",
+                        ));
+                    }
+                    Some((_pk, _msk)) => {
+                        write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
+                        write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+                    }
+                }
+            }
+            Scheme::BDABE => {
+                let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _msk: BdabeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                    .unwrap();
+                let _sk: BdabeSecretAuthorityKey = bdabe::authgen(&_pk, &_msk, &_name);
+                write_file(Path::new(&_au_file), serde_json::to_string(&_sk).unwrap());
+            }
+            Scheme::MKE08 => {
+                let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _msk: Mke08MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                    .unwrap();
+                let _sk: Mke08SecretAuthorityKey = mke08::authgen(&_name);
+                write_file(Path::new(&_au_file), serde_json::to_string(&_sk).unwrap());
+            }   
+        }
+        Ok(())
+    }
+
+    fn run_keygen(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+        let mut _sk_file = String::from("");
+        let mut _ska_file = String::from("");
+        let mut _name = String::from("");
+        let mut _name_file = String::new();
+        let mut _policy: String = String::new();
+        let mut _attributes: Vec<String> = Vec::new();
+        let mut _msk_file = String::from("");
+        let mut _pk_file = String::from("");
+        let mut _gp_file = String::from("");
+        match arguments.value_of(MSK_FILE) {
+            None => {
+                _msk_file.push_str(MSK_FILE);
+                _msk_file.push_str(".");
+                _msk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _msk_file = _file.to_string(),
+        }
+        match arguments.value_of(PK_FILE) {
+            None => {
+                _pk_file.push_str(PK_FILE);
+                _pk_file.push_str(".");
+                _pk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _pk_file = _file.to_string(),
+        }
+        match arguments.value_of(GP_FILE) {
+            None => {
+                _gp_file.push_str(GP_FILE);
+                _gp_file.push_str(".");
+                _gp_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _gp_file = _file.to_string(),
+        }
+        match arguments.value_of(SK_FILE) {
+            None => {
+                _sk_file.push_str(SK_FILE);
+                _sk_file.push_str(".");
+                _sk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _sk_file = _file.to_string(),
+        }
+        match arguments.value_of(SKA_FILE) {
+            None => {
+                _ska_file.push_str(SKA_FILE);
+                _ska_file.push_str(".");
+                _ska_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _ska_file = _file.to_string(),
+        }
+        match arguments.values_of("attributes") {
+            None => {}
+            Some(_attr) => _attributes = _attr.map(|s| s.to_string()).collect(),
+        }
+        match arguments.value_of("policy") {
+            None => {}
+            Some(_pol) => _policy = _pol.to_string(),
+        }
+        match arguments.value_of("name") {
+            None => {}
+            Some(_n) => {
+                _name = _n.to_string();
+                _name_file.push_str(&_n.to_string());
+                _name_file.push_str(".");
+                _name_file.push_str(KEY_EXTENSION);
+            }
+        }
+        match _scheme {
+            Scheme::AC17CP => {
+                let _msk: Ac17MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                    .unwrap();
+                let _sk: Ac17CpSecretKey = ac17::cp_keygen(&_msk, &_attributes).unwrap();
+                write_file(Path::new(&_sk_file), serde_json::to_string(&_sk).unwrap());
+            }
+            Scheme::AC17KP => {
+                let _msk: Ac17MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                    .unwrap();
+                let _sk: Ac17KpSecretKey = ac17::kp_keygen(&_msk, &_policy).unwrap();
+                write_file(Path::new(&_sk_file), serde_json::to_string(&_sk).unwrap());
+            }
+            Scheme::BSW => {
+                let _msk: CpAbeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                    .unwrap();
+                let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _sk: CpAbeSecretKey = bsw::keygen(&_pk, &_msk, &_attributes).unwrap();
+                write_file(Path::new(&_sk_file), serde_json::to_string(&_sk).unwrap());
+            }
+            Scheme::LSW => {
+                let _msk: KpAbeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                    .unwrap();
+                let _pk: KpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _sk: KpAbeSecretKey = lsw::keygen(&_pk, &_msk, &_policy).unwrap();
+                write_file(Path::new(&_sk_file), serde_json::to_string(&_sk).unwrap());
+            }
+            Scheme::AW11 => {
+                let _msk: Aw11MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                    .unwrap();
+                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
+                    .unwrap();
+                let _sk: Aw11SecretKey = aw11::keygen(&_gp, &_msk, &_name, &_attributes).unwrap();
+                write_file(Path::new(&_name_file), serde_json::to_string(&_sk).unwrap());
+            }
+            Scheme::BDABE => {
+                let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _ska: BdabeSecretAuthorityKey =
+                    serde_json::from_str(&read_file(Path::new(&_ska_file))).unwrap();
+                let _sk: BdabeUserKey = bdabe::keygen(&_pk, &_ska, &_name);
+                write_file(Path::new(&_name_file), serde_json::to_string(&_sk).unwrap());
+            }
+            Scheme::MKE08 => {
+                let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _msk: Mke08MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                    .unwrap();
+                if _name != String::from("") {
+                    let _sk: Mke08UserKey = mke08::keygen(&_pk, &_msk, &_name);
+                    write_file(Path::new(&_name_file), serde_json::to_string(&_sk).unwrap());
+                } else {
+                    return Err(RabeError::new("MKE08: name for user key not set."));
+                }
+
+            }
+        }
+        Ok(())
+    }
+
+    fn run_delegate(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+        let mut _sk_file = String::from("");
+        let mut _dg_file = String::from("");
+        let mut _pk_file = String::from("");
+        let mut _policy: String = String::new();
+        let mut _attributes: Vec<String> = Vec::new();
+        match arguments.value_of(PK_FILE) {
+            None => {
+                _pk_file.push_str(PK_FILE);
+                _pk_file.push_str(".");
+                _pk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _pk_file = _file.to_string(),
+        }
+        match arguments.value_of(SK_FILE) {
+            None => {
+                _sk_file.push_str(SK_FILE);
+                _sk_file.push_str(".");
+                _sk_file.push_str(KEY_EXTENSION);
+                _dg_file.push_str(SK_FILE);
+                _dg_file.push_str("_dele");
+                _dg_file.push_str(".");
+                _dg_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _sk_file = _file.to_string(),
+        }
+        match arguments.values_of("attributes") {
+            None => {}
+            Some(_attr) => _attributes = _attr.map(|s| s.to_string()).collect(),
+        }
+        match arguments.value_of("policy") {
+            None => {}
+            Some(_pol) => _policy = _pol.to_string(),
+        }
+        match _scheme {
+            Scheme::AC17CP => {
+                return Err(RabeError::new(
+                    "AC17CP does not support the delegation algorithm.",
+                ));
+            }
+            Scheme::AC17KP => {
+                return Err(RabeError::new(
+                    "AC17KP does not support the delegation algorithm.",
+                ));
+            }
+            Scheme::BSW => {
+                let _msk: CpAbeSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
+                    .unwrap();
+                let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _sk: Option<CpAbeSecretKey> = bsw::delegate(&_pk, &_msk, &_attributes);
+                match _sk {
+                    None => {
+                        return Err(RabeError::new(
+                            "Error: could not delegate attributes. Attributes are not a subset.",
+                        ));
+                    }
+                    Some(_delegated_key) => {
+                        write_file(
+                            Path::new(&_dg_file),
+                            serde_json::to_string(&_delegated_key).unwrap(),
+                        );
+                    }
+                }
+            }
+            Scheme::LSW => {
+                return Err(RabeError::new("LSW delegation is not supported (yet)."));
+            }
+            Scheme::AW11 => {
+                return Err(RabeError::new(
+                    "AW11 does not support the delegation algorithm.",
+                ));
+            }
+            Scheme::BDABE => {
+                return Err(RabeError::new(
+                    "BDABE does not support the delegation algorithm.",
+                ));
+            }
+            Scheme::MKE08 => {
+                return Err(RabeError::new(
+                    "MKE08 does not support the delegation algorithm.",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn run_encrypt(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+        let mut _pk_file = String::from("");
+        let mut _gp_file = String::from("");
+        let mut _ct_file: String = String::new();
+        let mut _pt_file: String = String::new();
+        let mut _policy: String = String::new();
+        let mut _attributes: Vec<String> = Vec::new();
+        match arguments.value_of(PK_FILE) {
+            None => {
+                _pk_file.push_str(PK_FILE);
+                _pk_file.push_str(".");
+                _pk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _pk_file = _file.to_string(),
+        }
+        match arguments.value_of(GP_FILE) {
+            None => {
+                _gp_file.push_str(GP_FILE);
+                _gp_file.push_str(".");
+                _gp_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _gp_file = _file.to_string(),
+        }
+        match arguments.values_of("attributes") {
             None => {}
             Some(x) => _attributes = x.map(|s| s.to_string()).collect(),
         }
-        match matches.value_of("policy") {
+        match arguments.value_of("policy") {
             None => {}
             Some(x) => _policy = x.to_string(),
         }
-        match matches.value_of("file") {
+        match arguments.value_of("file") {
             None => {}
-            Some(x) => _file = x.to_string(),
+            Some(_file) => {
+                _pt_file = _file.to_string();
+                _ct_file = _pt_file.to_string();
+                _ct_file.push_str(&String::from(".rabe"));
+            }
         }
-        let _pk_string = read_file(Path::new(_pk_file));
-        let buffer: Vec<u8> = read_to_vec(Path::new(&_file));
+        let buffer: Vec<u8> = read_to_vec(Path::new(&_pt_file));
         match _scheme {
             Scheme::AC17CP => {
-                let _pk: Ac17PublicKey = serde_json::from_str(&_pk_string).unwrap();
+                let _pk: Ac17PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
                 let _ct = ac17::cp_encrypt(&_pk, &_policy, &buffer);
-                _encoded_ct = serde_json::to_string(&_ct).unwrap();
+                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+
             }
             Scheme::AC17KP => {
-                let _pk: Ac17PublicKey = serde_json::from_str(&_pk_string).unwrap();
+                let _pk: Ac17PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
                 let _ct = ac17::kp_encrypt(&_pk, &_attributes, &buffer);
-                _encoded_ct = serde_json::to_string(&_ct).unwrap();
+                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
             }
-            Scheme::BSWCP => {
-                let _pk: CpAbePublicKey = serde_json::from_str(&_pk_string).unwrap();
-                let _ct = cpabe_encrypt(&_pk, &_policy, &buffer);
-                _encoded_ct = serde_json::to_string(&_ct).unwrap();
+            Scheme::BSW => {
+                let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _ct = bsw::encrypt(&_pk, &_policy, &buffer);
+                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
             }
-            Scheme::LSWKP => {
-                let _pk: KpAbePublicKey = serde_json::from_str(&_pk_string).unwrap();
-                let _ct = kpabe_encrypt(&_pk, &_attributes, &buffer);
-                _encoded_ct = serde_json::to_string(&_ct).unwrap();
+            Scheme::LSW => {
+                let _pk: KpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _ct = lsw::encrypt(&_pk, &_attributes, &buffer);
+                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
             }
             Scheme::AW11 => {
-                // TODO
+                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
+                    .unwrap();
+                let _pk: Aw11PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _ct = aw11::encrypt(&_gp, &_pk, &_policy, &buffer);
+                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+            } 
+            Scheme::BDABE => {
+                let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _attr_vec: Vec<BdabePublicAttributeKey> = Vec::new();
+                // TODO : fill _attr_vec with attribute PK's
+                let _ct = bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
+                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+            } 
+            Scheme::MKE08 => {
+                let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
+                    .unwrap();
+                let _attr_vec: Vec<Mke08PublicAttributeKey> = Vec::new();
+                // TODO : fill _attr_vec with attribute PK's
+                let _ct = mke08::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
+                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
             } 
         }
-
-        //println!("ct: {}", _encoded_ct);
-        write_file(Path::new(&_file), _encoded_ct);
         Ok(())
     }
 
-    fn run_decrypt(matches: &ArgMatches, _scheme: Scheme) -> Result<(), String> {
-        let mut _sk_file = SK_FILE;
-        let mut _file: String = String::new();
-        let mut _encoded_sk: String = String::new();
-        let mut _pt: Vec<u8> = Vec::new();
+    fn run_decrypt(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+        let mut _sk_file = String::from("");
+        let mut _gp_file = String::from("");
+        let mut _file: String = String::from("");
         let mut _pt_option: Option<Vec<u8>> = None;
-        match matches.value_of("sk") {
-            None => {}
-            Some(x) => _sk_file = x,
+        let mut _policy: String = String::new();
+        match arguments.value_of(SK_FILE) {
+            None => {
+                _sk_file.push_str(SK_FILE);
+                _sk_file.push_str(".");
+                _sk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _sk_file = _file.to_string(),
         }
-        match matches.value_of("file") {
+        match arguments.value_of(GP_FILE) {
+            None => {
+                _gp_file.push_str(GP_FILE);
+                _gp_file.push_str(".");
+                _gp_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _gp_file = _file.to_string(),
+        }
+        match arguments.value_of("file") {
             None => {}
             Some(x) => _file = x.to_string(),
         }
+        match arguments.value_of("policy") {
+            None => {}
+            Some(x) => _policy = x.to_string(),
+        }
         match _scheme {
             Scheme::AC17CP => {
-                let _sk: Ac17CpSecretKey = serde_json::from_str(&_sk_file).unwrap();
-                let _ct: Ac17CpCiphertext = serde_json::from_str(&_file).unwrap();
+                let _sk: Ac17CpSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
+                    .unwrap();
+                let _ct: Ac17CpCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
+                    .unwrap();
                 _pt_option = ac17::cp_decrypt(&_sk, &_ct);
             }
             Scheme::AC17KP => {
-                let _sk: Ac17KpSecretKey = serde_json::from_str(&_sk_file).unwrap();
-                let _ct: Ac17KpCiphertext = serde_json::from_str(&_file).unwrap();
+                let _sk: Ac17KpSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
+                    .unwrap();
+                let _ct: Ac17KpCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
+                    .unwrap();
                 _pt_option = ac17::kp_decrypt(&_sk, &_ct);
             }
-            Scheme::BSWCP => {
-                let _sk: CpAbeSecretKey = serde_json::from_str(&_sk_file).unwrap();
-                let _ct: CpAbeCiphertext = serde_json::from_str(&_file).unwrap();
-                _pt_option = cpabe_decrypt(&_sk, &_ct);
+            Scheme::BSW => {
+                let _sk: CpAbeSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
+                    .unwrap();
+                let _ct: CpAbeCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
+                    .unwrap();
+                _pt_option = bsw::decrypt(&_sk, &_ct);
             }
-            Scheme::LSWKP => {
-                let _sk: KpAbeSecretKey = serde_json::from_str(&_sk_file).unwrap();
-                let _ct: KpAbeCiphertext = serde_json::from_str(&_file).unwrap();
-                _pt_option = kpabe_decrypt(&_sk, &_ct);
+            Scheme::LSW => {
+                let _sk: KpAbeSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
+                    .unwrap();
+                let _ct: KpAbeCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
+                    .unwrap();
+                _pt_option = lsw::decrypt(&_sk, &_ct);
             }
             Scheme::AW11 => {
-                // TODO
+                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
+                    .unwrap();
+                let _sk: Aw11SecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
+                    .unwrap();
+                let _ct: Aw11Ciphertext = serde_json::from_str(&read_file(Path::new(&_file)))
+                    .unwrap();
+                _pt_option = aw11::decrypt(&_gp, &_sk, &_ct);
+            } 
+            Scheme::BDABE => {
+                /* TODO !!!
+                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(_gp_file)))
+                    .unwrap();            	
+                let _sk: Aw11SecretKey = serde_json::from_str(&read_file(Path::new(_sk_file)))
+                    .unwrap();
+                let _ct: Aw11Ciphertext = serde_json::from_str(&read_file(Path::new(_file)))
+                    .unwrap();
+                _pt_option = bdabe::decrypt(&_gp, &_sk, &_ct);
+                */
+            } 
+            Scheme::MKE08 => {
+                let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
+                    .unwrap();
+                let _sk: Mke08UserKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
+                    .unwrap();
+                let _ct: Mke08Ciphertext = serde_json::from_str(&read_file(Path::new(&_file)))
+                    .unwrap();
+                _pt_option = mke08::decrypt(&_pk, &_sk, &_ct, &_policy);
             } 
         }
         match _pt_option {
             None => {
-                println!("Error could not decrypt!");
+                return Err(RabeError::new("Error: could not decrypt!"));
             }
             Some(_pt_u) => {
-                _pt = _pt_u;
-                write_from_vec(Path::new(&_file), &_pt);
+                write_from_vec(Path::new(&_file), &_pt_u);
             }
         }
         Ok(())

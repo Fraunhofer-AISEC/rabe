@@ -65,7 +65,7 @@ pub struct KpAbeCiphertext {
 
 // SETUP
 
-pub fn kpabe_setup() -> (KpAbePublicKey, KpAbeMasterKey) {
+pub fn setup() -> (KpAbePublicKey, KpAbeMasterKey) {
     // random number generator
     let _rng = &mut rand::thread_rng();
     // generate random alpha1, alpha2 and b
@@ -103,7 +103,7 @@ pub fn kpabe_setup() -> (KpAbePublicKey, KpAbeMasterKey) {
 
 // KEYGEN
 
-pub fn kpabe_keygen(
+pub fn keygen(
     pk: &KpAbePublicKey,
     msk: &KpAbeMasterKey,
     policy: &String,
@@ -137,7 +137,7 @@ pub fn kpabe_keygen(
     });
 }
 
-pub fn kpabe_encrypt(
+pub fn encrypt(
     pk: &KpAbePublicKey,
     _attributes: &Vec<String>,
     _plaintext: &[u8],
@@ -186,7 +186,7 @@ pub fn kpabe_encrypt(
     }
 }
 
-pub fn kpabe_decrypt(sk: &KpAbeSecretKey, ct: &KpAbeCiphertext) -> Option<Vec<u8>> {
+pub fn decrypt(sk: &KpAbeSecretKey, ct: &KpAbeCiphertext) -> Option<Vec<u8>> {
     if traverse_str(&ct._attr, &sk._policy) == false {
         println!("Error: attributes in ct do not match policy in sk.");
         return None;

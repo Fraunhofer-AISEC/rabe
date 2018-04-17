@@ -41,7 +41,7 @@ use ac17::*;
 #[no_mangle]
 pub extern "C" fn ac17kpabe_context_create() -> *mut Ac17Context {
 
-    let (pk, msk) = setup();
+    let (pk, msk) = ac17::setup();
     let _ctx = unsafe { transmute(Box::new(Ac17Context { _msk: msk, _pk: pk })) };
     _ctx
 }

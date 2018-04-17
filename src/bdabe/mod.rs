@@ -127,12 +127,23 @@ pub fn setup() -> (BdabePublicKey, BdabeMasterKey) {
     );
 }
 
+// authority setup
+pub fn authgen(_pk: &BdabePublicKey, _mk: &BdabeMasterKey, _a: &String) -> BdabeSecretAuthorityKey {
+    // random number generator
+    let _rng = &mut rand::thread_rng();
+    let _alpha = Fr::random(_rng);
+    let _beta = _mk._y - _alpha;
+    // return secret authority key
+    return BdabeSecretAuthorityKey {
+        _a1: _pk._g1 * _alpha,
+        _a2: _pk._g2 * _beta,
+        _a3: Fr::random(_rng),
+        _a: _a.clone(),
+    };
+}
+
 // user key generation
-pub fn create_user(
-    _pk: &BdabePublicKey,
-    _ska: &BdabeSecretAuthorityKey,
-    _u: &String,
-) -> BdabeUserKey {
+pub fn keygen(_pk: &BdabePublicKey, _ska: &BdabeSecretAuthorityKey, _u: &String) -> BdabeUserKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
     let _r_u = Fr::random(_rng);
@@ -148,25 +159,6 @@ pub fn create_user(
             _u2: _pk._g2 * _r_u,
         },
         _ska: Vec::new(),
-    };
-}
-
-// authority setup
-pub fn create_authority(
-    _pk: &BdabePublicKey,
-    _mk: &BdabeMasterKey,
-    _a: &String,
-) -> BdabeSecretAuthorityKey {
-    // random number generator
-    let _rng = &mut rand::thread_rng();
-    let _alpha = Fr::random(_rng);
-    let _beta = _mk._y - _alpha;
-    // return secret authority key
-    return BdabeSecretAuthorityKey {
-        _a1: _pk._g1 * _alpha,
-        _a2: _pk._g2 * _beta,
-        _a3: Fr::random(_rng),
-        _a: _a.clone(),
     };
 }
 

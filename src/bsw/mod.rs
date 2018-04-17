@@ -62,7 +62,7 @@ pub struct CpAbeContext {
 // BSW CP-ABE type-3
 /////////////////////////////////////////////
 
-pub fn cpabe_setup() -> (CpAbePublicKey, CpAbeMasterKey) {
+pub fn setup() -> (CpAbePublicKey, CpAbeMasterKey) {
     // random number generator
     let _rng = &mut rand::thread_rng();
     // generator of group G1: g1 and generator of group G2: g2
@@ -93,7 +93,7 @@ pub fn cpabe_setup() -> (CpAbePublicKey, CpAbeMasterKey) {
     );
 }
 
-pub fn cpabe_keygen(
+pub fn keygen(
     _pk: &CpAbePublicKey,
     _msk: &CpAbeMasterKey,
     _attributes: &Vec<String>,
@@ -125,7 +125,7 @@ pub fn cpabe_keygen(
 
 // DELEGATE
 
-pub fn cpabe_delegate(
+pub fn delegate(
     _pk: &CpAbePublicKey,
     _sk: &CpAbeSecretKey,
     _subset: &Vec<String>,
@@ -166,7 +166,7 @@ pub fn cpabe_delegate(
 
 // ENCRYPT
 
-pub fn cpabe_encrypt(
+pub fn encrypt(
     _pk: &CpAbePublicKey,
     _policy: &String,
     _plaintext: &Vec<u8>,
@@ -202,7 +202,7 @@ pub fn cpabe_encrypt(
 
 // DECRYPT
 
-pub fn cpabe_decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
+pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
     if traverse_str(&flatten(&_sk._d_j), &_ct._policy) == false {
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
