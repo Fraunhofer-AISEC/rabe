@@ -10,9 +10,10 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use bincode::*;
 use rand::Rng;
-use policy::msp::AbePolicy;
-use tools::*;
-use secretsharing::*;
+use utils::policy::msp::AbePolicy;
+use utils::tools::*;
+use utils::secretsharing::*;
+use utils::aes::*;
 
 /// An AC17 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq)]

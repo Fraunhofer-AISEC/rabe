@@ -4,9 +4,9 @@ extern crate serde_json;
 extern crate bn;
 
 use std::string::String;
-use tools::string_to_json;
-use mke08::*;
-use bdabe::*;
+use utils::tools::string_to_json;
+use schemes::mke08::*;
+use schemes::bdabe::*;
 use bn::*;
 
 /// A DNF policy for the MKE08 scheme and the BDABE scheme

@@ -4,7 +4,7 @@ extern crate serde_json;
 extern crate bn;
 
 use std::string::String;
-use tools::string_to_json;
+use utils::tools::string_to_json;
 
 const ZERO: i32 = 0;
 const PLUS: i32 = 1;

@@ -22,17 +22,10 @@ use std::string::String;
 #[macro_use]
 extern crate arrayref;
 
-pub mod policy;
-pub mod ac17;
-pub mod aw11;
-pub mod bsw;
-pub mod lsw;
-pub mod mke08;
-pub mod bdabe;
-pub mod tools;
-pub mod secretsharing;
+pub mod utils;
+pub mod schemes;
 
-use ac17::*;
+use schemes::ac17::*;
 //#[doc = /**
 // * AC17
 // *
@@ -41,7 +34,7 @@ use ac17::*;
 #[no_mangle]
 pub extern "C" fn ac17kpabe_context_create() -> *mut Ac17Context {
 
-    let (pk, msk) = ac17::setup();
+    let (pk, msk) = schemes::ac17::setup();
     let _ctx = unsafe { transmute(Box::new(Ac17Context { _msk: msk, _pk: pk })) };
     _ctx
 }
@@ -115,14 +108,6 @@ pub extern "C" fn ac17kpabe_decrypt_native(sk: *mut Ac17KpCiphertext, ct: *mut c
     //TODO: serialize returned pt and store under pt
     return 1;
 }
-
-use bsw::*;
-use aw11::*;
-use lsw::*;
-use mke08::*;
-use tools::*;
-use policy::*;
-use secretsharing::*;
 
 // TESTS:
 

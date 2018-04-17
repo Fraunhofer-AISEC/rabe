@@ -9,9 +9,10 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use bincode::*;
 use rand::Rng;
-use policy::msp::AbePolicy;
-use secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
-use tools::*;
+use utils::policy::msp::AbePolicy;
+use utils::secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
+use utils::tools::*;
+use utils::aes::*;
 
 //////////////////////////////////////////////////////
 // AW11 ABE structs
@@ -280,6 +281,54 @@ pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> O
         }
     }
 }
+
+// AW11 Scheme helper functions
+
+fn aw11_attr_from_pk(_pk: &Aw11PublicKey, _a: &String) -> Option<(String, usize)> {
+    for (_i, _attr) in _pk._attr.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.0.clone(), _i));
+        }
+    }
+    return None;
+}
+
+fn aw11_attr_from_msk(_sk: &Aw11MasterKey, _a: &String) -> Option<(String, usize)> {
+    for (_i, _attr) in _sk._attr.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.0.clone(), _i));
+        }
+    }
+    return None;
+}
+
+fn aw11_attr_from_sk(_sk: &Aw11SecretKey, _a: &String) -> Option<(String, G1, G2)> {
+    for (_i, _attr) in _sk._attr.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.clone()));
+        }
+    }
+    return None;
+}
+
+fn aw11_attr_from_ct(_ct: &Aw11Ciphertext, _a: &String) -> Option<(String, Gt, G1, G1, G2, G2)> {
+    for (_i, _attr) in _ct._c.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.clone()));
+        }
+    }
+    return None;
+}
+
+fn aw11_get_coefficient(_a: &String, _coeffs: &Vec<(String, Fr)>) -> Option<Fr> {
+    for (_i, _attr) in _coeffs.iter().enumerate() {
+        if _attr.0 == _a.to_string() {
+            return Some((_attr.clone().1));
+        }
+    }
+    return None;
+}
+
 /* TODO !!!
 #[cfg(test)]
 mod tests {

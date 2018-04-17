@@ -9,8 +9,9 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use bincode::*;
 use rand::Rng;
-use policy::dnf::DnfPolicy;
-use tools::*;
+use utils::policy::dnf::DnfPolicy;
+use utils::tools::*;
+use utils::aes::*;
 
 //////////////////////////////////////////////////////
 // MKE08 ABE structs
@@ -267,7 +268,14 @@ pub fn decrypt(
     _ct: &Mke08Ciphertext,
     _policy: &String,
 ) -> Option<Vec<u8>> {
-    if traverse_str(&flatten_mke08(&_sk._sk_a), &_policy) == false {
+    let _attr = _sk._sk_a
+        .iter()
+        .map(|triple| {
+            let _a = triple.clone();
+            _a._str.to_string()
+        })
+        .collect::<Vec<_>>();
+    if traverse_str(&_attr, &_policy) == false {
         println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
@@ -285,6 +293,56 @@ pub fn decrypt(
         // Decrypt plaintext using derived secret from mke08 scheme
         return decrypt_symmetric(&_msg, &_ct._ct);
     }
+}
+
+// MKE08 Scheme helper functions
+
+fn is_satisfiable(_conjunction: &Vec<String>, _sk: &Vec<Mke08SecretAttributeKey>) -> bool {
+    let mut _ret: bool = true;
+    for _attr in _conjunction {
+        match _sk.into_iter().find(|&x| x._str == *_attr) {
+            None => {
+                _ret = false;
+                break;
+            }
+            Some(_attr_sk) => {}
+        }
+    }
+    _ret
+}
+
+fn calc_satisfiable(
+    _conjunction: &Vec<String>,
+    _sk: &Vec<Mke08SecretAttributeKey>,
+) -> (bn::G1, bn::G2) {
+    let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
+    for _i in 0usize.._conjunction.len() {
+        match _sk.into_iter().find(
+            |&x| x._str == _conjunction[_i].to_string(),
+        ) {
+            None => {}
+            Some(_found) => {
+                if _i == 0 {
+                    ret = (_found._g1, _found._g2);
+                } else {
+                    ret = (ret.0 + _found._g1, ret.1 + _found._g2);
+                }
+            }
+        }
+    }
+    ret
+}
+
+fn from_authority(_attr: &String, _authority: &String) -> bool {
+    // TODO !!!!
+    // Implement blockchain logic to determine which attribute belongs to authority
+    return true;
+}
+
+fn is_eligible(_attr: &String, _user: &String) -> bool {
+    // TODO !!!!
+    // Implement blockchain logic to determine which user is able to own which attribute
+    return true;
 }
 
 #[cfg(test)]
@@ -367,5 +425,34 @@ mod tests {
         let _match = decrypt(&_pk, &_u_key, &_ct, &_policy);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), _plaintext);
+    }
+
+    #[test]
+    fn test_is_satisfiable() {
+        // A && B && C
+        let mut _conjunction: Vec<String> = Vec::new();
+        _conjunction.push(String::from("A"));
+        _conjunction.push(String::from("B"));
+        _conjunction.push(String::from("C"));
+        // a sk_a
+        let mut _sk_as: Vec<Mke08SecretAttributeKey> = Vec::new();
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("A"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(!is_satisfiable(&_conjunction, &_sk_as));
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("B"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(!is_satisfiable(&_conjunction, &_sk_as));
+        _sk_as.push(Mke08SecretAttributeKey {
+            _str: String::from("C"),
+            _g1: G1::one(),
+            _g2: G2::one(),
+        });
+        assert!(is_satisfiable(&_conjunction, &_sk_as));
     }
 }

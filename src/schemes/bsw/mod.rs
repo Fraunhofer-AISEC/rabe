@@ -15,8 +15,9 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use bincode::*;
 use rand::Rng;
-use secretsharing::{gen_shares_str, calc_pruned_str, calc_coefficients_str};
-use tools::*;
+use utils::secretsharing::{gen_shares_str, calc_pruned_str, calc_coefficients_str};
+use utils::tools::*;
+use utils::aes::*;
 
 //////////////////////////////////////////////////////
 // BSW CP-ABE structs
@@ -149,7 +150,11 @@ pub fn delegate(
         // calculate derived attributes
         for _attr in _subset {
             let _r_j = Fr::random(_rng);
-            let _d_j_val = get_attribute_value(&_attr, &_sk._d_j).unwrap();
+            let _d_j_val = _sk._d_j
+                .iter()
+                .find(|x| x.0 == _attr.to_string())
+                .map(|x| (x.1, x.2))
+                .unwrap();
             _d_k.push((
                 _attr.clone(),
                 _d_j_val.0 + (_pk._g1 * _r_j),
@@ -217,8 +222,16 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
                     let _z = calc_coefficients_str(&_ct._policy).unwrap();
                     let mut _a = Gt::one();
                     for _j in x.1 {
-                        let _c_j = get_attribute_value(&_j, &_ct._c_y).unwrap();
-                        let _d_j = get_attribute_value(&_j, &_sk._d_j).unwrap();
+                        let _c_j = _ct._c_y
+                            .iter()
+                            .find(|x| x.0 == _j.to_string())
+                            .map(|x| (x.1, x.2))
+                            .unwrap();
+                        let _d_j = _sk._d_j
+                            .iter()
+                            .find(|x| x.0 == _j.to_string())
+                            .map(|x| (x.1, x.2))
+                            .unwrap();
                         for _z_tuple in _z.iter() {
                             if _z_tuple.0 == _j {
                                 _a = _a *

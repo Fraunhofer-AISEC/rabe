@@ -15,10 +15,11 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use bincode::*;
 use rand::Rng;
-use policy::msp::AbePolicy;
-use tools::*;
 use std::ops::Neg;
-use secretsharing::{gen_shares_str, calc_coefficients_str};
+use utils::policy::msp::AbePolicy;
+use utils::tools::*;
+use utils::secretsharing::{gen_shares_str, calc_coefficients_str};
+use utils::aes::*;
 
 //////////////////////////////////////////////////////
 // LSW KP-ABE structs

@@ -3,9 +3,9 @@
 A Rust implementation of some ABE scheme's using the bn library of zcash (type-3 pairing / baretto naering curve)
 
 Implemented CP-ABE Schemes:
-- BSW CP-ABE
 - AC17 CP-ABE
 - AW11 CP-ABE
+- BSW CP-ABE
 - MKE08 CP-ABE
 - BDABE CP-ABE
 

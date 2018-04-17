@@ -9,8 +9,9 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use bincode::*;
 use rand::Rng;
-use policy::*;
-use tools::*;
+use utils::policy::*;
+use utils::tools::*;
+use utils::aes::*;
 
 //////////////////////////////////////////////////////
 // BDABE ABE structs
@@ -274,6 +275,19 @@ pub fn decrypt(
     }
 }
 */
+
+fn from_authority(_attr: &String, _authority: &String) -> bool {
+    // TODO !!!!
+    // Implement blockchain logic to determine which attribute belongs to authority
+    return true;
+}
+
+fn is_eligible(_attr: &String, _user: &String) -> bool {
+    // TODO !!!!
+    // Implement blockchain logic to determine which user is able to own which attribute
+    return true;
+}
+
 #[cfg(test)]
 mod tests {
 

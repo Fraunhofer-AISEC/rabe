@@ -4,7 +4,7 @@ extern crate serde_json;
 extern crate rand;
 
 use bn::*;
-use tools::{usize_to_fr, contains, string_to_json};
+use utils::tools::{usize_to_fr, contains, string_to_json};
 
 pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool, Vec<(String)>)> {
     let _json = string_to_json(_policy);

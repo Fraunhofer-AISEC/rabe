@@ -12,24 +12,17 @@ extern crate bincode;
 extern crate num_bigint;
 extern crate blake2_rfc;
 
-mod policy;
-mod ac17;
-mod aw11;
-mod bsw;
-mod lsw;
-mod tools;
-mod mke08;
-mod bdabe;
-mod secretsharing;
+mod utils;
+mod schemes;
 
 use clap::{Arg, App, SubCommand, ArgMatches};
 use std::process;
-use ac17::*;
-use aw11::*;
-use bsw::*;
-use mke08::*;
-use bdabe::*;
-use lsw::*;
+use schemes::ac17::*;
+use schemes::aw11::*;
+use schemes::bsw::*;
+use schemes::mke08::*;
+use schemes::bdabe::*;
+use schemes::lsw::*;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
@@ -428,19 +421,8 @@ fn main() {
             Some(_file) => _gp_file = _file.to_string(),
         }
         match _scheme {
-            Scheme::AC17CP => {
-                let (_pk, _msk) = ac17::setup();
-                write_file(
-                    Path::new(&_msk_file),
-                    serde_json::to_string_pretty(&_msk).unwrap(),
-                );
-                write_file(
-                    Path::new(&_pk_file),
-                    serde_json::to_string_pretty(&_pk).unwrap(),
-                );
-            }
-            Scheme::AC17KP => {
-                let (_pk, _msk) = ac17::setup();
+            Scheme::AC17CP | Scheme::AC17KP => {
+                let (_pk, _msk) = schemes::ac17::setup();
                 write_file(
                     Path::new(&_msk_file),
                     serde_json::to_string_pretty(&_msk).unwrap(),
@@ -451,14 +433,14 @@ fn main() {
                 );
             }
             Scheme::AW11 => {
-                let _gp = aw11::setup();
+                let _gp = schemes::aw11::setup();
                 write_file(
                     Path::new(&_gp_file),
                     serde_json::to_string_pretty(&_gp).unwrap(),
                 );
             }
             Scheme::BDABE => {
-                let (_pk, _msk) = bdabe::setup();
+                let (_pk, _msk) = schemes::bdabe::setup();
                 write_file(
                     Path::new(&_msk_file),
                     serde_json::to_string_pretty(&_msk).unwrap(),
@@ -469,7 +451,7 @@ fn main() {
                 );
             }
             Scheme::BSW => {
-                let (_pk, _msk) = bsw::setup();
+                let (_pk, _msk) = schemes::bsw::setup();
                 write_file(
                     Path::new(&_msk_file),
                     serde_json::to_string_pretty(&_msk).unwrap(),
@@ -480,7 +462,7 @@ fn main() {
                 );
             }
             Scheme::LSW => {
-                let (_pk, _msk) = lsw::setup();
+                let (_pk, _msk) = schemes::lsw::setup();
                 write_file(
                     Path::new(&_msk_file),
                     serde_json::to_string_pretty(&_msk).unwrap(),
@@ -491,7 +473,7 @@ fn main() {
                 );
             } 
             Scheme::MKE08 => {
-                let (_pk, _msk) = mke08::setup();
+                let (_pk, _msk) = schemes::mke08::setup();
                 write_file(
                     Path::new(&_msk_file),
                     serde_json::to_string_pretty(&_msk).unwrap(),
@@ -570,7 +552,7 @@ fn main() {
             Scheme::AW11 => {
                 let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
                     .unwrap();
-                match aw11::authgen(&_gp, &_attributes) {
+                match schemes::aw11::authgen(&_gp, &_attributes) {
                     None => {
                         return Err(RabeError::new(
                             "could not generate authority. Attribute set empty.",
@@ -593,7 +575,7 @@ fn main() {
                     .unwrap();
                 let _msk: BdabeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
-                let _sk: BdabeSecretAuthorityKey = bdabe::authgen(&_pk, &_msk, &_name);
+                let _sk: BdabeSecretAuthorityKey = schemes::bdabe::authgen(&_pk, &_msk, &_name);
                 write_file(
                     Path::new(&_au_file),
                     serde_json::to_string_pretty(&_sk).unwrap(),
@@ -604,7 +586,7 @@ fn main() {
                     .unwrap();
                 let _msk: Mke08MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
-                let _sk: Mke08SecretAuthorityKey = mke08::authgen(&_name);
+                let _sk: Mke08SecretAuthorityKey = schemes::mke08::authgen(&_name);
                 write_file(
                     Path::new(&_au_file),
                     serde_json::to_string_pretty(&_sk).unwrap(),
@@ -685,7 +667,7 @@ fn main() {
             Scheme::AC17CP => {
                 let _msk: Ac17MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
-                let _sk: Ac17CpSecretKey = ac17::cp_keygen(&_msk, &_attributes).unwrap();
+                let _sk: Ac17CpSecretKey = schemes::ac17::cp_keygen(&_msk, &_attributes).unwrap();
                 write_file(
                     Path::new(&_sk_file),
                     serde_json::to_string_pretty(&_sk).unwrap(),
@@ -694,7 +676,7 @@ fn main() {
             Scheme::AC17KP => {
                 let _msk: Ac17MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
-                let _sk: Ac17KpSecretKey = ac17::kp_keygen(&_msk, &_policy).unwrap();
+                let _sk: Ac17KpSecretKey = schemes::ac17::kp_keygen(&_msk, &_policy).unwrap();
                 write_file(
                     Path::new(&_sk_file),
                     serde_json::to_string_pretty(&_sk).unwrap(),
@@ -705,7 +687,7 @@ fn main() {
                     .unwrap();
                 let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _sk: CpAbeSecretKey = bsw::keygen(&_pk, &_msk, &_attributes).unwrap();
+                let _sk: CpAbeSecretKey = schemes::bsw::keygen(&_pk, &_msk, &_attributes).unwrap();
                 write_file(
                     Path::new(&_sk_file),
                     serde_json::to_string_pretty(&_sk).unwrap(),
@@ -716,7 +698,7 @@ fn main() {
                     .unwrap();
                 let _pk: KpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _sk: KpAbeSecretKey = lsw::keygen(&_pk, &_msk, &_policy).unwrap();
+                let _sk: KpAbeSecretKey = schemes::lsw::keygen(&_pk, &_msk, &_policy).unwrap();
                 write_file(
                     Path::new(&_sk_file),
                     serde_json::to_string_pretty(&_sk).unwrap(),
@@ -727,7 +709,8 @@ fn main() {
                     .unwrap();
                 let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
                     .unwrap();
-                let _sk: Aw11SecretKey = aw11::keygen(&_gp, &_msk, &_name, &_attributes).unwrap();
+                let _sk: Aw11SecretKey = schemes::aw11::keygen(&_gp, &_msk, &_name, &_attributes)
+                    .unwrap();
                 write_file(
                     Path::new(&_name_file),
                     serde_json::to_string_pretty(&_sk).unwrap(),
@@ -738,7 +721,7 @@ fn main() {
                     .unwrap();
                 let _ska: BdabeSecretAuthorityKey =
                     serde_json::from_str(&read_file(Path::new(&_ska_file))).unwrap();
-                let _sk: BdabeUserKey = bdabe::keygen(&_pk, &_ska, &_name);
+                let _sk: BdabeUserKey = schemes::bdabe::keygen(&_pk, &_ska, &_name);
                 write_file(
                     Path::new(&_name_file),
                     serde_json::to_string_pretty(&_sk).unwrap(),
@@ -750,7 +733,7 @@ fn main() {
                 let _msk: Mke08MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
                 if _name != String::from("") {
-                    let _sk: Mke08UserKey = mke08::keygen(&_pk, &_msk, &_name);
+                    let _sk: Mke08UserKey = schemes::mke08::keygen(&_pk, &_msk, &_name);
                     write_file(
                         Path::new(&_name_file),
                         serde_json::to_string_pretty(&_sk).unwrap(),
@@ -814,7 +797,7 @@ fn main() {
                     .unwrap();
                 let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _sk: Option<CpAbeSecretKey> = bsw::delegate(&_pk, &_msk, &_attributes);
+                let _sk: Option<CpAbeSecretKey> = schemes::bsw::delegate(&_pk, &_msk, &_attributes);
                 match _sk {
                     None => {
                         return Err(RabeError::new(
@@ -896,7 +879,7 @@ fn main() {
             Scheme::AC17CP => {
                 let _pk: Ac17PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _ct = ac17::cp_encrypt(&_pk, &_policy, &buffer);
+                let _ct = schemes::ac17::cp_encrypt(&_pk, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     serde_json::to_string_pretty(&_ct).unwrap(),
@@ -906,7 +889,7 @@ fn main() {
             Scheme::AC17KP => {
                 let _pk: Ac17PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _ct = ac17::kp_encrypt(&_pk, &_attributes, &buffer);
+                let _ct = schemes::ac17::kp_encrypt(&_pk, &_attributes, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     serde_json::to_string_pretty(&_ct).unwrap(),
@@ -915,7 +898,7 @@ fn main() {
             Scheme::BSW => {
                 let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _ct = bsw::encrypt(&_pk, &_policy, &buffer);
+                let _ct = schemes::bsw::encrypt(&_pk, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     serde_json::to_string_pretty(&_ct).unwrap(),
@@ -924,7 +907,7 @@ fn main() {
             Scheme::LSW => {
                 let _pk: KpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _ct = lsw::encrypt(&_pk, &_attributes, &buffer);
+                let _ct = schemes::lsw::encrypt(&_pk, &_attributes, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     serde_json::to_string_pretty(&_ct).unwrap(),
@@ -935,7 +918,7 @@ fn main() {
                     .unwrap();
                 let _pk: Aw11PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _ct = aw11::encrypt(&_gp, &_pk, &_policy, &buffer);
+                let _ct = schemes::aw11::encrypt(&_gp, &_pk, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     serde_json::to_string_pretty(&_ct).unwrap(),
@@ -946,7 +929,7 @@ fn main() {
                     .unwrap();
                 let _attr_vec: Vec<BdabePublicAttributeKey> = Vec::new();
                 // TODO : fill _attr_vec with attribute PK's
-                let _ct = bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
+                let _ct = schemes::bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     serde_json::to_string_pretty(&_ct).unwrap(),
@@ -957,7 +940,7 @@ fn main() {
                     .unwrap();
                 let _attr_vec: Vec<Mke08PublicAttributeKey> = Vec::new();
                 // TODO : fill _attr_vec with attribute PK's
-                let _ct = mke08::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
+                let _ct = schemes::mke08::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     serde_json::to_string_pretty(&_ct).unwrap(),
@@ -1003,28 +986,28 @@ fn main() {
                     .unwrap();
                 let _ct: Ac17CpCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
                     .unwrap();
-                _pt_option = ac17::cp_decrypt(&_sk, &_ct);
+                _pt_option = schemes::ac17::cp_decrypt(&_sk, &_ct);
             }
             Scheme::AC17KP => {
                 let _sk: Ac17KpSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
                     .unwrap();
                 let _ct: Ac17KpCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
                     .unwrap();
-                _pt_option = ac17::kp_decrypt(&_sk, &_ct);
+                _pt_option = schemes::ac17::kp_decrypt(&_sk, &_ct);
             }
             Scheme::BSW => {
                 let _sk: CpAbeSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
                     .unwrap();
                 let _ct: CpAbeCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
                     .unwrap();
-                _pt_option = bsw::decrypt(&_sk, &_ct);
+                _pt_option = schemes::bsw::decrypt(&_sk, &_ct);
             }
             Scheme::LSW => {
                 let _sk: KpAbeSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
                     .unwrap();
                 let _ct: KpAbeCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
                     .unwrap();
-                _pt_option = lsw::decrypt(&_sk, &_ct);
+                _pt_option = schemes::lsw::decrypt(&_sk, &_ct);
             }
             Scheme::AW11 => {
                 let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
@@ -1033,7 +1016,7 @@ fn main() {
                     .unwrap();
                 let _ct: Aw11Ciphertext = serde_json::from_str(&read_file(Path::new(&_file)))
                     .unwrap();
-                _pt_option = aw11::decrypt(&_gp, &_sk, &_ct);
+                _pt_option = schemes::aw11::decrypt(&_gp, &_sk, &_ct);
             } 
             Scheme::BDABE => {
                 /* TODO !!!
@@ -1043,7 +1026,7 @@ fn main() {
                     .unwrap();
                 let _ct: Aw11Ciphertext = serde_json::from_str(&read_file(Path::new(_file)))
                     .unwrap();
-                _pt_option = bdabe::decrypt(&_gp, &_sk, &_ct);
+                _pt_option = schemes::bdabe::decrypt(&_gp, &_sk, &_ct);
                 */
             } 
             Scheme::MKE08 => {
@@ -1053,7 +1036,7 @@ fn main() {
                     .unwrap();
                 let _ct: Mke08Ciphertext = serde_json::from_str(&read_file(Path::new(&_file)))
                     .unwrap();
-                _pt_option = mke08::decrypt(&_pk, &_sk, &_ct, &_policy);
+                _pt_option = schemes::mke08::decrypt(&_pk, &_sk, &_ct, &_policy);
             } 
         }
         match _pt_option {
