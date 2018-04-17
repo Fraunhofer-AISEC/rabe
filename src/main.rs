@@ -39,8 +39,8 @@ use std::fmt;
 #[macro_use]
 extern crate arrayref;
 
-const CT_EXTENSION: &'static str = ".rabe";
-const KEY_EXTENSION: &'static str = ".key";
+const CT_EXTENSION: &'static str = "rabe";
+const KEY_EXTENSION: &'static str = "key";
 const GP_FILE: &'static str = "gp";
 const MSK_FILE: &'static str = "msk";
 const SK_FILE: &'static str = "sk";
@@ -105,7 +105,6 @@ fn main() {
                         .long("msk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(MSK_FILE)
                         .value_name("msk")
                         .help("master secret key file."),
                 )
@@ -114,7 +113,6 @@ fn main() {
                         .long("pk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(PK_FILE)
                         .value_name("pk")
                         .help("public key file."),
                 )
@@ -123,7 +121,6 @@ fn main() {
                         .long("gp")
                         .required(false)
                         .takes_value(true)
-                        .default_value(GP_FILE)
                         .value_name("gk")
                         .help("global parameters file."),
                 ),
@@ -341,14 +338,6 @@ fn main() {
                         .takes_value(true)
                         .value_name("file")
                         .help("file to use."),
-                )
-                .arg(
-                    Arg::with_name("file")
-                        .long("file")
-                        .required(false)
-                        .takes_value(true)
-                        .value_name("file")
-                        .help("file to use."),
                 ),
         )
         .subcommand(
@@ -441,37 +430,76 @@ fn main() {
         match _scheme {
             Scheme::AC17CP => {
                 let (_pk, _msk) = ac17::setup();
-                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
-                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+                write_file(
+                    Path::new(&_msk_file),
+                    serde_json::to_string_pretty(&_msk).unwrap(),
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    serde_json::to_string_pretty(&_pk).unwrap(),
+                );
             }
             Scheme::AC17KP => {
                 let (_pk, _msk) = ac17::setup();
-                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
-                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+                write_file(
+                    Path::new(&_msk_file),
+                    serde_json::to_string_pretty(&_msk).unwrap(),
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    serde_json::to_string_pretty(&_pk).unwrap(),
+                );
             }
             Scheme::AW11 => {
                 let _gp = aw11::setup();
-                write_file(Path::new(&_gp_file), serde_json::to_string(&_gp).unwrap());
+                write_file(
+                    Path::new(&_gp_file),
+                    serde_json::to_string_pretty(&_gp).unwrap(),
+                );
             }
             Scheme::BDABE => {
                 let (_pk, _msk) = bdabe::setup();
-                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
-                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+                write_file(
+                    Path::new(&_msk_file),
+                    serde_json::to_string_pretty(&_msk).unwrap(),
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    serde_json::to_string_pretty(&_pk).unwrap(),
+                );
             }
             Scheme::BSW => {
                 let (_pk, _msk) = bsw::setup();
-                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
-                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+                write_file(
+                    Path::new(&_msk_file),
+                    serde_json::to_string_pretty(&_msk).unwrap(),
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    serde_json::to_string_pretty(&_pk).unwrap(),
+                );
             }
             Scheme::LSW => {
                 let (_pk, _msk) = lsw::setup();
-                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
-                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+                write_file(
+                    Path::new(&_msk_file),
+                    serde_json::to_string_pretty(&_msk).unwrap(),
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    serde_json::to_string_pretty(&_pk).unwrap(),
+                );
             } 
             Scheme::MKE08 => {
                 let (_pk, _msk) = mke08::setup();
-                write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
-                write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+                write_file(
+                    Path::new(&_msk_file),
+                    serde_json::to_string_pretty(&_msk).unwrap(),
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    serde_json::to_string_pretty(&_pk).unwrap(),
+                );
             }          
         }
         Ok(())
@@ -549,8 +577,14 @@ fn main() {
                         ));
                     }
                     Some((_pk, _msk)) => {
-                        write_file(Path::new(&_msk_file), serde_json::to_string(&_msk).unwrap());
-                        write_file(Path::new(&_pk_file), serde_json::to_string(&_pk).unwrap());
+                        write_file(
+                            Path::new(&_msk_file),
+                            serde_json::to_string_pretty(&_msk).unwrap(),
+                        );
+                        write_file(
+                            Path::new(&_pk_file),
+                            serde_json::to_string_pretty(&_pk).unwrap(),
+                        );
                     }
                 }
             }
@@ -560,7 +594,10 @@ fn main() {
                 let _msk: BdabeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
                 let _sk: BdabeSecretAuthorityKey = bdabe::authgen(&_pk, &_msk, &_name);
-                write_file(Path::new(&_au_file), serde_json::to_string(&_sk).unwrap());
+                write_file(
+                    Path::new(&_au_file),
+                    serde_json::to_string_pretty(&_sk).unwrap(),
+                );
             }
             Scheme::MKE08 => {
                 let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
@@ -568,7 +605,10 @@ fn main() {
                 let _msk: Mke08MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
                 let _sk: Mke08SecretAuthorityKey = mke08::authgen(&_name);
-                write_file(Path::new(&_au_file), serde_json::to_string(&_sk).unwrap());
+                write_file(
+                    Path::new(&_au_file),
+                    serde_json::to_string_pretty(&_sk).unwrap(),
+                );
             }   
         }
         Ok(())
@@ -646,13 +686,19 @@ fn main() {
                 let _msk: Ac17MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
                 let _sk: Ac17CpSecretKey = ac17::cp_keygen(&_msk, &_attributes).unwrap();
-                write_file(Path::new(&_sk_file), serde_json::to_string(&_sk).unwrap());
+                write_file(
+                    Path::new(&_sk_file),
+                    serde_json::to_string_pretty(&_sk).unwrap(),
+                );
             }
             Scheme::AC17KP => {
                 let _msk: Ac17MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
                     .unwrap();
                 let _sk: Ac17KpSecretKey = ac17::kp_keygen(&_msk, &_policy).unwrap();
-                write_file(Path::new(&_sk_file), serde_json::to_string(&_sk).unwrap());
+                write_file(
+                    Path::new(&_sk_file),
+                    serde_json::to_string_pretty(&_sk).unwrap(),
+                );
             }
             Scheme::BSW => {
                 let _msk: CpAbeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
@@ -660,7 +706,10 @@ fn main() {
                 let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
                 let _sk: CpAbeSecretKey = bsw::keygen(&_pk, &_msk, &_attributes).unwrap();
-                write_file(Path::new(&_sk_file), serde_json::to_string(&_sk).unwrap());
+                write_file(
+                    Path::new(&_sk_file),
+                    serde_json::to_string_pretty(&_sk).unwrap(),
+                );
             }
             Scheme::LSW => {
                 let _msk: KpAbeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
@@ -668,7 +717,10 @@ fn main() {
                 let _pk: KpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
                 let _sk: KpAbeSecretKey = lsw::keygen(&_pk, &_msk, &_policy).unwrap();
-                write_file(Path::new(&_sk_file), serde_json::to_string(&_sk).unwrap());
+                write_file(
+                    Path::new(&_sk_file),
+                    serde_json::to_string_pretty(&_sk).unwrap(),
+                );
             }
             Scheme::AW11 => {
                 let _msk: Aw11MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
@@ -676,7 +728,10 @@ fn main() {
                 let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
                     .unwrap();
                 let _sk: Aw11SecretKey = aw11::keygen(&_gp, &_msk, &_name, &_attributes).unwrap();
-                write_file(Path::new(&_name_file), serde_json::to_string(&_sk).unwrap());
+                write_file(
+                    Path::new(&_name_file),
+                    serde_json::to_string_pretty(&_sk).unwrap(),
+                );
             }
             Scheme::BDABE => {
                 let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
@@ -684,7 +739,10 @@ fn main() {
                 let _ska: BdabeSecretAuthorityKey =
                     serde_json::from_str(&read_file(Path::new(&_ska_file))).unwrap();
                 let _sk: BdabeUserKey = bdabe::keygen(&_pk, &_ska, &_name);
-                write_file(Path::new(&_name_file), serde_json::to_string(&_sk).unwrap());
+                write_file(
+                    Path::new(&_name_file),
+                    serde_json::to_string_pretty(&_sk).unwrap(),
+                );
             }
             Scheme::MKE08 => {
                 let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
@@ -693,7 +751,10 @@ fn main() {
                     .unwrap();
                 if _name != String::from("") {
                     let _sk: Mke08UserKey = mke08::keygen(&_pk, &_msk, &_name);
-                    write_file(Path::new(&_name_file), serde_json::to_string(&_sk).unwrap());
+                    write_file(
+                        Path::new(&_name_file),
+                        serde_json::to_string_pretty(&_sk).unwrap(),
+                    );
                 } else {
                     return Err(RabeError::new("MKE08: name for user key not set."));
                 }
@@ -763,7 +824,7 @@ fn main() {
                     Some(_delegated_key) => {
                         write_file(
                             Path::new(&_dg_file),
-                            serde_json::to_string(&_delegated_key).unwrap(),
+                            serde_json::to_string_pretty(&_delegated_key).unwrap(),
                         );
                     }
                 }
@@ -826,7 +887,8 @@ fn main() {
             Some(_file) => {
                 _pt_file = _file.to_string();
                 _ct_file = _pt_file.to_string();
-                _ct_file.push_str(&String::from(".rabe"));
+                _ct_file.push_str(".");
+                _ct_file.push_str(CT_EXTENSION);
             }
         }
         let buffer: Vec<u8> = read_to_vec(Path::new(&_pt_file));
@@ -835,26 +897,38 @@ fn main() {
                 let _pk: Ac17PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
                 let _ct = ac17::cp_encrypt(&_pk, &_policy, &buffer);
-                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+                write_file(
+                    Path::new(&_ct_file),
+                    serde_json::to_string_pretty(&_ct).unwrap(),
+                );
 
             }
             Scheme::AC17KP => {
                 let _pk: Ac17PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
                 let _ct = ac17::kp_encrypt(&_pk, &_attributes, &buffer);
-                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+                write_file(
+                    Path::new(&_ct_file),
+                    serde_json::to_string_pretty(&_ct).unwrap(),
+                );
             }
             Scheme::BSW => {
                 let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
                 let _ct = bsw::encrypt(&_pk, &_policy, &buffer);
-                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+                write_file(
+                    Path::new(&_ct_file),
+                    serde_json::to_string_pretty(&_ct).unwrap(),
+                );
             }
             Scheme::LSW => {
                 let _pk: KpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
                 let _ct = lsw::encrypt(&_pk, &_attributes, &buffer);
-                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+                write_file(
+                    Path::new(&_ct_file),
+                    serde_json::to_string_pretty(&_ct).unwrap(),
+                );
             }
             Scheme::AW11 => {
                 let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
@@ -862,7 +936,10 @@ fn main() {
                 let _pk: Aw11PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
                 let _ct = aw11::encrypt(&_gp, &_pk, &_policy, &buffer);
-                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+                write_file(
+                    Path::new(&_ct_file),
+                    serde_json::to_string_pretty(&_ct).unwrap(),
+                );
             } 
             Scheme::BDABE => {
                 let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
@@ -870,7 +947,10 @@ fn main() {
                 let _attr_vec: Vec<BdabePublicAttributeKey> = Vec::new();
                 // TODO : fill _attr_vec with attribute PK's
                 let _ct = bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
-                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+                write_file(
+                    Path::new(&_ct_file),
+                    serde_json::to_string_pretty(&_ct).unwrap(),
+                );
             } 
             Scheme::MKE08 => {
                 let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
@@ -878,7 +958,10 @@ fn main() {
                 let _attr_vec: Vec<Mke08PublicAttributeKey> = Vec::new();
                 // TODO : fill _attr_vec with attribute PK's
                 let _ct = mke08::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
-                write_file(Path::new(&_ct_file), serde_json::to_string(&_ct).unwrap());
+                write_file(
+                    Path::new(&_ct_file),
+                    serde_json::to_string_pretty(&_ct).unwrap(),
+                );
             } 
         }
         Ok(())
