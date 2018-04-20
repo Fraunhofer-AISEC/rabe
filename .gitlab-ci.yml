@@ -29,7 +29,7 @@ lib:
     - cp -R target/doc/* public
   artifacts:
     paths:
-    - public/rabe/
+    - public/
     - target/release/
   cache:
     paths:
