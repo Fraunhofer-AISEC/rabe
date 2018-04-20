@@ -1,7 +1,5 @@
-//! # AW11 Scheme
 //!
 //! This is the documentation for the `AW11` scheme:
-//! "Decentralized Attribute-Based Encryption by Lewko and Waters"
 //!
 //! Developped by:	Lewko, Allison, and Brent Waters, "Decentralizing Attribute-Based Encryption.", see Appendix D
 //! Published in:	Eurocrypt 2011
@@ -14,7 +12,6 @@
 //! # Examples
 //!
 //! ```
-//!
 //! ```
 extern crate bn;
 extern crate rand;
@@ -261,13 +258,13 @@ pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> O
         })
         .collect::<Vec<_>>();
     if traverse_str(&_str_attr, &ct._policy) == false {
-        println!("Error: attributes in sk do not match policy in ct.");
+        //println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
         let _pruned = calc_pruned_str(&_str_attr, &ct._policy);
         match _pruned {
             None => {
-                println!("Error: attributes in sk do not match policy in ct.");
+                //println!("Error: attributes in sk do not match policy in ct.");
                 return None;
             }
             Some(_p) => {
@@ -381,10 +378,7 @@ mod tests {
         // cp-abe ciphertext
         let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
-        let _matching = decrypt(&_gp, &_bob, &ct_cp);
-        match _matching {
-            None => println!("AW11: Cannot decrypt"),
-            Some(x) => println!("AW11: Result: {}", String::from_utf8(x).unwrap()),
-        }
+        let _matching = decrypt(&_gp, &_bob, &ct_cp).unwrap();
+        assert_eq!(_matching, _plaintext);
     }
 }

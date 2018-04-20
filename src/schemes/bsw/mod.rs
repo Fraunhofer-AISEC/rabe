@@ -1,7 +1,4 @@
-//! # BSW Scheme
-//!
 //! This is the documentation for the `BSW` scheme:
-//! "Ciphertext-Policy Attribute-Based Encryption by John Bethencourt, Amit Sahai, Brent Waters"
 //!
 //! Developped by:	John Bethencourt, Amit Sahai, Brent Waters, "Ciphertext-Policy Attribute-Based Encryption"
 //! Published in:	Security and Privacy, 2007. SP'07. IEEE Symposium on. IEEE
@@ -262,7 +259,7 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
         .map(|_values| _values._str.to_string())
         .collect::<Vec<_>>();
     if traverse_str(&_str_attr, &_ct._policy) == false {
-        println!("Error: attributes in sk do not match policy in ct.");
+        //println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
         let _pruned = calc_pruned_str(&_str_attr, &_ct._policy);
@@ -284,10 +281,7 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
                                          pairing(_d_j._g1, _c_j._g2).inverse())
                                         .pow(_z_tuple.1);
                             }
-
                         }
-
-
                     }
                     let _msg = _ct._c_p * ((pairing(_ct._c, _sk._d)) * _a.inverse()).inverse();
                     // Decrypt plaintext using derived secret from cp-abe scheme

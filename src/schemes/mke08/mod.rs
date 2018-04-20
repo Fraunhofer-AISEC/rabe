@@ -1,3 +1,18 @@
+//! This is the documentation for the `MKE08` scheme:
+//!
+//! Developped by:	S Müller, S Katzenbeisser, C Eckert , "Distributed Attribute-based Encryption"
+//! Published in:	International Conference on Information Security and Cryptology, Heidelberg, 2008
+//! Available from:	http://www2.seceng.informatik.tu-darmstadt.de/assets/mueller/icisc08.pdf
+//! * type:			encryption (attribute-based)
+//! * setting:		bilinear groups (asymmetric)
+//! :Authors:		Georg Bramm
+//! :Date:			04/2018
+//!
+//! # Examples
+//!
+//! ```
+//!
+//! ```
 extern crate bn;
 extern crate rand;
 extern crate serde;
@@ -5,10 +20,6 @@ extern crate serde_json;
 
 use std::string::String;
 use bn::*;
-use crypto::digest::Digest;
-use crypto::sha3::Sha3;
-use bincode::*;
-use rand::Rng;
 use utils::policy::dnf::DnfPolicy;
 use utils::tools::*;
 use utils::aes::*;
@@ -76,16 +87,20 @@ pub struct Mke08SecretAttributeKey {
 
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08Ciphertext {
-    pub _str: Vec<Vec<String>>,
-    pub _e_j1: Vec<bn::Gt>,
-    pub _e_j2: Vec<bn::Gt>,
-    pub _e_j3: Vec<bn::G1>,
-    pub _e_j4: Vec<bn::G2>,
-    pub _e_j5: Vec<bn::G1>,
-    pub _e_j6: Vec<bn::G2>,
+    pub _e: Vec<Mke08CTConjunction>,
     pub _ct: Vec<u8>,
 }
 
+#[derive(Serialize, Deserialize, PartialEq)]
+pub struct Mke08CTConjunction {
+    pub _str: Vec<String>,
+    pub _j1: bn::Gt,
+    pub _j2: bn::Gt,
+    pub _j3: bn::G1,
+    pub _j4: bn::G2,
+    pub _j5: bn::G1,
+    pub _j6: bn::G2,
+}
 
 //For C
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -223,33 +238,23 @@ pub fn encrypt(
         let _msg2 = _msg1.pow(Fr::random(_rng));
         let _msg = _msg1 * _msg2;
         // CT result vectors
-        let mut _e_str: Vec<Vec<String>> = Vec::new();
-        let mut _e_j1: Vec<bn::Gt> = Vec::new();
-        let mut _e_j2: Vec<bn::Gt> = Vec::new();
-        let mut _e_j3: Vec<bn::G1> = Vec::new();
-        let mut _e_j4: Vec<bn::G2> = Vec::new();
-        let mut _e_j5: Vec<bn::G1> = Vec::new();
-        let mut _e_j6: Vec<bn::G2> = Vec::new();
+        let mut _e: Vec<Mke08CTConjunction> = Vec::new();
         // now add randomness using _r_j
-        for _term in dnf._terms {
+        for _term in dnf._terms.into_iter() {
             let _r_j = Fr::random(_rng);
-            _e_str.push(_term.0);
-            _e_j1.push(_term.1.pow(_r_j) * _msg1);
-            _e_j2.push(_term.2.pow(_r_j) * _msg2);
-            _e_j3.push(_pk._p1 * _r_j);
-            _e_j4.push(_pk._p2 * _r_j);
-            _e_j5.push(_term.3 * _r_j);
-            _e_j6.push(_term.4 * _r_j);
+            _e.push(Mke08CTConjunction {
+                _str: _term.0,
+                _j1: _term.1.pow(_r_j) * _msg1,
+                _j2: _term.2.pow(_r_j) * _msg2,
+                _j3: _pk._p1 * _r_j,
+                _j4: _pk._p2 * _r_j,
+                _j5: _term.3 * _r_j,
+                _j6: _term.4 * _r_j,
+            });
         }
         //Encrypt plaintext using derived key from secret
         return Some(Mke08Ciphertext {
-            _str: _e_str,
-            _e_j1: _e_j1,
-            _e_j2: _e_j2,
-            _e_j3: _e_j3,
-            _e_j4: _e_j4,
-            _e_j5: _e_j5,
-            _e_j6: _e_j6,
+            _e: _e,
             _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
         });
     } else {
@@ -276,17 +281,17 @@ pub fn decrypt(
         })
         .collect::<Vec<_>>();
     if traverse_str(&_attr, &_policy) == false {
-        println!("Error: attributes in sk do not match policy in ct.");
+        //println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
         let mut _msg = Gt::one();
-        for _i in 0usize.._ct._str.len() {
-            if is_satisfiable(&_ct._str[_i], &_sk._sk_a) {
-                let _sk_sum = calc_satisfiable(&_ct._str[_i], &_sk._sk_a);
-                _msg = _ct._e_j1[_i] * _ct._e_j2[_i] * pairing(_ct._e_j3[_i], _sk_sum.1) *
-                    pairing(_sk_sum.0, _ct._e_j4[_i]) *
-                    (pairing(_ct._e_j5[_i], _sk._sk_u._sk_g2) *
-                         pairing(_sk._sk_u._sk_g1, _ct._e_j6[_i])).inverse();
+        for (_i, _e_j) in _ct._e.iter().enumerate() {
+            if is_satisfiable(&_e_j._str, &_sk._sk_a) {
+                let _sk_sum = calc_satisfiable(&_e_j._str, &_sk._sk_a);
+                _msg = _e_j._j1 * _e_j._j2 * pairing(_e_j._j3, _sk_sum.1) *
+                    pairing(_sk_sum.0, _e_j._j4) *
+                    (pairing(_e_j._j5, _sk._sk_u._sk_g2) * pairing(_sk._sk_u._sk_g1, _e_j._j6))
+                        .inverse();
                 break;
             }
         }

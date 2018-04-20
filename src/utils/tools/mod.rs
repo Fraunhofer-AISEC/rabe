@@ -26,7 +26,7 @@ pub fn usize_to_fr(_i: usize) -> Fr {
 pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
     match serde_json::from_str(policy) {
         Err(_) => {
-            println!("Error: cannot parse string as json");
+            //println!("Error: cannot parse string as json");
             return None;
         }
         Ok(pol) => {
@@ -36,24 +36,10 @@ pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
 }
 
 pub fn traverse_str(_attr: &Vec<String>, _policy: &String) -> bool {
-    match serde_json::from_str(_policy) {
-        Err(_) => {
-            println!("Error parsing policy {:?}", _policy);
-            return false;
-        }
-        Ok(pol) => {
-            return traverse_json(_attr, &pol);
-        }
+    match string_to_json(_policy) {
+        None => return false,
+        Some(_value) => return traverse_json(_attr, &_value),
     }
-}
-
-pub fn flatten(data: &Vec<(String, bn::G1, bn::G2)>) -> Vec<String> {
-    data.iter()
-        .map(|triple| {
-            let (_s, _g1, _g2) = triple.clone();
-            _s
-        })
-        .collect::<Vec<_>>()
 }
 
 pub fn contains(data: &Vec<(String)>, value: &String) -> bool {
@@ -128,8 +114,6 @@ pub fn traverse_json(_attr: &Vec<String>, _json: &serde_json::Value) -> bool {
         return false;
     }
 }
-
-
 /////////////////////////////////////////////////////////////////////
 // HASH TO GROUP FUNTIONS
 /////////////////////////////////////////////////////////////////////

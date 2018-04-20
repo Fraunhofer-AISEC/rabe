@@ -1,3 +1,36 @@
+//! This is the documentation for the `BDABE` scheme:
+//!
+//! Developped by:	Bramm, Gall, Schuette , "Blockchain based Distributed Attribute-based Encryption"
+//! Published in:	not yet
+//! Available from:	not yet
+//! * type:			encryption (attribute-based)
+//! * setting:		bilinear groups (asymmetric)
+//! :Authors:		Georg Bramm
+//! :Date:			04/2018
+//!
+//! # Examples
+//!
+//! ```
+//!use rabe::schemes::bdabe::*;
+//!let (_pk, _msk) = setup();
+//!let _a1_key = authgen(&_pk, &_msk, &String::from("aa1"));
+//!let mut _u_key = keygen(&_pk, &_a1_key, &String::from("u1"));
+//!let _att1 = String::from("A");
+//!let _att1_pk = request_attribute_pk(&_pk, &_a1_key, &_att1).unwrap();
+//!_u_key._ska.push(
+//!    request_attribute_sk(
+//!        &_u_key._pk,
+//!        &_a1_key,
+//!        &_att1,
+//!    ).unwrap(),
+//!);
+//!let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
+//!let _policy = String::from(r#"{"ATT": "A"}"#);
+//!let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk], &_policy, &_plaintext).unwrap();
+//!let _match = decrypt(&_pk, &_u_key, &_policy, &_ct);
+//!assert_eq!(_match.is_some(), true);
+//!assert_eq!(_match.unwrap(), _plaintext);
+//! ```
 extern crate bn;
 extern crate rand;
 extern crate serde;
@@ -5,17 +38,11 @@ extern crate serde_json;
 
 use std::string::String;
 use bn::*;
-use crypto::digest::Digest;
-use crypto::sha3::Sha3;
-use bincode::*;
-use rand::Rng;
 use utils::policy::*;
 use utils::tools::*;
 use utils::aes::*;
 
-//////////////////////////////////////////////////////
-// BDABE ABE structs
-//////////////////////////////////////////////////////
+/// A BDABE Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabePublicKey {
     pub _g1: bn::G1,
@@ -25,11 +52,13 @@ pub struct BdabePublicKey {
     pub _e_gg_y: bn::Gt,
 }
 
+/// A BDABE Master Key (MK)
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeMasterKey {
     pub _y: bn::Fr,
 }
 
+/// A BDABE User Key (PKu, SKu and SKa's)
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeUserKey {
     pub _sk: BdabeSecretUserKey,
@@ -37,6 +66,7 @@ pub struct BdabeUserKey {
     pub _ska: Vec<BdabeSecretAttributeKey>,
 }
 
+/// A BDABE Public User Key (PKu)
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabePublicUserKey {
     pub _u: String,
@@ -44,20 +74,22 @@ pub struct BdabePublicUserKey {
     pub _u2: bn::G2,
 }
 
+/// A BDABE Secret User Key (SKu)
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeSecretUserKey {
     pub _u1: bn::G1,
     pub _u2: bn::G2,
 }
 
+/// A BDABE Secret Attribute Key (SKa)
 #[derive(Serialize, Deserialize, PartialEq)]
-pub struct BdabeSecretAuthorityKey {
-    pub _a1: bn::G1,
-    pub _a2: bn::G2,
-    pub _a3: bn::Fr,
-    pub _a: String,
+pub struct BdabeSecretAttributeKey {
+    pub _str: String,
+    pub _au1: bn::G1,
+    pub _au2: bn::G2,
 }
 
+/// A BDABE Public Attribute Key (PKa)
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabePublicAttributeKey {
     pub _str: String,
@@ -66,12 +98,16 @@ pub struct BdabePublicAttributeKey {
     pub _a3: bn::Gt,
 }
 
+/// A BDABE Secret Authority Key (SKauth)
 #[derive(Serialize, Deserialize, PartialEq)]
-pub struct BdabeSecretAttributeKey {
-    pub _au1: bn::G1,
-    pub _au2: bn::G2,
+pub struct BdabeSecretAuthorityKey {
+    pub _a1: bn::G1,
+    pub _a2: bn::G2,
+    pub _a3: bn::Fr,
+    pub _a: String,
 }
 
+/// A Ciphertext Tuple representing a conjunction in a CT
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeCiphertextTuple {
     pub _str: Vec<String>,
@@ -82,6 +118,7 @@ pub struct BdabeCiphertextTuple {
     pub _e5: bn::G2,
 }
 
+/// A BDABE Ciphertext (CT)
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeCiphertext {
     pub _policy: String,
@@ -89,24 +126,20 @@ pub struct BdabeCiphertext {
     pub _ct: Vec<u8>,
 }
 
-//For C
+/// A BDABE Global Context
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeGlobalContext {
     pub _gk: BdabePublicKey,
 }
 
-//For C
+/// A BDABE Context
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct BdabeContext {
     pub _mk: BdabeMasterKey,
     pub _pk: BdabePublicKey,
 }
 
-//////////////////////////////////////////
-// BDABE on type-3
-//////////////////////////////////////////
-
-// global key generation
+/// The setup algorithm of BDABE. Generates a BdabePublicKey and a BdabeMasterKey.
 pub fn setup() -> (BdabePublicKey, BdabeMasterKey) {
     // random number generator
     let _rng = &mut rand::thread_rng();
@@ -128,8 +161,20 @@ pub fn setup() -> (BdabePublicKey, BdabeMasterKey) {
     );
 }
 
-// authority setup
-pub fn authgen(_pk: &BdabePublicKey, _mk: &BdabeMasterKey, _a: &String) -> BdabeSecretAuthorityKey {
+/// Sets up and generates a new Authority by creating a secret authority key (SKauth).
+/// The key is created for an authority with a given "name".
+///
+/// # Arguments
+///
+///	* `_pk` - A BdabePublicKey (PK), generated by setup()
+///	* `_mk` - A BdabeMasterKey (MK), generated by setup()
+///	* `_name` - The name of the authority the key is associated with. Must be unique.
+///
+pub fn authgen(
+    _pk: &BdabePublicKey,
+    _mk: &BdabeMasterKey,
+    _name: &String,
+) -> BdabeSecretAuthorityKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
     let _alpha = Fr::random(_rng);
@@ -139,12 +184,26 @@ pub fn authgen(_pk: &BdabePublicKey, _mk: &BdabeMasterKey, _a: &String) -> Bdabe
         _a1: _pk._g1 * _alpha,
         _a2: _pk._g2 * _beta,
         _a3: Fr::random(_rng),
-        _a: _a.clone(),
+        _a: _name.clone(),
     };
 }
 
-// user key generation
-pub fn keygen(_pk: &BdabePublicKey, _ska: &BdabeSecretAuthorityKey, _u: &String) -> BdabeUserKey {
+/// Sets up and generates a new User by creating a secret user key (SK).
+/// The key is created for an user with a given "name".
+/// It consists of a BdabeSecretUserKey and a BdabePublicUserKey as well as
+/// an empty vector of BdabeSecretAttributeKeys.
+///
+/// # Arguments
+///
+///	* `_pk` - A BdabePublicKey (PK), generated by setup()
+///	* `_ska` - A BdabeSecretAuthorityKey (SKauth), associated with an authority and generated by authgen()
+///	* `_name` - The name of the user the key is associated with. Must be unique.
+///
+pub fn keygen(
+    _pk: &BdabePublicKey,
+    _ska: &BdabeSecretAuthorityKey,
+    _name: &String,
+) -> BdabeUserKey {
     // random number generator
     let _rng = &mut rand::thread_rng();
     let _r_u = Fr::random(_rng);
@@ -155,7 +214,7 @@ pub fn keygen(_pk: &BdabePublicKey, _ska: &BdabeSecretAuthorityKey, _u: &String)
             _u2: _ska._a2 + (_pk._p2 * _r_u),
         },
         _pk: BdabePublicUserKey {
-            _u: _u.clone(),
+            _u: _name.clone(),
             _u1: _pk._g1 * _r_u,
             _u2: _pk._g2 * _r_u,
         },
@@ -163,18 +222,25 @@ pub fn keygen(_pk: &BdabePublicKey, _ska: &BdabeSecretAuthorityKey, _u: &String)
     };
 }
 
-// request an attribute PK from an authority
+/// Generates a new BdabePublicAttributeKey for a requested attribute, if it is handled by the authority _ska.
+///
+/// # Arguments
+///
+///	* `_pk` - A BdabePublicKey (PK), generated by setup()
+///	* `_ska` - A BdabeSecretAuthorityKey (SKauth), associated with an authority and generated by authgen()
+///	* `_attribute` - The attribute value as String
+///
 pub fn request_attribute_pk(
     _pk: &BdabePublicKey,
-    _sk_a: &BdabeSecretAuthorityKey,
-    _a: &String,
+    _ska: &BdabeSecretAuthorityKey,
+    _attribute: &String,
 ) -> Option<BdabePublicAttributeKey> {
     // if attribute a is from authority sk_a
-    if from_authority(_a, &_sk_a._a) {
-        let exponent = blake2b_hash_fr(_a) * blake2b_hash_fr(&_sk_a._a) * _sk_a._a3;
+    if from_authority(_attribute, &_ska._a) {
+        let exponent = blake2b_hash_fr(_attribute) * blake2b_hash_fr(&_ska._a) * _ska._a3;
         // return PK and mke
         return Some(BdabePublicAttributeKey {
-            _str: _a.clone(),
+            _str: _attribute.clone(),
             _a1: _pk._g1 * exponent,
             _a2: _pk._g2 * exponent,
             _a3: _pk._e_gg_y.pow(exponent),
@@ -184,27 +250,43 @@ pub fn request_attribute_pk(
     }
 }
 
-// request an attribute PK from an authority
+/// Generates a new BdabeSecretAttributeKey for a requested attribute, if it is handled by the authority _ska and user _pk_u is eligible to recieve it.
+///
+/// # Arguments
+///
+///	* `_pku` - A BdabePublicUserKey (PK), generated by keygen()
+///	* `_ska` - A BdabeSecretAuthorityKey (SKauth), associated with an authority and generated by authgen()
+///	* `_attribute` - The attribute value as String
+///
 pub fn request_attribute_sk(
-    _a: &String,
-    _sk_a: &BdabeSecretAuthorityKey,
-    _pk_u: &BdabePublicUserKey,
+    _pku: &BdabePublicUserKey,
+    _ska: &BdabeSecretAuthorityKey,
+    _attribute: &String,
 ) -> Option<BdabeSecretAttributeKey> {
     // if attribute a is from authority sk_a
-    if from_authority(_a, &_sk_a._a) && is_eligible(_a, &_pk_u._u) {
-        let exponent = blake2b_hash_fr(_a) * blake2b_hash_fr(&_sk_a._a) * _sk_a._a3;
+    if from_authority(_attribute, &_ska._a) && is_eligible(_attribute, &_pku._u) {
+        let exponent = blake2b_hash_fr(_attribute) * blake2b_hash_fr(&_ska._a) * _ska._a3;
         // return PK and mke
         return Some(BdabeSecretAttributeKey {
-            _au1: _pk_u._u1 * exponent,
-            _au2: _pk_u._u2 * exponent,
+            _str: _attribute.to_string(),
+            _au1: _pku._u1 * exponent,
+            _au2: _pku._u2 * exponent,
         });
     } else {
         return None;
     }
 }
-/* encrypt
- * _attr_pks is a vector of all public attribute keys
- */
+
+/// The encrypt algorithm of BDABE. Generates an BdabeCiphertext using an BdabePublicKey,
+/// a Vector of BdabePublicAttributeKeys, an access policy given as String as well as some plaintext data given as [u8].
+///
+/// # Arguments
+///
+///	* `_pk` - A Public Key (PK), generated by the function setup()
+///	* `_attr_pks` - A Vector of all BdabePublicAttributeKeys that involded in the policy
+///	* `_policy` - An access policy given as JSON String
+///	* `_plaintext` - plaintext data given as a Vector of u8
+///
 pub fn encrypt(
     _pk: &BdabePublicKey,
     _attr_pks: &Vec<BdabePublicAttributeKey>,
@@ -244,29 +326,35 @@ pub fn encrypt(
     }
 }
 
-/*
- * decrypt
- * Decrypt a ciphertext
- * SK is the user's private key dictionary sk.attr: { xxx , xxx }
-
+/// The decrypt algorithm of BDABE. Reconstructs the original plaintext data as Vec<u8>, given a BdabeCiphertext with a matching BdabeUserKey.
+///
+/// # Arguments
+///
+///	* `_pk` - A BdabePublicKey (PK), generated by the function setup()
+///	* `_sk` - A BdabeUserKey (SK), generated by the function keygen()
+///	* `_policy` - An access policy given as JSON String()
+///	* `_ct` - A BdabeCiphertext Ciphertext
+///
 pub fn decrypt(
     _pk: &BdabePublicKey,
-    _ct: &BdabeCiphertext,
     _sk: &BdabeUserKey,
     _policy: &String,
+    _ct: &BdabeCiphertext,
 ) -> Option<Vec<u8>> {
-    if traverse_str(&flatten_mke08(&_sk._sk_a), &_policy) == false {
-        println!("Error: attributes in sk do not match policy in ct.");
+    let _str_attr = _sk._ska
+        .iter()
+        .map(|_values| _values._str.to_string())
+        .collect::<Vec<_>>();
+    if traverse_str(&_str_attr, &_policy) == false {
+        //println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
-        let mut _msg = Gt::zero();
-        for _i in 0usize.._ct._str.len() {
-            if is_satisfiable(&_ct._str[_i], &_sk._sk_a) {
-                let _sk_sum = calc_satisfiable(&_ct._str[_i], &_sk._sk_a);
-                _msg = _ct._e_j1[_i] * _ct._e_j2[_i] * pairing(_ct._e_j3[_i], _sk_sum.1) *
-                    pairing(_sk_sum.0, _ct._e_j4[_i]) *
-                    (pairing(_ct._e_j5[_i], _sk._sk_u._sk_g2) *
-                         pairing(_sk._sk_u._sk_g1, _ct._e_j6[_i])).inverse();
+        let mut _msg = Gt::one();
+        for (_i, _ct_j) in _ct._j.iter().enumerate() {
+            if is_satisfiable(&_ct_j._str, &_sk._ska) {
+                let _sk_sum = calc_satisfiable(&_ct_j._str, &_sk._ska);
+                _msg = _ct_j._e1 * pairing(_ct_j._e2, _sk_sum.1) * pairing(_sk_sum.0, _ct_j._e3) *
+                    (pairing(_ct_j._e4, _sk._sk._u2) * pairing(_sk._sk._u1, _ct_j._e5)).inverse();
                 break;
             }
         }
@@ -274,7 +362,7 @@ pub fn decrypt(
         return decrypt_symmetric(&_msg, &_ct._ct);
     }
 }
-*/
+
 
 fn from_authority(_attr: &String, _authority: &String) -> bool {
     // TODO !!!!
@@ -288,11 +376,47 @@ fn is_eligible(_attr: &String, _user: &String) -> bool {
     return true;
 }
 
+fn is_satisfiable(_conjunction: &Vec<String>, _sk: &Vec<BdabeSecretAttributeKey>) -> bool {
+    let mut _ret: bool = true;
+    for _attr in _conjunction {
+        match _sk.into_iter().find(|&x| x._str == *_attr) {
+            None => {
+                _ret = false;
+                break;
+            }
+            Some(_attr_sk) => {}
+        }
+    }
+    _ret
+}
+
+fn calc_satisfiable(
+    _conjunction: &Vec<String>,
+    _sk: &Vec<BdabeSecretAttributeKey>,
+) -> (bn::G1, bn::G2) {
+    let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
+    for _i in 0usize.._conjunction.len() {
+        match _sk.into_iter().find(
+            |&x| x._str == _conjunction[_i].to_string(),
+        ) {
+            None => {}
+            Some(_found) => {
+                if _i == 0 {
+                    ret = (_found._au1, _found._au2);
+                } else {
+                    ret = (ret.0 + _found._au1, ret.1 + _found._au2);
+                }
+            }
+        }
+    }
+    ret
+}
+
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
-
 
     #[test]
     fn test_and() {
@@ -314,16 +438,16 @@ mod tests {
         // add attribute sk's to user key
         _u_key._ska.push(
             request_attribute_sk(
-                &_att1,
-                &_a1_key,
                 &_u_key._pk,
+                &_a1_key,
+                &_att1,
             ).unwrap(),
         );
         _u_key._ska.push(
             request_attribute_sk(
-                &_att2,
-                &_a2_key,
                 &_u_key._pk,
+                &_a2_key,
+                &_att2,
             ).unwrap(),
         );
         // our plaintext
@@ -335,9 +459,9 @@ mod tests {
         let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
             .unwrap();
         // and now decrypt again with mathcing sk
-        //et _match = decrypt(&_pk, &_ct, &_u_key, &_policy);
-        //assert_eq!(_match.is_some(), true);
-        //assert_eq!(_match.unwrap(), _plaintext);
+        let _match = decrypt(&_pk, &_u_key, &_policy, &_ct);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), _plaintext);
     }
 
 
@@ -361,16 +485,16 @@ mod tests {
         // add attribute sk's to user key
         _u_key._ska.push(
             request_attribute_sk(
-                &_att1,
-                &_a1_key,
                 &_u_key._pk,
+                &_a1_key,
+                &_att1,
             ).unwrap(),
         );
         _u_key._ska.push(
             request_attribute_sk(
-                &_att2,
-                &_a2_key,
                 &_u_key._pk,
+                &_a2_key,
+                &_att2,
             ).unwrap(),
         );
         // our plaintext
@@ -382,8 +506,8 @@ mod tests {
         let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
             .unwrap();
         // and now decrypt again with mathcing sk
-        //let _match = decrypt(&_pk, &_ct, &_u_key, &_policy);
-        //assert_eq!(_match.is_some(), true);
-        //assert_eq!(_match.unwrap(), _plaintext);
+        let _match = decrypt(&_pk, &_u_key, &_policy, &_ct);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), _plaintext);
     }
 }

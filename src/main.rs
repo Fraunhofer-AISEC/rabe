@@ -918,7 +918,10 @@ fn main() {
                     .unwrap();
                 let _pk: Aw11PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _ct = schemes::aw11::encrypt(&_gp, &_pk, &_policy, &buffer);
+                // TODO : multiple pks per policy
+                let mut _pks: Vec<Aw11PublicKey> = Vec::new();
+                _pks.push(_pk);
+                let _ct = schemes::aw11::encrypt(&_gp, &_pks, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     serde_json::to_string_pretty(&_ct).unwrap(),
