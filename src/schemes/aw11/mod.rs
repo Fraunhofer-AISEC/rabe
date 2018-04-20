@@ -309,7 +309,13 @@ pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> O
         }
     }
 }
-
+/// private function. finds the value vector of a specific attribute in a vector of various public keys
+///
+/// # Arguments
+///
+///	* `_pks` - A vector of Aw11PublicKeys
+///	* `_attr` - An attribute
+///
 fn find_pk_attr(_pks: &Vec<Aw11PublicKey>, _attr: &String) -> Option<(String, bn::Gt, bn::G2)> {
     for _pk in _pks.into_iter() {
         let _pk_attr = _pk._attr
