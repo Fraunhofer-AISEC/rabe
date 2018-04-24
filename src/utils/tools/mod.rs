@@ -26,7 +26,6 @@ pub fn usize_to_fr(_i: usize) -> Fr {
 pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
     match serde_json::from_str(policy) {
         Err(_) => {
-            //println!("Error: cannot parse string as json");
             return None;
         }
         Ok(pol) => {

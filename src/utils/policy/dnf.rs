@@ -161,7 +161,7 @@ pub fn dnf<K: PublicAttributeKey>(
     if _p["OR"].is_array() {
         let len = _p["OR"].as_array().unwrap().len();
         for i in 0usize..len {
-            ret = ret && dnf(_dnfp, _pks, &_p["OR"][i], (i + _i))
+            ret = ret && dnf(_dnfp, _pks, &_p["OR"][i], i + _i)
         }
         return ret;
 

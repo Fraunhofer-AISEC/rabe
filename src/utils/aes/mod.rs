@@ -52,15 +52,14 @@ pub fn decrypt_symmetric(_msg: &bn::Gt, _iv_ct: &Vec<u8>) -> Option<Vec<u8>> {
 }
 
 
-// Decrypts a buffer with the given key and iv using
-// AES-256/CBC/Pkcs encryption.
-//
-// This function is very similar to encrypt(), so, please reference
-// comments in that function. In non-example code, if desired, it is possible to
-// share much of the implementation using closures to hide the operation
-// being performed. However, such code would make this example less clear.
-// Encrypt a buffer with the given key and iv using
-// AES-256/CBC/Pkcs encryption.
+/// Decrypts a buffer with the given key and iv using AES-256/CBC/Pkcs encryption.
+///
+/// This function is very similar to encrypt(), so, please reference
+/// comments in that function. In non-example code, if desired, it is possible to
+/// share much of the implementation using closures to hide the operation
+/// being performed. However, such code would make this example less clear.
+/// Encrypt a buffer with the given key and iv using
+/// AES-256/CBC/Pkcs encryption.
 fn encrypt_aes(
     data: &[u8],
     key: &[u8],
@@ -126,13 +125,12 @@ fn encrypt_aes(
     Ok(final_result)
 }
 
-// Decrypts a buffer with the given key and iv using
-// AES-256/CBC/Pkcs encryption.
-//
-// This function is very similar to encrypt(), so, please reference
-// comments in that function. In non-example code, if desired, it is possible to
-// share much of the implementation using closures to hide the operation
-// being performed. However, such code would make this example less clear.
+/// Decrypts a buffer with the given key and iv using AES-256/CBC/Pkcs encryption.
+///
+/// This function is very similar to encrypt(), so, please reference
+/// comments in that function. In non-example code, if desired, it is possible to
+/// share much of the implementation using closures to hide the operation
+/// being performed. However, such code would make this example less clear.
 fn decrypt_aes(
     encrypted_data: &[u8],
     key: &[u8],

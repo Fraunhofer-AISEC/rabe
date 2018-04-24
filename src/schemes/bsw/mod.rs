@@ -16,8 +16,8 @@
 //!let plaintext = String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
 //!let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
 //!let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
-//!let _match = decrypt(&keygen(&pk, &msk, &vec!["A".to_string(), "B".to_string()]).unwrap(), &ct_cp);
-//!assert_eq!(_match.is_some(), true);
+//!let sk: CpAbeSecretKey = keygen(&pk, &msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
+//!assert_eq!(decrypt(&sk, &ct_cp).unwrap(), plaintext);
 //! ```
 extern crate libc;
 extern crate serde;
