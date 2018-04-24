@@ -25,3 +25,11 @@ pub fn blake2b_hash_fr(data: &String) -> Fr {
     let hash = blake2b(64, &[], data.as_bytes());
     return Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
 }
+/*
+
+// generic function used to hash
+pub fn blake2b_hash<T>(g: T, data: &String) -> T {
+    let hash = blake2b(64, &[], data.as_bytes());
+    return g * Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
+}
+*/
