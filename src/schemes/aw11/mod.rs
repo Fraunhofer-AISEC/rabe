@@ -1,4 +1,3 @@
-//!
 //! This is the documentation for the `AW11` scheme:
 //!
 //! Developped by:	Lewko, Allison, and Brent Waters, "Decentralizing Attribute-Based Encryption.", see Appendix D
@@ -12,6 +11,15 @@
 //! # Examples
 //!
 //! ```
+//!use rabe::schemes::aw11::*;
+//!let gk = setup();
+//!let (pk, msk) = authgen(&gk, &vec!["A".to_string(), "B".to_string()]).unwrap();
+//!let plaintext = String::from("our plaintext!").into_bytes();
+//!let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+//!let bob = keygen(&gk, &msk, &String::from("bob"), &vec!["A".to_string()]).unwrap();
+//!let ct: Aw11Ciphertext = encrypt(&gk, &vec![pk], &policy, &plaintext).unwrap();
+//!let matching = decrypt(&gk, &bob, &ct).unwrap();
+//!assert_eq!(matching, plaintext);
 //! ```
 extern crate bn;
 extern crate rand;

@@ -11,7 +11,13 @@
 //! # Examples
 //!
 //! ```
-//!
+//!use rabe::schemes::bsw::*;
+//!let (pk, msk) = setup();
+//!let plaintext = String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
+//!let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+//!let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
+//!let _match = decrypt(&keygen(&pk, &msk, &vec!["A".to_string(), "B".to_string()]).unwrap(), &ct_cp);
+//!assert_eq!(_match.is_some(), true);
 //! ```
 extern crate libc;
 extern crate serde;

@@ -14,7 +14,7 @@ pub struct DnfPolicy {
     pub _terms: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)>,
 }
 
-
+#[allow(dead_code)]
 impl DnfPolicy {
     /// Returns a new DNF policy based on a textual dnf policy.
     ///
@@ -109,10 +109,6 @@ impl PublicAttributeKey for BdabePublicAttributeKey {
     fn _gt1(&self) -> bn::Gt {
         self._a3
     }
-}
-
-fn get_pka_str(key: &PublicAttributeKey) -> String {
-    key._str()
 }
 
 pub fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {

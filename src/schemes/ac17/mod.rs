@@ -277,7 +277,7 @@ pub fn cp_encrypt(
     let mut _hash_table: Vec<Vec<Vec<(bn::G1)>>> = Vec::new();
     for _j in 0usize.._num_cols {
         let mut _x: Vec<Vec<(bn::G1)>> = Vec::new();
-        let _hash1 = combine_two_strings(&String::from("0"), (_j + 1));
+        let _hash1 = combine_two_strings(&String::from("0"), _j + 1);
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
             let mut _y: Vec<(bn::G1)> = Vec::new();
             let _hash2 = combine_two_strings(&_hash1, _l);

@@ -16,6 +16,7 @@ pub struct AbePolicy {
     pub _deg: usize,
 }
 
+#[allow(dead_code)]
 impl AbePolicy {
     /// Returns a new ABE policy based on a textual policy. The policy is generated using Lewo et al. conversion algorithm.
     ///
