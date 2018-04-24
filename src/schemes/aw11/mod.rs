@@ -1,12 +1,12 @@
-//! This is the documentation for the `AW11` scheme:
+//! This is the documentation for the `AW11` scheme.
 //!
-//! Developped by:	Lewko, Allison, and Brent Waters, "Decentralizing Attribute-Based Encryption.", see Appendix D
-//! Published in:	Eurocrypt 2011
-//! Available from:	http://eprint.iacr.org/2010/351.pdf
-//! * type:			encryption (identity-based)
-//! * setting:		bilinear groups (asymmetric)
-//! :Authors:		Georg Bramm
-//! :Date:			04/2018
+//! * Developped by Lewko, Allison, and Brent Waters, "Decentralizing Attribute-Based Encryption.", see Appendix D
+//! * Published in Eurocrypt 2011
+//! * Available from http://eprint.iacr.org/2010/351.pdf
+//! * Type:			encryption (identity-based)
+//! * Setting:		bilinear groups (asymmetric)
+//! * Authors:		Georg Bramm
+//! * Date:			04/2018
 //!
 //! # Examples
 //!

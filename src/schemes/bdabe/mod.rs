@@ -1,12 +1,12 @@
-//! This is the documentation for the `BDABE` scheme:
+//! This is the documentation for the `BDABE` scheme.
 //!
-//! Developped by:	Bramm, Gall, Schuette , "Blockchain based Distributed Attribute-based Encryption"
-//! Published in:	not yet
-//! Available from:	not yet
-//! * type:			encryption (attribute-based)
-//! * setting:		bilinear groups (asymmetric)
-//! :Authors:		Georg Bramm
-//! :Date:			04/2018
+//! * Developped by Bramm, Gall, Schuette , "Blockchain based Distributed Attribute-based Encryption"
+//! * Published in not yet
+//! * Available from not yet
+//! * Type:	encryption (attribute-based)
+//! * Setting: bilinear groups (asymmetric)
+//! * Authors: Georg Bramm
+//! * Date: 04/2018
 //!
 //! # Examples
 //!

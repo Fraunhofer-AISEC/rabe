@@ -1,12 +1,12 @@
 //! This is the documentation for the `BSW` scheme:
 //!
-//! Developped by:	John Bethencourt, Amit Sahai, Brent Waters, "Ciphertext-Policy Attribute-Based Encryption"
-//! Published in:	Security and Privacy, 2007. SP'07. IEEE Symposium on. IEEE
-//! Available from:	https://doi.org/10.1109/SP.2007.11
-//! * type:			encryption (attribute-based)
-//! * setting:		bilinear groups (asymmetric)
-//! :Authors:		Georg Bramm
-//! :Date:			04/2018
+//! * Developped by John Bethencourt, Amit Sahai, Brent Waters, "Ciphertext-Policy Attribute-Based Encryption"
+//! * Published in Security and Privacy, 2007. SP'07. IEEE Symposium on. IEEE
+//! * Available from https://doi.org/10.1109/SP.2007.11
+//! * Type: encryption (attribute-based)
+//! * Setting: bilinear groups (asymmetric)
+//! * Authors: Georg Bramm
+//! * Date: 04/2018
 //!
 //! # Examples
 //!

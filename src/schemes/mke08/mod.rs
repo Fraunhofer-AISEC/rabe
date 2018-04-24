@@ -1,12 +1,12 @@
 //! This is the documentation for the `MKE08` scheme:
 //!
-//! Developped by:	S Müller, S Katzenbeisser, C Eckert , "Distributed Attribute-based Encryption"
-//! Published in:	International Conference on Information Security and Cryptology, Heidelberg, 2008
-//! Available from:	http://www2.seceng.informatik.tu-darmstadt.de/assets/mueller/icisc08.pdf
-//! * type:			encryption (attribute-based)
-//! * setting:		bilinear groups (asymmetric)
-//! :Authors:		Georg Bramm
-//! :Date:			04/2018
+//! * Developped by S Müller, S Katzenbeisser, C Eckert , "Distributed Attribute-based Encryption"
+//! * Published in International Conference on Information Security and Cryptology, Heidelberg, 2008
+//! * Available from http://www2.seceng.informatik.tu-darmstadt.de/assets/mueller/icisc08.pdf
+//! * Type encryption (attribute-based)
+//! * Setting bilinear groups (asymmetric)
+//! * Authors Georg Bramm
+//! * Date: 04/2018
 //!
 //! # Examples
 //!

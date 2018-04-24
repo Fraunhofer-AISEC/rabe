@@ -1,12 +1,12 @@
 //! This is the documentation for the `LSW` scheme:
 //!
-//! Developped by:	Allison Lewko, Amit Sahai and Brent Waters, "Revocation Systems with Very Small Private Keys"
-//! Published in:	Security and Privacy, 2010. SP'10. IEEE Symposium on. IEEE
-//! Available from:	http://eprint.iacr.org/2008/309.pdf
-//! * type:			encryption (key-policy attribute-based)
-//! * setting:		bilinear groups (asymmetric)
-//! :Authors:		Georg Bramm
-//! :Date:			04/2018
+//! * Developped by Allison Lewko, Amit Sahai and Brent Waters, "Revocation Systems with Very Small Private Keys"
+//! * Published in Security and Privacy, 2010. SP'10. IEEE Symposium on. IEEE
+//! * Available from http://eprint.iacr.org/2008/309.pdf
+//! * Type: encryption (key-policy attribute-based)
+//! * Setting: bilinear groups (asymmetric)
+//! * Authors: Georg Bramm
+//! * Date:	04/2018
 //!
 //! # Examples
 //!

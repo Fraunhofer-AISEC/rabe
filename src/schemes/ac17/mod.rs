@@ -1,12 +1,12 @@
-//! This is the documentation for the `AC17` scheme:
+//! This is the documentation for the `AC17` scheme, both versions AC17CP and AC17KP are included.
 //!
-//! Developped by:	Shashank Agrawal, Melissa Chase, "FAME: Fast Attribute-based Message Encryption", see Section 3
-//! Published in:	Proceedings of the 2017 ACM SIGSAC Conference on Computer and Communications Security 2017
-//! Available from:	https://eprint.iacr.org/2017/807.pdf
-//! * type:			encryption (attribute-based)
-//! * setting:		bilinear groups (asymmetric)
-//! :Authors:		Georg Bramm
-//! :Date:			04/2018
+//! * Developped by Shashank Agrawal, Melissa Chase, "FAME: Fast Attribute-based Message Encryption", see Section 3
+//! * Published in Proceedings of the 2017 ACM SIGSAC Conference on Computer and Communications Security 2017
+//! * Available from https://eprint.iacr.org/2017/807.pdf
+//! * Type: encryption (attribute-based)
+//! * Setting: bilinear groups (asymmetric)
+//! * Authors: Georg Bramm
+//! * Date: 04/2018
 //!
 //! # Examples
 //!
