@@ -32,6 +32,7 @@ use utils::policy::msp::AbePolicy;
 use utils::secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
 use utils::tools::*;
 use utils::aes::*;
+use utils::hash::{blake2b_hash_fr, blake2b_hash_g1, blake2b_hash_g2};
 
 /// An AW11 Global Parameters Key (GK)
 #[derive(Serialize, Deserialize, PartialEq)]

@@ -45,6 +45,7 @@ use utils::policy::msp::AbePolicy;
 use utils::tools::*;
 use utils::secretsharing::*;
 use utils::aes::*;
+use utils::hash::{blake2b_hash_fr, blake2b_hash_g1, blake2b_hash_g2};
 
 /// An AC17 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -218,7 +219,10 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
             let mut _prod = G1::zero();
             let _a_t = _a[_t].inverse().unwrap();
             for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-                let _hash = combine_three_strings(_attr, _l, _t);
+                let mut _hash = String::new();
+                _hash.push_str(&_attr);
+                _hash.push_str(&_l.to_string());
+                _hash.push_str(&_t.to_string());
                 _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
             }
             _prod = _prod + (msk._g * (_sigma_attr * _a_t));
@@ -235,7 +239,10 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
         let mut _prod = _g_k[_t];
         let _a_t = _a[_t].inverse().unwrap();
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-            let _hash = combine_three_strings(&String::from("01"), _l, _t);
+            let mut _hash = String::new();
+            _hash.push_str(&String::from("01"));
+            _hash.push_str(&_l.to_string());
+            _hash.push_str(&_t.to_string());
             _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
         }
         _prod = _prod + (msk._g * (_sigma * _a_t));
@@ -291,12 +298,18 @@ pub fn cp_encrypt(
     let mut _hash_table: Vec<Vec<Vec<(bn::G1)>>> = Vec::new();
     for _j in 0usize.._num_cols {
         let mut _x: Vec<Vec<(bn::G1)>> = Vec::new();
-        let _hash1 = combine_two_strings(&String::from("0"), _j + 1);
+        let mut _hash1 = String::new();
+        _hash1.push_str(&String::from("0"));
+        _hash1.push_str(&(_j + 1).to_string());
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
             let mut _y: Vec<(bn::G1)> = Vec::new();
-            let _hash2 = combine_two_strings(&_hash1, _l);
+            let mut _hash2 = String::new();
+            _hash2.push_str(&_hash1);
+            _hash2.push_str(&_l.to_string());
             for _t in 0usize..ASSUMPTION_SIZE {
-                let _hash3 = combine_two_strings(&_hash2, _t);
+                let mut _hash3 = String::new();
+                _hash3.push_str(&_hash2);
+                _hash3.push_str(&_t.to_string());
                 let _hashed_value = blake2b_hash_g1(pk._g, &_hash3);
                 _y.push(_hashed_value);
             }
@@ -310,7 +323,10 @@ pub fn cp_encrypt(
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
             let mut _prod = G1::zero();
             for _t in 0usize..ASSUMPTION_SIZE {
-                let _hash = combine_three_strings(&msp._pi[_i], _l, _t);
+                let mut _hash = String::new();
+                _hash.push_str(&msp._pi[_i]);
+                _hash.push_str(&_l.to_string());
+                _hash.push_str(&_t.to_string());
                 let mut _prod1 = blake2b_hash_g1(pk._g, &_hash);
                 for _j in 0usize.._num_cols {
                     if msp._m[_i][_j] == 1 {
@@ -359,8 +375,6 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>
         return None;
     } else {
         let _pruned = calc_pruned_str(&sk._attr, &ct._policy);
-        //println!("pruned attributes: {:?} ", calc_pruned_str(&sk._attr, &ct._policy).unwrap().1);
-
         match _pruned {
             None => {
                 //println!("Error: attributes in sk do not match policy in ct.");
@@ -452,7 +466,10 @@ pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey
             let mut _prod = G1::zero();
             let _a_t = _a[_t].inverse().unwrap();
             for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-                let _hash = combine_three_strings(&msp._pi[_i], _l, _t);
+                let mut _hash = String::new();
+                _hash.push_str(&msp._pi[_i]);
+                _hash.push_str(&_l.to_string());
+                _hash.push_str(&_t.to_string());
                 _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
             }
             _prod = _prod + (msk._g * (_sigma_attr * _a_t));
@@ -464,9 +481,14 @@ pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey
             let mut _temp = G1::zero();
             for _j in 1usize.._num_cols {
                 // sum term of _sk_it
-                let _hash0 = combine_two_strings(&String::from("0"), _j);
+                let mut _hash0 = String::new();
+                _hash0.push_str(&String::from("0"));
+                _hash0.push_str(&_j.to_string());
                 for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-                    let _hash1 = combine_three_strings(&_hash0, _l, _t);
+                    let mut _hash1 = String::new();
+                    _hash1.push_str(&_hash0);
+                    _hash1.push_str(&_l.to_string());
+                    _hash1.push_str(&_t.to_string());
                     _temp = _temp + (blake2b_hash_g1(msk._g, &_hash1) * (_br[_l] * _a_t));
                 }
                 _temp = _temp + (msk._g * _sigma_prime[_j - 1].neg());
@@ -543,7 +565,11 @@ pub fn kp_encrypt(
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
             let mut _prod = G1::zero();
             for _t in 0usize..ASSUMPTION_SIZE {
-                let _hash = combine_three_strings(&_attr, _l, _t);
+                let mut _hash = String::new();
+                _hash.push_str(&_attr);
+                _hash.push_str(&_l.to_string());
+                _hash.push_str(&_t.to_string());
+
                 let mut _prod1 = blake2b_hash_g1(pk._g, &_hash);
                 _prod = _prod + (_prod1 * _s[_t]);
             }

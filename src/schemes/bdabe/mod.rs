@@ -35,6 +35,7 @@ use bn::*;
 use utils::policy::*;
 use utils::tools::*;
 use utils::aes::*;
+use utils::hash::{blake2b_hash_fr, blake2b_hash_g1, blake2b_hash_g2};
 
 /// A BDABE Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq)]

@@ -35,6 +35,7 @@ use bn::*;
 use utils::secretsharing::{gen_shares_str, calc_pruned_str, calc_coefficients_str};
 use utils::tools::*;
 use utils::aes::*;
+use utils::hash::{blake2b_hash_fr, blake2b_hash_g1, blake2b_hash_g2};
 
 /// A BSW Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq)]

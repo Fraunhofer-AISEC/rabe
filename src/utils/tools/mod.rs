@@ -5,7 +5,6 @@ extern crate serde;
 extern crate serde_json;
 extern crate rand;
 extern crate crypto;
-extern crate blake2_rfc;
 extern crate num_bigint;
 
 use num_bigint::ToBigInt;
@@ -34,13 +33,6 @@ pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
     }
 }
 
-pub fn traverse_str(_attr: &Vec<String>, _policy: &String) -> bool {
-    match string_to_json(_policy) {
-        None => return false,
-        Some(_value) => return traverse_json(_attr, &_value),
-    }
-}
-
 pub fn contains(data: &Vec<(String)>, value: &String) -> bool {
     let len = data.into_iter()
         .filter(|&i| i == value)
@@ -54,6 +46,13 @@ pub fn is_subset(_subset: &Vec<String>, _attr: &Vec<String>) -> bool {
     let super_set: HashSet<_> = _attr.iter().cloned().collect();
     let sub_set: HashSet<_> = _subset.iter().cloned().collect();
     return sub_set.is_subset(&super_set);
+}
+
+pub fn traverse_str(_attr: &Vec<String>, _policy: &String) -> bool {
+    match string_to_json(_policy) {
+        None => return false,
+        Some(_value) => return traverse_json(_attr, &_value),
+    }
 }
 
 // used to traverse / check policy tree
@@ -113,47 +112,11 @@ pub fn traverse_json(_attr: &Vec<String>, _json: &serde_json::Value) -> bool {
         return false;
     }
 }
-/////////////////////////////////////////////////////////////////////
-// HASH TO GROUP FUNTIONS
-/////////////////////////////////////////////////////////////////////
-
-// used to hash to G1
-pub fn blake2b_hash_g1(g: bn::G1, data: &String) -> bn::G1 {
-    let hash = blake2b(64, &[], data.as_bytes());
-    return g * Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
-}
-
-// used to hash to G2
-pub fn blake2b_hash_g2(g: bn::G2, data: &String) -> bn::G2 {
-    let hash = blake2b(64, &[], data.as_bytes());
-    return g * Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
-}
-
-// used to hash to Fr
-pub fn blake2b_hash_fr(data: &String) -> Fr {
-    let hash = blake2b(64, &[], data.as_bytes());
-    return Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
-}
-
-pub fn combine_two_strings(text: &String, j: usize) -> String {
-    let mut _combined: String = text.to_owned();
-    _combined.push_str(&j.to_string());
-    return _combined.to_string();
-}
-
-pub fn combine_three_strings(text: &String, j: usize, t: usize) -> String {
-    let mut _combined: String = text.to_owned();
-    _combined.push_str(&j.to_string());
-    _combined.push_str(&t.to_string());
-    return _combined.to_string();
-}
-
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-
 
     #[test]
     fn test_traverse() {
