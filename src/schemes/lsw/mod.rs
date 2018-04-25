@@ -36,7 +36,7 @@ use std::ops::Neg;
 use utils::tools::*;
 use utils::secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
 use utils::aes::*;
-use utils::hash::{blake2b_hash_fr, blake2b_hash_g1, blake2b_hash_g2};
+use utils::hash::{blake2b_hash_fr, blake2b_hash_g1};
 
 /// A LSW Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -73,6 +73,13 @@ pub struct KpAbeCiphertext {
     _e2: bn::G2,
     _ej: Vec<(String, bn::G1, bn::G1, bn::G1)>,
     _ct: Vec<u8>,
+}
+
+/// A LSW Context (MSK/PK)
+#[derive(Serialize, Deserialize, PartialEq)]
+pub struct KpAbeContext {
+    pub _pk: KpAbePublicKey,
+    pub _msk: KpAbeMasterKey,
 }
 
 /// The setup algorithm of LSW KP-ABE. Generates a new KpAbePublicKey and a new KpAbeMasterKey.

@@ -1,4 +1,4 @@
-//! This is the documentation for all R-ABE schemes
+//! This is the documentation for the external FFI for R-ABE schemes
 //!
 //! Currently those are:
 //! * AC17 CP-ABE

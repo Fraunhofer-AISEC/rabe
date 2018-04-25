@@ -8,7 +8,6 @@ extern crate crypto;
 extern crate num_bigint;
 
 use num_bigint::ToBigInt;
-use blake2_rfc::blake2b::blake2b;
 use bn::*;
 use std::collections::HashSet;
 

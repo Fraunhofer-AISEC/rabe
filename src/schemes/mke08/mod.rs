@@ -25,7 +25,7 @@
 //!let _plaintext = String::from("our plaintext!").into_bytes();
 //!let _policy = String::from(r#"{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
 //!let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
-//!assert_eq!(decrypt(&_pk, &_u_key, &_ct, &_policy).unwrap(), _plaintext);
+//!assert_eq!(decrypt(&_pk, &_u_key, &_ct).unwrap(), _plaintext);
 //! ```
 extern crate bn;
 extern crate rand;
@@ -37,7 +37,7 @@ use bn::*;
 use utils::policy::dnf::DnfPolicy;
 use utils::tools::*;
 use utils::aes::*;
-use utils::hash::{blake2b_hash_fr, blake2b_hash_g1, blake2b_hash_g2};
+use utils::hash::blake2b_hash_fr;
 
 /// A MKE08 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -108,6 +108,7 @@ pub struct Mke08SecretAttributeKey {
 /// A MKE08 Ciphertext (CT) consisting of the AES encrypted data as well as a Vector of all Conjunctions of the access policy
 #[derive(Serialize, Deserialize, PartialEq)]
 pub struct Mke08Ciphertext {
+    pub _policy: String,
     pub _e: Vec<Mke08CTConjunction>,
     pub _ct: Vec<u8>,
 }
@@ -122,12 +123,6 @@ pub struct Mke08CTConjunction {
     pub _j4: bn::G2,
     pub _j5: bn::G1,
     pub _j6: bn::G2,
-}
-
-/// A MKE08 Global Context
-#[derive(Serialize, Deserialize, PartialEq)]
-pub struct Mke08GlobalContext {
-    pub _gk: Mke08PublicKey,
 }
 
 /// A MKE08 Context
@@ -307,6 +302,7 @@ pub fn encrypt(
         }
         //Encrypt plaintext using derived key from secret
         return Some(Mke08Ciphertext {
+            _policy: _policy.to_string(),
             _e: _e,
             _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
         });
@@ -324,12 +320,7 @@ pub fn encrypt(
 ///	* `_ct` - A Mke08Ciphertext
 ///	* `_policy` - An access policy given as JSON String
 ///
-pub fn decrypt(
-    _pk: &Mke08PublicKey,
-    _sk: &Mke08UserKey,
-    _ct: &Mke08Ciphertext,
-    _policy: &String,
-) -> Option<Vec<u8>> {
+pub fn decrypt(_pk: &Mke08PublicKey, _sk: &Mke08UserKey, _ct: &Mke08Ciphertext) -> Option<Vec<u8>> {
     let _attr = _sk._sk_a
         .iter()
         .map(|triple| {
@@ -337,7 +328,7 @@ pub fn decrypt(
             _a._str.to_string()
         })
         .collect::<Vec<_>>();
-    if traverse_str(&_attr, &_policy) == false {
+    if traverse_str(&_attr, &_ct._policy) == false {
         //println!("Error: attributes in sk do not match policy in ct.");
         return None;
     } else {
@@ -481,7 +472,7 @@ mod tests {
         let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
             .unwrap();
         // and now decrypt again with mathcing sk
-        let _match = decrypt(&_pk, &_u_key, &_ct, &_policy);
+        let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
@@ -520,7 +511,7 @@ mod tests {
         let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
             .unwrap();
         // and now decrypt again with mathcing sk
-        let _match = decrypt(&_pk, &_u_key, &_ct, &_policy);
+        let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }

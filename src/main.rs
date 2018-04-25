@@ -1,3 +1,8 @@
+//! This is the documentation for the RABE console application.
+//!
+//! * Developped by Georg Bramm, Fraunhofer AISEC
+//! * Date: 04/2018
+//!
 #[allow(dead_code)]
 #[macro_use]
 extern crate serde_derive;
@@ -77,7 +82,7 @@ fn main() {
 	        MKE08
 	    }
 	}
-    let _abe_app = App::new("R-ABE")
+    let _abe_app = App::new("RABE")
         .version("0.1.1")
         .author(crate_authors!("\n"))
         .about("ABE in Rust")
@@ -305,6 +310,7 @@ fn main() {
                         .takes_value(true)
                         .default_value(PK_FILE)
                         .value_name("pk")
+                        .multiple(true)
                         .help("public key file."),
                 )
                 .arg(
@@ -835,6 +841,7 @@ fn main() {
     }
 
     fn run_encrypt(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+        let mut _pk_files: Vec<String> = Vec::new();
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
         let mut _ct_file: String = String::new();
@@ -847,7 +854,12 @@ fn main() {
                 _pk_file.push_str(".");
                 _pk_file.push_str(KEY_EXTENSION);
             }
-            Some(_file) => _pk_file = _file.to_string(),
+            Some(_file) => {
+                let files: Vec<_> = arguments.values_of(PK_FILE).unwrap().collect();
+                for file in files {
+                    _pk_files.push(file.to_string())
+                }
+            }
         }
         match arguments.value_of(GP_FILE) {
             None => {
@@ -918,9 +930,12 @@ fn main() {
                     .unwrap();
                 let _pk: Aw11PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                // TODO : multiple pks per policy
                 let mut _pks: Vec<Aw11PublicKey> = Vec::new();
-                _pks.push(_pk);
+                for filename in _pk_files {
+                    let _pk: Aw11PublicKey = serde_json::from_str(&read_file(Path::new(&filename)))
+                        .unwrap();
+                    _pks.push(_pk);
+                }
                 let _ct = schemes::aw11::encrypt(&_gp, &_pks, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
@@ -930,8 +945,12 @@ fn main() {
             Scheme::BDABE => {
                 let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _attr_vec: Vec<BdabePublicAttributeKey> = Vec::new();
-                // TODO : fill _attr_vec with attribute PK's
+                let mut _attr_vec: Vec<BdabePublicAttributeKey> = Vec::new();
+                for filename in _pk_files {
+                    let _pk: BdabePublicAttributeKey =
+                        serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
+                    _attr_vec.push(_pk);
+                }
                 let _ct = schemes::bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
@@ -941,8 +960,12 @@ fn main() {
             Scheme::MKE08 => {
                 let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _attr_vec: Vec<Mke08PublicAttributeKey> = Vec::new();
-                // TODO : fill _attr_vec with attribute PK's
+                let mut _attr_vec: Vec<Mke08PublicAttributeKey> = Vec::new();
+                for filename in _pk_files {
+                    let _pk: Mke08PublicAttributeKey =
+                        serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
+                    _attr_vec.push(_pk);
+                }
                 let _ct = schemes::mke08::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
                 write_file(
                     Path::new(&_ct_file),
@@ -956,6 +979,7 @@ fn main() {
     fn run_decrypt(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
         let mut _sk_file = String::from("");
         let mut _gp_file = String::from("");
+        let mut _pk_file = String::from("");
         let mut _file: String = String::from("");
         let mut _pt_option: Option<Vec<u8>> = None;
         let mut _policy: String = String::new();
@@ -974,6 +998,14 @@ fn main() {
                 _gp_file.push_str(KEY_EXTENSION);
             }
             Some(_file) => _gp_file = _file.to_string(),
+        }
+        match arguments.value_of(PK_FILE) {
+            None => {
+                _pk_file.push_str(PK_FILE);
+                _pk_file.push_str(".");
+                _pk_file.push_str(KEY_EXTENSION);
+            }
+            Some(_file) => _pk_file = _file.to_string(),
         }
         match arguments.value_of("file") {
             None => {}
@@ -1022,15 +1054,13 @@ fn main() {
                 _pt_option = schemes::aw11::decrypt(&_gp, &_sk, &_ct);
             } 
             Scheme::BDABE => {
-                /* TODO !!!
-                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(_gp_file)))
-                    .unwrap();            	
-                let _sk: Aw11SecretKey = serde_json::from_str(&read_file(Path::new(_sk_file)))
+                let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
                     .unwrap();
-                let _ct: Aw11Ciphertext = serde_json::from_str(&read_file(Path::new(_file)))
+                let _sk: BdabeUserKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
                     .unwrap();
-                _pt_option = schemes::bdabe::decrypt(&_gp, &_sk, &_ct);
-                */
+                let _ct: BdabeCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
+                    .unwrap();
+                _pt_option = schemes::bdabe::decrypt(&_pk, &_sk, &_ct);
             } 
             Scheme::MKE08 => {
                 let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
@@ -1039,7 +1069,7 @@ fn main() {
                     .unwrap();
                 let _ct: Mke08Ciphertext = serde_json::from_str(&read_file(Path::new(&_file)))
                     .unwrap();
-                _pt_option = schemes::mke08::decrypt(&_pk, &_sk, &_ct, &_policy);
+                _pt_option = schemes::mke08::decrypt(&_pk, &_sk, &_ct);
             } 
         }
         match _pt_option {

@@ -32,29 +32,29 @@ use utils::policy::msp::AbePolicy;
 use utils::secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
 use utils::tools::*;
 use utils::aes::*;
-use utils::hash::{blake2b_hash_fr, blake2b_hash_g1, blake2b_hash_g2};
+use utils::hash::blake2b_hash_g1;
 
 /// An AW11 Global Parameters Key (GK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11GlobalKey {
     pub _g1: bn::G1,
     pub _g2: bn::G2,
 }
 
 /// An AW11 Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11PublicKey {
     pub _attr: Vec<(String, bn::Gt, bn::G2)>,
 }
 
 /// An AW11 Master Key (MK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11MasterKey {
     pub _attr: Vec<(String, bn::Fr, bn::Fr)>,
 }
 
 /// An AW11 Ciphertext (CT)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11Ciphertext {
     pub _policy: String,
     pub _c_0: bn::Gt,
@@ -63,20 +63,20 @@ pub struct Aw11Ciphertext {
 }
 
 /// An AW11 Secret Key (SK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11SecretKey {
     pub _gid: String,
     pub _attr: Vec<(String, bn::G1)>,
 }
 
 /// A global Context for an AW11 Global Parameters Key (GP)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11GlobalContext {
     pub _gk: Aw11GlobalKey,
 }
 
 /// A Context for an AW11 Key Pair (MK/PK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11Context {
     pub _msk: Aw11MasterKey,
     pub _pk: Aw11PublicKey,
