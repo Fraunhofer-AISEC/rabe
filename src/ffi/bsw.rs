@@ -1,7 +1,6 @@
 use schemes::bsw::*;
 use std::ops::Deref;
 use libc::*;
-use bn::*;
 use std::ffi::CStr;
 use std::mem::transmute;
 use std::string::String;
@@ -52,16 +51,16 @@ pub extern "C" fn bsw_delegate(
 
 #[no_mangle]
 pub extern "C" fn bsw_encrypt(
-    pk: *mut CpAbePublicKey,
+    ctx: *mut CpAbeContext,
     policy: *mut c_char,
     data: *mut &[u8],
 ) -> *mut CpAbeCiphertext {
     let p = unsafe { &mut *policy };
     let mut _pol = unsafe { CStr::from_ptr(p) };
     let pol = String::from(_pol.to_str().unwrap());
-    let _pk = unsafe { &*pk };
+    let _ctx = unsafe { &*ctx };
     let _data = unsafe { &mut *data };
-    let _ct = unsafe { transmute(Box::new(encrypt(&_pk, &pol, &_data.to_vec()).unwrap())) };
+    let _ct = unsafe { transmute(Box::new(encrypt(&_ctx._pk, &pol, &_data.to_vec()).unwrap())) };
     _ct
 }
 
