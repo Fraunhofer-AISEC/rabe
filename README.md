@@ -1,6 +1,7 @@
 [![pipeline status](https://git-int.aisec.fraunhofer.de/sas/rust-abe/badges/master/pipeline.svg)](https://git-int.aisec.fraunhofer.de/sas/rust-abe/pipelines)
 
-A Rust implementation of some ABE scheme's using the bn library of zcash (type-3 pairing / baretto naering curve)
+A Rust implementation of some ABE scheme's using a modified version of the bn library of zcash (type-3 pairing / baretto naering curve).
+The modification enabled serde and disabled rustc_serialize.
 
 Implemented CP-ABE Schemes:
 - AC17 CP-ABE
@@ -11,7 +12,7 @@ Implemented CP-ABE Schemes:
 
 Implemented KP-ABE Schemes:
 - AC17 KP-ABE
-- LSW KP-ABE (still buggy!)
+- LSW KP-ABE 
 
 In order to compile and test:
 - install rust
