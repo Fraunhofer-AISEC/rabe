@@ -4,6 +4,7 @@ use libc::*;
 use std::ffi::CStr;
 use std::mem::transmute;
 use std::string::String;
+use serde_json;
 
 #[no_mangle]
 pub extern "C" fn bsw_context_create() -> *mut CpAbeContext {
@@ -54,22 +55,50 @@ pub extern "C" fn bsw_delegate(
 }
 
 #[no_mangle]
+pub extern "C" fn bsw_encrypt_size(
+    ctx: *mut CpAbeContext,
+    policy: *mut c_char,
+    data: *mut u8,
+    data_len: u32,
+) -> i32 {
+    let p = unsafe { &mut *policy };
+    let mut _pol = unsafe { CStr::from_ptr(p) };
+    let pol = String::from(_pol.to_str().unwrap());
+    unsafe {
+        let _ctx = &*ctx;
+        let _data = &mut *data;
+        let _data_vec = Vec::from_raw_parts(data, data_len as usize, data_len as usize);
+        let _ct = encrypt(&_ctx._pk, &pol, &_data_vec).unwrap();
+        let _ct_str = serde_json::to_string_pretty(&_ct).unwrap();
+        _ct_str.len() as i32
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn bsw_encrypt(
     ctx: *mut CpAbeContext,
     policy: *mut c_char,
-    data: *mut &[u8],
-) -> *mut CpAbeCiphertext {
+    data: *mut u8,
+    data_len: u32,
+    buf: *mut u8,
+    buf_len: *mut u32,
+) {
     let p = unsafe { &mut *policy };
     let mut _pol = unsafe { CStr::from_ptr(p) };
     let pol = String::from(_pol.to_str().unwrap());
     let _ctx = unsafe { &*ctx };
     let _data = unsafe { &mut *data };
-    let _ct = unsafe {
-        transmute(Box::new(
-            encrypt(&_ctx._pk, &pol, &_data.to_vec()).unwrap().clone(),
-        ))
-    };
-    _ct
+    unsafe {
+        let _ctx = &*ctx;
+        let _data = &mut *data;
+        let _data_vec = Vec::from_raw_parts(data, data_len as usize, data_len as usize);
+        let _ct = encrypt(&_ctx._pk, &pol, &_data_vec).unwrap();
+        let _ct_str = serde_json::to_string_pretty(&_ct).unwrap();
+    }
+    use std::{slice, ptr};
+    unsafe {
+        ptr::copy_nonoverlapping(data, buf, data_len as usize);
+    }
 }
 
 #[no_mangle]
