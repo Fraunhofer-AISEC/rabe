@@ -23,8 +23,8 @@ fn impl_serialize(ast: &syn::DeriveInput) -> quote::Tokens {
     if let syn::Body::Struct(_) = ast.body {
         // Yes, this is a struct
         quote! {
-            impl HelloWorld for #name {
-                fn hello_world() {
+            impl KeyMaterial for #name {
+                fn serialize() {
                     println!("Hello, World! My name is {}", stringify!(#name));
                 }
             }
