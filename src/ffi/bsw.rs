@@ -21,14 +21,21 @@ pub extern "C" fn bsw_context_destroy(ctx: *mut CpAbeContext) {
 #[no_mangle]
 pub extern "C" fn bsw_keygen(
     ctx: *mut CpAbeContext,
-    attributes: *mut Vec<String>,
+    attributes: *const c_char
 ) -> *mut CpAbeSecretKey {
-    let _attr = unsafe { &mut *attributes };
-    let attr_vec: Vec<_> = _attr.iter().map(|arg| arg.to_string()).collect();
+    //let _attr = unsafe { &mut *attributes };
+    let _cstr = unsafe { CStr::from_ptr(attributes).to_str().unwrap() };
+    let mut _attrs = _cstr.split(",");
+    let mut _attr_vec = Vec::new();
+    for _a in _attrs {
+        println!("{}", _a);
+        _attr_vec.push(String::from(_a));
+    }
+    //let attr_vec: Vec<_> = _attr.iter().map(|arg| arg.to_string()).collect();
     let _ctx = unsafe { &*ctx };
     let _sk = unsafe {
         transmute(Box::new(
-            keygen(&_ctx._pk, &_ctx._msk, &attr_vec).unwrap().clone(),
+            keygen(&_ctx._pk, &_ctx._msk, &_attr_vec).unwrap().clone(),
         ))
     };
     _sk
@@ -61,17 +68,23 @@ pub extern "C" fn bsw_encrypt_size(
     data: *mut u8,
     data_len: u32,
 ) -> i32 {
+    use std::{slice,ptr};
     let p = unsafe { &mut *policy };
     let mut _pol = unsafe { CStr::from_ptr(p) };
-    let pol = String::from(_pol.to_str().unwrap());
-    unsafe {
-        let _ctx = &*ctx;
-        let _data = &mut *data;
-        let _data_vec = Vec::from_raw_parts(data, data_len as usize, data_len as usize);
-        let _ct = encrypt(&_ctx._pk, &pol, &_data_vec).unwrap();
-        let _ct_str = serde_json::to_string_pretty(&_ct).unwrap();
-        _ct_str.len() as i32
-    }
+    let mut pol = String::with_capacity(_pol.to_bytes().len());
+    pol.insert_str (0, _pol.to_str().unwrap());
+    let _ctx = unsafe { &*ctx };
+    let _data = unsafe { &mut *data };
+    let _slice = unsafe { slice::from_raw_parts(data, data_len as usize) };
+    let mut _data_vec = vec![1];
+    _data_vec.extend_from_slice(_slice);
+    
+    //TODO is there a way to calculate the CT size without actually encrypting it//TODO is there a
+    //way to calculate the CT size without actually encrypting it??
+    let _ct = encrypt(&_ctx._pk, &pol, &_data_vec).unwrap();
+    let _ct_str = serde_json::to_string_pretty(&_ct).unwrap();
+    let _len = _ct_str.len() as i32;
+    _len
 }
 
 #[no_mangle]
