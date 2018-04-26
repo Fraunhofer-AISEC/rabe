@@ -2,9 +2,10 @@
 
 void* bsw_context_create();
 void bsw_context_destroy(void* ctx);
-void* bsw_keygen(const void* ctx, const char* attributes);
+void* bsw_keygen(const void* ctx, const void* attributes);
 void bsw_keygen_destroy(void* sk);
 void* bsw_encrypt(const void* pk, char* policy, char* pt);
+void* bsw_decrypt(const void* sk, const void* ct);
 
 int main () {
   void* ctx = bsw_context_create ();
@@ -17,5 +18,5 @@ int main () {
   void* pt = bsw_decrypt (sk, ct);
   bsw_keygen_destroy (sk);
   bsw_context_destroy (ctx);
-  return pt;
+  return 1;
 }
