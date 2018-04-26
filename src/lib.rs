@@ -7,9 +7,13 @@
 //! * Date: 04/2018
 //!
 #![allow(dead_code)]
-
+#[macro_use]
+extern crate rabe_derive;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate arrayref;
+
 extern crate libc;
 extern crate serde;
 extern crate serde_json;
@@ -20,9 +24,6 @@ extern crate crypto;
 extern crate bincode;
 extern crate num_bigint;
 extern crate blake2_rfc;
-
-#[macro_use]
-extern crate arrayref;
 
 pub mod utils;
 pub mod schemes;

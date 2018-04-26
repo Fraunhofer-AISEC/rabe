@@ -25,7 +25,11 @@ pub extern "C" fn bsw_keygen(
     let _attr = unsafe { &mut *attributes };
     let attr_vec: Vec<_> = _attr.iter().map(|arg| arg.to_string()).collect();
     let _ctx = unsafe { &*ctx };
-    let _sk = unsafe { transmute(Box::new(keygen(&_ctx._pk, &_ctx._msk, &attr_vec).unwrap())) };
+    let _sk = unsafe {
+        transmute(Box::new(
+            keygen(&_ctx._pk, &_ctx._msk, &attr_vec).unwrap().clone(),
+        ))
+    };
     _sk
 }
 
@@ -60,7 +64,11 @@ pub extern "C" fn bsw_encrypt(
     let pol = String::from(_pol.to_str().unwrap());
     let _ctx = unsafe { &*ctx };
     let _data = unsafe { &mut *data };
-    let _ct = unsafe { transmute(Box::new(encrypt(&_ctx._pk, &pol, &_data.to_vec()).unwrap())) };
+    let _ct = unsafe {
+        transmute(Box::new(
+            encrypt(&_ctx._pk, &pol, &_data.to_vec()).unwrap().clone(),
+        ))
+    };
     _ct
 }
 

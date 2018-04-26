@@ -1,0 +1,11 @@
+[package]
+name = "rabe_derive"
+version = "0.1.0"
+authors = ["Georg Bramm <georg.bramm@aisec.fraunhofer.de>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "0.11.11"
+quote = "0.3.15"

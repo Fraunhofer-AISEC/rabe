@@ -39,7 +39,7 @@ use utils::aes::*;
 use utils::hash::{blake2b_hash_fr, blake2b_hash_g1};
 
 /// A LSW Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbePublicKey {
     _g_g1: bn::G1,
     _g_g2: bn::G2,
@@ -50,7 +50,7 @@ pub struct KpAbePublicKey {
 }
 
 /// A LSW Master Key (MSK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbeMasterKey {
     _alpha1: bn::Fr,
     _alpha2: bn::Fr,
@@ -60,14 +60,14 @@ pub struct KpAbeMasterKey {
 }
 
 /// A LSW Secret User Key (SK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbeSecretKey {
     _policy: String,
     _dj: Vec<(String, bn::G1, bn::G2, bn::G1, bn::G1, bn::G1)>,
 }
 
 /// A LSW Ciphertext (CT)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbeCiphertext {
     _e1: bn::Gt,
     _e2: bn::G2,
@@ -76,7 +76,7 @@ pub struct KpAbeCiphertext {
 }
 
 /// A LSW Context (MSK/PK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbeContext {
     pub _pk: KpAbePublicKey,
     pub _msk: KpAbeMasterKey,

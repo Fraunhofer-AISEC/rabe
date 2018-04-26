@@ -40,7 +40,7 @@ use utils::aes::*;
 use utils::hash::blake2b_hash_fr;
 
 /// A MKE08 Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08PublicKey {
     pub _g1: bn::G1,
     pub _g2: bn::G2,
@@ -51,14 +51,14 @@ pub struct Mke08PublicKey {
 }
 
 /// A MKE08 Master Key (MK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08MasterKey {
     pub _g1_y: bn::G1,
     pub _g2_y: bn::G2,
 }
 
 /// A MKE08 User Key (SK), consisting of a Secret User Key (SKu), a Public User Key (PKu) and a Vector of Secret Attribute Keys (SKau)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08UserKey {
     pub _sk_u: Mke08SecretUserKey,
     pub _pk_u: Mke08PublicUserKey,
@@ -66,7 +66,7 @@ pub struct Mke08UserKey {
 }
 
 /// A MKE08 Public User Key (PKu)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08PublicUserKey {
     pub _u: String,
     pub _pk_g1: bn::G1,
@@ -74,21 +74,21 @@ pub struct Mke08PublicUserKey {
 }
 
 /// A MKE08 Secret User Key (SKu)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08SecretUserKey {
     pub _sk_g1: bn::G1,
     pub _sk_g2: bn::G2,
 }
 
 /// A MKE08 Secret Authrotiy Key (SKauth)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08SecretAuthorityKey {
     pub _a: String,
     pub _r: bn::Fr,
 }
 
 /// A MKE08 Public Attribute Key (PKa)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08PublicAttributeKey {
     pub _str: String,
     pub _g1: bn::G1,
@@ -98,7 +98,7 @@ pub struct Mke08PublicAttributeKey {
 }
 
 /// A MKE08 Secret Attribute Key (SKa)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08SecretAttributeKey {
     pub _str: String,
     pub _g1: bn::G1,
@@ -106,7 +106,7 @@ pub struct Mke08SecretAttributeKey {
 }
 
 /// A MKE08 Ciphertext (CT) consisting of the AES encrypted data as well as a Vector of all Conjunctions of the access policy
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08Ciphertext {
     pub _policy: String,
     pub _e: Vec<Mke08CTConjunction>,
@@ -114,7 +114,7 @@ pub struct Mke08Ciphertext {
 }
 
 /// A MKE08 Ciphertext Conjunction (CTcon)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08CTConjunction {
     pub _str: Vec<String>,
     pub _j1: bn::Gt,
@@ -126,7 +126,7 @@ pub struct Mke08CTConjunction {
 }
 
 /// A MKE08 Context
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08Context {
     pub _mk: Mke08MasterKey,
     pub _pk: Mke08PublicKey,

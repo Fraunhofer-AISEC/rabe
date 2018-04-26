@@ -4,10 +4,7 @@
 //! * Date: 04/2018
 //!
 #[allow(dead_code)]
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate clap;
+
 extern crate bn;
 extern crate serde;
 extern crate serde_json;
@@ -36,6 +33,12 @@ use std::fmt;
 
 #[macro_use]
 extern crate arrayref;
+#[macro_use]
+extern crate rabe_derive;
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
+extern crate clap;
 
 const CT_EXTENSION: &'static str = "rabe";
 const KEY_EXTENSION: &'static str = "key";

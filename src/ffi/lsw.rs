@@ -1,7 +1,6 @@
 use schemes::lsw::*;
 use std::ops::Deref;
 use libc::*;
-use bn::*;
 use std::ffi::CStr;
 use std::mem::transmute;
 use std::string::String;

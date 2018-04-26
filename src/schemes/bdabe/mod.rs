@@ -38,7 +38,7 @@ use utils::aes::*;
 use utils::hash::blake2b_hash_fr;
 
 /// A BDABE Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabePublicKey {
     pub _g1: bn::G1,
     pub _g2: bn::G2,
@@ -48,13 +48,13 @@ pub struct BdabePublicKey {
 }
 
 /// A BDABE Master Key (MK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeMasterKey {
     pub _y: bn::Fr,
 }
 
 /// A BDABE User Key (PKu, SKu and SKa's)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeUserKey {
     pub _sk: BdabeSecretUserKey,
     pub _pk: BdabePublicUserKey,
@@ -62,7 +62,7 @@ pub struct BdabeUserKey {
 }
 
 /// A BDABE Public User Key (PKu)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabePublicUserKey {
     pub _u: String,
     pub _u1: bn::G1,
@@ -70,14 +70,14 @@ pub struct BdabePublicUserKey {
 }
 
 /// A BDABE Secret User Key (SKu)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeSecretUserKey {
     pub _u1: bn::G1,
     pub _u2: bn::G2,
 }
 
 /// A BDABE Secret Attribute Key (SKa)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeSecretAttributeKey {
     pub _str: String,
     pub _au1: bn::G1,
@@ -85,7 +85,7 @@ pub struct BdabeSecretAttributeKey {
 }
 
 /// A BDABE Public Attribute Key (PKa)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabePublicAttributeKey {
     pub _str: String,
     pub _a1: bn::G1,
@@ -94,7 +94,7 @@ pub struct BdabePublicAttributeKey {
 }
 
 /// A BDABE Secret Authority Key (SKauth)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeSecretAuthorityKey {
     pub _a1: bn::G1,
     pub _a2: bn::G2,
@@ -103,7 +103,7 @@ pub struct BdabeSecretAuthorityKey {
 }
 
 /// A Ciphertext Tuple representing a conjunction in a CT
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeCiphertextTuple {
     pub _str: Vec<String>,
     pub _e1: bn::Gt,
@@ -114,7 +114,7 @@ pub struct BdabeCiphertextTuple {
 }
 
 /// A BDABE Ciphertext (CT)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeCiphertext {
     pub _policy: String,
     pub _j: Vec<BdabeCiphertextTuple>,
@@ -122,13 +122,13 @@ pub struct BdabeCiphertext {
 }
 
 /// A BDABE Global Context
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeGlobalContext {
     pub _gk: BdabePublicKey,
 }
 
 /// A BDABE Context
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeContext {
     pub _mk: BdabeMasterKey,
     pub _pk: BdabePublicKey,

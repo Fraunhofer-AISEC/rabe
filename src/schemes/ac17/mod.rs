@@ -47,8 +47,12 @@ use utils::secretsharing::*;
 use utils::aes::*;
 use utils::hash::blake2b_hash_g1;
 
+trait KeyMaterial {
+    fn serialize();
+}
+
 /// An AC17 Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, KeyMaterial)]
 pub struct Ac17PublicKey {
     pub _g: bn::G1,
     pub _h_a: Vec<bn::G2>,
@@ -56,7 +60,7 @@ pub struct Ac17PublicKey {
 }
 
 /// An AC17 Public Key (MK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, KeyMaterial)]
 pub struct Ac17MasterKey {
     pub _g: bn::G1,
     pub _h: bn::G2,
@@ -89,7 +93,7 @@ pub struct Ac17KpCiphertext {
 }
 
 /// An AC17 Secret Key (SK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, KeyMaterial)]
 pub struct Ac17SecretKey {
     pub _k_0: Vec<bn::G2>,
     pub _k: Vec<(String, Vec<(bn::G1)>)>,
@@ -97,21 +101,21 @@ pub struct Ac17SecretKey {
 }
 
 /// An AC17 KP-ABE Secret Key (SK), composed of a policy and an Ac17Ciphertext.
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, KeyMaterial)]
 pub struct Ac17KpSecretKey {
     pub _policy: String,
     pub _sk: Ac17SecretKey,
 }
 
 /// An AC17 CP-ABE Secret Key (SK), composed of a set of attributes and an Ac17Ciphertext.
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, KeyMaterial)]
 pub struct Ac17CpSecretKey {
     pub _attr: Vec<(String)>,
     pub _sk: Ac17SecretKey,
 }
 
 /// An AC17 Context for C
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, KeyMaterial)]
 pub struct Ac17Context {
     pub _msk: Ac17MasterKey,
     pub _pk: Ac17PublicKey,
@@ -170,6 +174,7 @@ pub fn setup() -> (Ac17PublicKey, Ac17MasterKey) {
         _a: _a,
         _b: _b,
     };
+
     // return PK and MSK
     return (_pk, _msk);
 }

@@ -38,7 +38,7 @@ use utils::aes::*;
 use utils::hash::blake2b_hash_g2;
 
 /// A BSW Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbePublicKey {
     _g1: bn::G1,
     _g2: bn::G2,
@@ -48,14 +48,14 @@ pub struct CpAbePublicKey {
 }
 
 /// A BSW Master Key (MSK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeMasterKey {
     _beta: bn::Fr,
     _g2_alpha: bn::G2,
 }
 
 /// A BSW Ciphertext (CT)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeCiphertext {
     _policy: String,
     _c: bn::G1,
@@ -65,14 +65,14 @@ pub struct CpAbeCiphertext {
 }
 
 /// A BSW Secret User Key (SK)
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeSecretKey {
     _d: bn::G2,
     _d_j: Vec<CpAbeAttribute>,
 }
 
 /// A BSW Attribute
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeAttribute {
     _str: String,
     _g1: bn::G1,
@@ -80,7 +80,7 @@ pub struct CpAbeAttribute {
 }
 
 /// A BSW ABE Context
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeContext {
     pub _msk: CpAbeMasterKey,
     pub _pk: CpAbePublicKey,
