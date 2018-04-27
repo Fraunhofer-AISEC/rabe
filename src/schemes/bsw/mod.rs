@@ -54,6 +54,14 @@ pub struct CpAbeMasterKey {
     _g2_alpha: bn::G2,
 }
 
+
+/**
+ * TODO MSC: I added a _public_ expected plaintext length to
+ * this struct. Maybe this can be exposed throug a function.
+ * I assume pt len == ct len (at least the aes ct) but not sure.
+ * This information is _required_ when the ct should be serialized
+ * and if ct len != pt len.
+ */
 /// A BSW Ciphertext (CT)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeCiphertext {
@@ -80,6 +88,11 @@ pub struct CpAbeAttribute {
     _g2: bn::G2,
 }
 
+/**
+ * TODO:  MSC: This struct is not used in the code
+ * The only place where this is useful (maybe even required)
+ * is the C ffi interface as we cannot handle tuples there (or can we?)
+ */
 /// A BSW ABE Context
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeContext {
