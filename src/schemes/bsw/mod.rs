@@ -62,6 +62,7 @@ pub struct CpAbeCiphertext {
     _c_p: bn::Gt,
     _c_y: Vec<CpAbeAttribute>,
     _ct: Vec<u8>,
+    pub pt_len: u32
 }
 
 /// A BSW Secret User Key (SK)
@@ -249,6 +250,7 @@ pub fn encrypt(
         _c_p: _c_p,
         _c_y: _c_y,
         _ct: encrypt_symmetric(&_msg, &_plaintext).unwrap(),
+        pt_len: _plaintext.len() as u32
     });
 
 }
