@@ -6,6 +6,12 @@ use std::mem::transmute;
 use std::string::String;
 use serde_json;
 
+/**
+ * TODO:
+ * - *_destroy functions for structs
+ * - remove "unwraps()" and handle errors (return error codes etc)
+ */
+
 #[no_mangle]
 pub extern "C" fn bsw_context_create() -> *mut CpAbeContext {
     let (_pk,_msk) = setup();
