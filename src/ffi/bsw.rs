@@ -65,29 +65,39 @@ pub extern "C" fn bsw_delegate(
 }
 
 #[no_mangle]
-pub extern "C" fn bsw_encrypt_size(
-    ctx: *mut CpAbeContext,
-    policy: *mut c_char,
-    data: *mut u8,
-    data_len: u32,
+pub extern "C" fn bsw_serialize_size(
+    ct: *mut CpAbeCiphertext
 ) -> i32 {
     use std::{slice,ptr};
-    let p = unsafe { &mut *policy };
-    let mut _pol = unsafe { CStr::from_ptr(p) };
-    let mut pol = String::with_capacity(_pol.to_bytes().len());
-    pol.insert_str (0, _pol.to_str().unwrap());
-    let _ctx = unsafe { &*ctx };
-    let _data = unsafe { &mut *data };
-    let _slice = unsafe { slice::from_raw_parts(data, data_len as usize) };
-    let mut _data_vec = vec![0];
-    _data_vec.extend_from_slice(_slice);
-    
-    //TODO is there a way to calculate the CT size without actually encrypting it//TODO is there a
-    //way to calculate the CT size without actually encrypting it??
-    let _ct = encrypt(&_ctx._pk, &pol, &_data_vec).unwrap();
-    let _ct_str = serde_json::to_string_pretty(&_ct).unwrap();
-    let _len = _ct_str.len() as i32;
-    _len
+    let _ct = unsafe { &*ct };
+    let _ct_str = serde_json::to_string(&_ct).unwrap();
+    (_ct_str.len() as i32) + 1
+}
+
+#[no_mangle]
+pub extern "C" fn bsw_serialize(
+    ct: *mut CpAbeCiphertext,
+    buf: *mut u8
+) -> i32 {
+    use std::{slice,ptr};
+    let _buf = unsafe { &mut *buf };
+    let _ct = unsafe { &*ct };
+    let _ct_str = serde_json::to_string(&_ct).unwrap();
+    unsafe { ptr::copy_nonoverlapping(_ct_str.as_ptr(), buf, _ct_str.len() as usize) };
+    0
+}
+
+#[no_mangle]
+pub extern "C" fn bsw_deserialize(
+    buf: *mut c_char,
+    buf_len: u32
+) -> *mut CpAbeCiphertext {
+    use std::{slice,ptr};
+    let _buf = unsafe { &mut *buf };
+    let mut _cstr = unsafe { CStr::from_ptr(_buf as *mut c_char) };
+    let _ct_tmp: CpAbeCiphertext = serde_json::from_str(_cstr.to_str().unwrap()).unwrap();
+    let _ct  = unsafe { transmute (Box::new(_ct_tmp.clone())) };
+    _ct
 }
 
 #[no_mangle]

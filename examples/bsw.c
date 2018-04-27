@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
@@ -15,12 +16,14 @@ void bsw_context_destroy(struct CpAbeContext* ctx);
 struct CpAbeSecretKey* bsw_keygen(const struct CpAbeContext* ctx, const char* attributes);
 void bsw_keygen_destroy(void* sk);
 struct CpAbeCiphertext* bsw_encrypt(const void* pk, char* policy, char* pt, int32_t pt_len);
-int32_t bsw_encrypt_size (const void* pk, char* policy, char* pt, int32_t pt_len);
+int32_t bsw_serialize_size (const struct CpAbeCiphertext* ct);
+int32_t bsw_serialize (const struct CpAbeCiphertext *ct, const char *buf);
+struct CpAbeCiphertext* bsw_deserialize (const char* buf, uint32_t buf_len);
 void bsw_decrypt(const struct CpAbeSecretKey* sk, const struct CpAbeCiphertext* ct, const char* buf);
 int32_t bsw_decrypt_get_size (const struct CpAbeCiphertext *ct);
 
 int main () {
-  struct CpAbeContext* ctx = bsw_context_create ();
+  struct CpAbeContext *ctx;
   const char *attributes ="C,B";
   char *ct_buf;
   int32_t ct_len;
@@ -29,13 +32,30 @@ int main () {
   char *buf;
   pt_len = strlen (pt) + 1;
   
+  /* Setup */
+  ctx = bsw_context_create ();
+
+  /* Keygen */
   struct CpAbeSecretKey* sk = bsw_keygen (ctx, attributes);
-  ct_len = bsw_encrypt_size (ctx, "{\"OR\": [{\"ATT\": \"A\"}, {\"ATT\": \"B\"}]}", pt, pt_len);
+
+  /* Encrypt */
   struct CpAbeCiphertext *ct = bsw_encrypt (ctx, "{\"OR\": [{\"ATT\": \"A\"}, {\"ATT\": \"B\"}]}", pt, pt_len);
   bsw_context_destroy(ctx);
-  pt_len = bsw_decrypt_get_size (ct);
+  
+  /* Serialize */
+  ct_len = bsw_serialize_size (ct);
+  ct_buf = malloc (ct_len);
+  memset (ct_buf, 0, ct_len);
+  assert (0 == bsw_serialize (ct, ct_buf));
+
+  /* Deserialize */
+  struct CpAbeCiphertext *ct_dup = bsw_deserialize (ct_buf, ct_len);
+  free (ct_buf);
+  
+  /* Decrypt */
+  pt_len = bsw_decrypt_get_size (ct_dup);
   buf = malloc (pt_len);
-  bsw_decrypt (sk, ct, buf);
+  bsw_decrypt (sk, ct_dup, buf);
   bsw_keygen_destroy (sk);
   assert (0 == strcmp (buf, pt));
   return 0;
