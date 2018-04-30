@@ -17,7 +17,7 @@ struct CpAbeSecretKey* bsw_keygen(const struct CpAbeContext* ctx, const char* at
 void bsw_keygen_destroy(void* sk);
 struct CpAbeCiphertext* bsw_encrypt(const void* pk, char* policy, char* pt, int32_t pt_len);
 int32_t bsw_serialize_size (const struct CpAbeCiphertext* ct);
-int32_t bsw_serialize (const struct CpAbeCiphertext *ct, const char *buf);
+char* bsw_serialize (const struct CpAbeCiphertext *ct, uint32_t *size);
 struct CpAbeCiphertext* bsw_deserialize (const char* buf, uint32_t buf_len);
 void bsw_decrypt(const struct CpAbeSecretKey* sk, const struct CpAbeCiphertext* ct, const char* buf);
 int32_t bsw_decrypt_get_size (const struct CpAbeCiphertext *ct);
@@ -44,10 +44,8 @@ int main () {
   
   /* Serialize */
   ct_len = bsw_serialize_size (ct);
-  ct_buf = malloc (ct_len);
-  memset (ct_buf, 0, ct_len);
-  assert (0 == bsw_serialize (ct, ct_buf));
-
+  ct_buf = bsw_serialize (ct, &ct_len);
+  
   /* Deserialize */
   struct CpAbeCiphertext *ct_dup = bsw_deserialize (ct_buf, ct_len);
   free (ct_buf);
