@@ -4,7 +4,7 @@ use libc::*;
 use std::ffi::CStr;
 use std::mem::transmute;
 use std::mem;
-use std::ptr;
+use std::{slice,ptr};
 use std::string::String;
 use serde_json;
 
@@ -84,7 +84,6 @@ pub extern "C" fn rabe_bsw_encrypt(
     ct_buf: *mut *mut u8,
     ct_buf_len: *mut u32
 ) -> i32 {
-    use std::{slice};
     let p = unsafe { &mut *policy };
     let mut _pol = unsafe { CStr::from_ptr(p) };
     let mut pol_tmp = String::with_capacity(_pol.to_bytes().len());
@@ -97,13 +96,11 @@ pub extern "C" fn rabe_bsw_encrypt(
     let _slice = unsafe { slice::from_raw_parts(pt, pt_len as usize) };
     let mut _data_vec = Vec::new();
     _data_vec.extend_from_slice(_slice);
-    //TODO handle error
     let _res = encrypt(&(_ctx._pk), &pol_tmp, &_data_vec);
     if let None = _res {
         return -1;
     }
     let _ct = _res.unwrap();
-    //TODO handle error
     let _ct_ser_str = serde_json::to_string(&_ct);
     if let Err(_) = _ct_ser_str {
         return -1;
@@ -134,14 +131,13 @@ pub extern "C" fn rabe_bsw_decrypt(
     pt_buf: *mut *mut u8,
     pt_buf_len: *mut u32) -> i32 {
     let _sk = unsafe { &mut *sk };
-    //let _ct = unsafe { &mut *ct };
 
     let mut _cstr = unsafe { CStr::from_ptr(ct as *mut c_char) };
     let _cstr_str = _cstr.to_str();
     if let Err(_) = _cstr_str {
         return -1;
     }
-    assert!(_cstr_str.unwrap().len() == ct_len as usize);
+    assert!(_cstr_str.unwrap().len() == (ct_len-1) as usize);
     let _serde_res = serde_json::from_str(_cstr_str.unwrap());
     if let Err(_) = _serde_res {
         return -1;
