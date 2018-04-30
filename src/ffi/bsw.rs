@@ -4,6 +4,7 @@ use libc::*;
 use std::ffi::CStr;
 use std::mem::transmute;
 use std::mem;
+use std::{slice,ptr};
 use std::string::String;
 use serde_json;
 
@@ -73,59 +74,38 @@ pub extern "C" fn rabe_bsw_delegate(
     _dsk
 }
 
-#[no_mangle]
-pub extern "C" fn rabe_bsw_ciphertext_serialize(
-    ct: *mut CpAbeCiphertext,
-    size: *mut u32
-) -> *mut u8 {
-    use std::{slice,ptr};
-    
-    let _ct = unsafe { &*ct };
-    let _ct_str = serde_json::to_string(&_ct).unwrap();
-    unsafe {
-        let _size = (_ct_str.len()+1) as u32;
-        let _buf: *mut u8 = libc::malloc(_size as usize) as *mut u8;
-        ptr::write_bytes(_buf, 0, _size as usize);
-        ptr::copy_nonoverlapping(_ct_str.as_ptr(), _buf, _ct_str.len() as usize);
-        
-        ptr::copy_nonoverlapping(&_size, size, mem::size_of::<u32>());
-        _buf
-    }
-    
-}
-
-#[no_mangle]
-pub extern "C" fn rable_bsw_ciphertext_deserialize(
-    buf: *mut c_char,
-    buf_len: u32
-) -> *mut CpAbeCiphertext {
-    use std::{slice,ptr};
-    let _buf = unsafe { &mut *buf };
-    let mut _cstr = unsafe { CStr::from_ptr(_buf as *mut c_char) };
-    let _ct_tmp: CpAbeCiphertext = serde_json::from_str(_cstr.to_str().unwrap()).unwrap();
-    let _ct  = unsafe { transmute (Box::new(_ct_tmp.clone())) };
-    _ct
-}
 
 #[no_mangle]
 pub extern "C" fn rabe_bsw_encrypt(
     ctx: *mut CpAbeContext,
     policy: *mut c_char,
-    data: *mut u8,
-    data_len: u32
-) -> *mut CpAbeCiphertext {
+    pt: *mut u8,
+    pt_len: u32,
+    ct_buf: *mut *mut u8,
+    ct_buf_len: *mut u32
+) -> i32 {
     use std::{slice};
     let p = unsafe { &mut *policy };
     let mut _pol = unsafe { CStr::from_ptr(p) };
     let mut pol = String::with_capacity(_pol.to_bytes().len());
     pol.insert_str (0, _pol.to_str().unwrap());
     let _ctx = unsafe { &*ctx };
-    let _data = unsafe { &mut *data };
-    let _slice = unsafe { slice::from_raw_parts(data, data_len as usize) };
+    let _slice = unsafe { slice::from_raw_parts(pt, pt_len as usize) };
     let mut _data_vec = Vec::new();
     _data_vec.extend_from_slice(_slice);
-    let _ct = unsafe { transmute(Box::new(encrypt(&(_ctx._pk), &pol, &_data_vec).unwrap())) };
-    _ct
+    //TODO handle error
+    let _ct = encrypt(&(_ctx._pk), &pol, &_data_vec).unwrap();
+    //TODO handle error
+    let _ct_str = serde_json::to_string(&_ct).unwrap();
+    unsafe {
+        let _size = (_ct_str.len()+1) as u32;
+        *ct_buf = libc::malloc(_size as usize) as *mut u8;
+        ptr::write_bytes(*ct_buf, 0, _size as usize);
+        ptr::copy_nonoverlapping(_ct_str.as_ptr(), *ct_buf, _ct_str.len() as usize);
+        
+        ptr::copy_nonoverlapping(&_size, ct_buf_len, mem::size_of::<u32>());
+    }
+    0
 }
 
 #[no_mangle]
@@ -137,12 +117,22 @@ pub extern "C" fn rabe_bsw_decrypt_get_size(ct: *mut CpAbeCiphertext) -> u32 {
 #[no_mangle]
 pub extern "C" fn rabe_bsw_decrypt(
     sk: *mut CpAbeSecretKey,
-    ct: *mut CpAbeCiphertext,
-    buf: *mut u8) {
-    use std::{ptr};
-    
+    ct: *mut u8,
+    ct_len: u32,
+    pt_buf: *mut *mut u8,
+    pt_buf_len: *mut u32) -> i32 {
     let _sk = unsafe { &mut *sk };
-    let _ct = unsafe { &mut *ct };
-    let _pt = unsafe { decrypt(_sk, _ct).unwrap() };
-    unsafe { ptr::copy_nonoverlapping(&_pt.as_slice()[0], buf, _ct.pt_len as usize) };
+    //let _ct = unsafe { &mut *ct };
+
+    let mut _cstr = unsafe { CStr::from_ptr(ct as *mut c_char) };
+    //TODO handle unwrap errors
+    let _ct: CpAbeCiphertext = serde_json::from_str(_cstr.to_str().unwrap()).unwrap();
+    let _pt = decrypt(_sk, &_ct).unwrap();
+    unsafe {
+        let _size = _ct.pt_len as u32;
+        *pt_buf = libc::malloc(_ct.pt_len as usize) as *mut u8;
+        ptr::copy_nonoverlapping(&_pt.as_slice()[0], *pt_buf, _ct.pt_len as usize);
+        ptr::copy_nonoverlapping(&_size, pt_buf_len, mem::size_of::<u32>());    
+    }
+    0
 }
