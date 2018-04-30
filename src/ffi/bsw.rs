@@ -4,7 +4,7 @@ use libc::*;
 use std::ffi::CStr;
 use std::mem::transmute;
 use std::mem;
-use std::{slice,ptr};
+use std::ptr;
 use std::string::String;
 use serde_json;
 
@@ -87,16 +87,28 @@ pub extern "C" fn rabe_bsw_encrypt(
     use std::{slice};
     let p = unsafe { &mut *policy };
     let mut _pol = unsafe { CStr::from_ptr(p) };
-    let mut pol = String::with_capacity(_pol.to_bytes().len());
-    pol.insert_str (0, _pol.to_str().unwrap());
+    let mut pol_tmp = String::with_capacity(_pol.to_bytes().len());
+    let _pol_str = _pol.to_str();
+    if let Err(_) = _pol_str {
+        return -1;
+    }
+    pol_tmp.insert_str (0, _pol_str.unwrap());
     let _ctx = unsafe { &*ctx };
     let _slice = unsafe { slice::from_raw_parts(pt, pt_len as usize) };
     let mut _data_vec = Vec::new();
     _data_vec.extend_from_slice(_slice);
     //TODO handle error
-    let _ct = encrypt(&(_ctx._pk), &pol, &_data_vec).unwrap();
+    let _res = encrypt(&(_ctx._pk), &pol_tmp, &_data_vec);
+    if let None = _res {
+        return -1;
+    }
+    let _ct = _res.unwrap();
     //TODO handle error
-    let _ct_str = serde_json::to_string(&_ct).unwrap();
+    let _ct_ser_str = serde_json::to_string(&_ct);
+    if let Err(_) = _ct_ser_str {
+        return -1;
+    }
+    let _ct_str = _ct_ser_str.unwrap();
     unsafe {
         let _size = (_ct_str.len()+1) as u32;
         *ct_buf = libc::malloc(_size as usize) as *mut u8;
@@ -125,14 +137,27 @@ pub extern "C" fn rabe_bsw_decrypt(
     //let _ct = unsafe { &mut *ct };
 
     let mut _cstr = unsafe { CStr::from_ptr(ct as *mut c_char) };
-    //TODO handle unwrap errors
-    let _ct: CpAbeCiphertext = serde_json::from_str(_cstr.to_str().unwrap()).unwrap();
-    let _pt = decrypt(_sk, &_ct).unwrap();
-    unsafe {
-        let _size = _ct.pt_len as u32;
-        *pt_buf = libc::malloc(_ct.pt_len as usize) as *mut u8;
-        ptr::copy_nonoverlapping(&_pt.as_slice()[0], *pt_buf, _ct.pt_len as usize);
-        ptr::copy_nonoverlapping(&_size, pt_buf_len, mem::size_of::<u32>());    
+    let _cstr_str = _cstr.to_str();
+    if let Err(_) = _cstr_str {
+        return -1;
     }
-    0
+    assert!(_cstr_str.unwrap().len() == ct_len as usize);
+    let _serde_res = serde_json::from_str(_cstr_str.unwrap());
+    if let Err(_) = _serde_res {
+        return -1;
+    }
+    let _ct: CpAbeCiphertext = _serde_res.unwrap();
+    match decrypt(_sk, &_ct) {
+        None => return -1,
+        Some(_pt) => {
+            unsafe {
+                let _size = _ct.pt_len as u32;
+                *pt_buf = libc::malloc(_ct.pt_len as usize) as *mut u8;
+                ptr::copy_nonoverlapping(&_pt.as_slice()[0], *pt_buf, _ct.pt_len as usize);
+                ptr::copy_nonoverlapping(&_size, pt_buf_len, mem::size_of::<u32>());    
+            }
+            return 0;
+        }
+    }
+    
 }
