@@ -299,7 +299,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_or() {
+    fn or() {
         // setup scheme
         let (pk, msk) = setup();
         // a set of two attributes matching the policy
@@ -332,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn test_and() {
+    fn and() {
         // setup scheme
         let (pk, msk) = setup();
         // a set of two attributes matching the policy
@@ -366,7 +366,7 @@ mod tests {
 
 
     #[test]
-    fn test_or_and() {
+    fn or_and() {
         // setup scheme
         let (pk, msk) = setup();
         // a set of two attributes matching the policy
@@ -400,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    fn test_delegate() {
+    fn delegate_ab() {
         // setup scheme
         let (pk, msk) = setup();
         // a set of three attributes matching the policy
@@ -427,6 +427,5 @@ mod tests {
         let _match = decrypt(&del, &ct_cp);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), plaintext);
-
     }
 }

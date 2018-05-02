@@ -432,7 +432,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_and() {
+    fn and() {
         // setup scheme
         let (_pk, _msk) = setup();
         // authority1
@@ -477,9 +477,8 @@ mod tests {
         assert_eq!(_match.unwrap(), _plaintext);
     }
 
-
     #[test]
-    fn test_or() {
+    fn or() {
         // setup scheme
         let (_pk, _msk) = setup();
         // authority1
@@ -523,4 +522,111 @@ mod tests {
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
+
+    #[test]
+    fn or_and() {
+        // setup scheme
+        let (_pk, _msk) = setup();
+        // authority1
+        let _a1_key = authgen(&_pk, &_msk, &String::from("aa1"));
+        // authority2
+        let _a2_key = authgen(&_pk, &_msk, &String::from("aa2"));
+        // authority2
+        let _a3_key = authgen(&_pk, &_msk, &String::from("aa3"));
+        // generate mutable user key(in order to add attribute sk's later on)
+        let mut _u_key = keygen(&_pk, &_a2_key, &String::from("u1"));
+        // our attributes
+        let _att1 = String::from("aa1::A");
+        let _att2 = String::from("aa2::B");
+        let _att3 = String::from("aa3::C");
+        // authority1 owns A
+        let _att1_pk = request_attribute_pk(&_pk, &_a1_key, &_att1).unwrap();
+        // authority2 owns B
+        let _att2_pk = request_attribute_pk(&_pk, &_a2_key, &_att2).unwrap();
+        // authority3 owns C
+        let _att2_pk = request_attribute_pk(&_pk, &_a3_key, &_att3).unwrap();
+        // add attribute sk's to user key
+        _u_key._ska.push(
+            request_attribute_sk(
+                &_u_key._pk,
+                &_a1_key,
+                &_att1,
+            ).unwrap(),
+        );
+        _u_key._ska.push(
+            request_attribute_sk(
+                &_u_key._pk,
+                &_a2_key,
+                &_att2,
+            ).unwrap(),
+        );
+        _u_key._ska.push(
+            request_attribute_sk(
+                &_u_key._pk,
+                &_a3_key,
+                &_att3,
+            ).unwrap(),
+        );
+        // our plaintext
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let _policy = String::from(
+            r#"{"OR": [{"AND": [{"ATT": "aa3::C"}, {"ATT": "aa2::B"}]}, {"ATT": "aa1::X"}]}"#,
+        );
+        // cp-abe ciphertext
+        let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+            .unwrap();
+        // and now decrypt again with mathcing sk
+        let _match = decrypt(&_pk, &_u_key, &_ct);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), _plaintext);
+    }
+
+
+    #[test]
+    fn not() {
+        // setup scheme
+        let (_pk, _msk) = setup();
+        // authority1
+        let _a1_key = authgen(&_pk, &_msk, &String::from("aa1"));
+        // authority2
+        let _a2_key = authgen(&_pk, &_msk, &String::from("aa2"));
+        // generate mutable user key(in order to add attribute sk's later on)
+        let mut _u_key = keygen(&_pk, &_a2_key, &String::from("u1"));
+        // our attributes
+        let _att1 = String::from("aa1::A");
+        let _att2 = String::from("aa2::B");
+        // authority1 owns A
+        let _att1_pk = request_attribute_pk(&_pk, &_a1_key, &_att1).unwrap();
+        // authority2 owns B
+        let _att2_pk = request_attribute_pk(&_pk, &_a2_key, &_att2).unwrap();
+        // add attribute sk's to user key
+        _u_key._ska.push(
+            request_attribute_sk(
+                &_u_key._pk,
+                &_a1_key,
+                &_att1,
+            ).unwrap(),
+        );
+        _u_key._ska.push(
+            request_attribute_sk(
+                &_u_key._pk,
+                &_a2_key,
+                &_att2,
+            ).unwrap(),
+        );
+        // our plaintext
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let _policy = String::from(r#"{"OR": [{"ATT": "aa1::B"}, {"ATT": "aa2::A"}]}"#);
+        // cp-abe ciphertext
+        let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+            .unwrap();
+        // and now decrypt again with mathcing sk
+        let _match = decrypt(&_pk, &_u_key, &_ct);
+        assert_eq!(_match.is_none(), true);
+    }
+
 }

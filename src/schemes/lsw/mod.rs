@@ -282,7 +282,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_and() {
+    fn and() {
         // setup scheme
         let (pk, msk) = setup();
         // a set of two attributes matching the policy
@@ -302,8 +302,9 @@ mod tests {
         // and now decrypt again with matching sk
         assert_eq!(decrypt(&sk, &ct_kp_matching).unwrap(), plaintext);
     }
+
     #[test]
-    fn test_or() {
+    fn or() {
         // setup scheme
         let (pk, msk) = setup();
         // a set of two attributes matching the policy
@@ -322,5 +323,50 @@ mod tests {
         let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
         // and now decrypt again with matching sk
         assert_eq!(decrypt(&sk, &ct_kp_matching).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn or_and() {
+        // setup scheme
+        let (pk, msk) = setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("Y"));
+        att_matching.push(String::from("Z"));
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(
+            r#"{"OR": [{"ATT": "X"}, {"AND": [{"ATT": "Y"}, {"ATT": "Z"}]}]}"#,
+        );
+        // kp-abe ciphertext
+        let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
+        // and now decrypt again with matching sk
+        assert_eq!(decrypt(&sk, &ct_kp_matching).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn not() {
+        // setup scheme
+        let (pk, msk) = setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "Y"}]}"#);
+        // kp-abe ciphertext
+        let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
+        // and now decrypt again with matching sk
+        assert_eq!(decrypt(&sk, &ct_kp_matching), None);
     }
 }

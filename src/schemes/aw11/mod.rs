@@ -224,16 +224,20 @@ pub fn encrypt(
     let mut _c: Vec<(String, bn::Gt, bn::G2, bn::G2)> = Vec::new();
     for (_i, (_attr_name, _attr_share)) in _s_shares.into_iter().enumerate() {
         let _r_x = Fr::random(_rng);
-        let _pk_attr = find_pk_attr(_pks, &_attr_name.to_uppercase()).unwrap();
-        _c.push((
-            _attr_name.clone().to_uppercase(),
-            pairing(_gk._g1, _gk._g2).pow(_attr_share) *
-                _pk_attr.1.pow(_r_x),
-            _gk._g2 * _r_x,
-            (_pk_attr.2 * _r_x) + (_gk._g2 * _w_shares[_i].1),
-        ));
+        let _pk_attr = find_pk_attr(_pks, &_attr_name.to_uppercase());
+        match _pk_attr {
+            None => return None,
+            Some(_attr) => {
+                _c.push((
+                    _attr_name.clone().to_uppercase(),
+                    pairing(_gk._g1, _gk._g2).pow(_attr_share) *
+                        _attr.1.pow(_r_x),
+                    _gk._g2 * _r_x,
+                    (_attr.2 * _r_x) + (_gk._g2 * _w_shares[_i].1),
+                ));
+            }
+        }
     }
-    //println!("enc: {:?}", serde_json::to_string(&_msg).unwrap());
     //Encrypt plaintext using derived key from secret
     return Some(Aw11Ciphertext {
         _policy: _policy.clone(),
@@ -335,7 +339,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_and() {
+    fn and() {
         // global setup
         let _gp = setup();
         // setup attribute authority 1 with
@@ -371,16 +375,155 @@ mod tests {
         // our policy
         let _policy = String::from(r#"{"AND": [{"ATT": "H"}, {"ATT": "B"}]}"#);
 
+        // add attribute "B" of auth1 to bobs key
+        add_attribute(&_gp, &_auth1_msk, &String::from("B"), &mut _bob);
+
+        // a vector of public attribute keys
         let mut _pks: Vec<Aw11PublicKey> = Vec::new();
         _pks.push(_auth3_pk);
         _pks.push(_auth1_pk);
-
-        add_attribute(&_gp, &_auth1_msk, &String::from("B"), &mut _bob);
 
         // cp-abe ciphertext
         let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
         let _matching = decrypt(&_gp, &_bob, &ct_cp).unwrap();
         assert_eq!(_matching, _plaintext);
+    }
+
+    #[test]
+    fn or() {
+        // global setup
+        let _gp = setup();
+        // setup attribute authority 1 with
+        // a set of two attributes "A" "B"
+        let mut att_authority1: Vec<String> = Vec::new();
+        att_authority1.push(String::from("A"));
+        att_authority1.push(String::from("B"));
+        let (_auth1_pk, _auth1_msk) = authgen(&_gp, &att_authority1).unwrap();
+        // setup attribute authority 1 with
+        // a set of two attributes "C" "D"
+        let mut att_authority2: Vec<String> = Vec::new();
+        att_authority2.push(String::from("C"));
+        att_authority2.push(String::from("D"));
+        let (_auth2_pk, _auth2_msk) = authgen(&_gp, &att_authority2).unwrap();
+
+        // setup a user "bob" and give him some attribute-keys
+        let mut _bob = keygen(
+            &_gp,
+            &_auth1_msk,
+            &String::from("bob"),
+            &vec![String::from("A")],
+        ).unwrap();
+
+        // our plaintext
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let _policy = String::from(r#"{"OR": [{"ATT": "B"}, {"ATT": "C"}]}"#);
+
+        // a vector of public attribute keys
+        let mut _pks: Vec<Aw11PublicKey> = Vec::new();
+        _pks.push(_auth2_pk);
+        _pks.push(_auth1_pk);
+
+        // add attribute "C" of auth2 to bobs key
+        add_attribute(&_gp, &_auth2_msk, &String::from("C"), &mut _bob);
+
+        // cp-abe ciphertext
+        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
+        // and now decrypt again with mathcing sk
+        let _matching = decrypt(&_gp, &_bob, &ct_cp).unwrap();
+        assert_eq!(_matching, _plaintext);
+    }
+
+    #[test]
+    fn or_and() {
+        // global setup
+        let _gp = setup();
+        // setup attribute authority 1 with
+        // a set of two attributes "A" "B"
+        let mut att_authority1: Vec<String> = Vec::new();
+        att_authority1.push(String::from("A"));
+        att_authority1.push(String::from("B"));
+        let (_auth1_pk, _auth1_msk) = authgen(&_gp, &att_authority1).unwrap();
+        // setup attribute authority 1 with
+        // a set of two attributes "C" "D"
+        let mut att_authority2: Vec<String> = Vec::new();
+        att_authority2.push(String::from("C"));
+        att_authority2.push(String::from("D"));
+        let (_auth2_pk, _auth2_msk) = authgen(&_gp, &att_authority2).unwrap();
+
+        // setup a user "bob" and give him some attribute-keys
+        let mut _bob = keygen(
+            &_gp,
+            &_auth1_msk,
+            &String::from("bob"),
+            &vec![String::from("A")],
+        ).unwrap();
+
+        // our plaintext
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let _policy = String::from(
+            r#"{"OR": [{"ATT": "B"}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#,
+        );
+
+        // a vector of public attribute keys
+        let mut _pks: Vec<Aw11PublicKey> = Vec::new();
+        _pks.push(_auth2_pk);
+        _pks.push(_auth1_pk);
+
+        // add attribute "C" and "D" of auth2 to bobs key
+        add_attribute(&_gp, &_auth2_msk, &String::from("C"), &mut _bob);
+        add_attribute(&_gp, &_auth2_msk, &String::from("D"), &mut _bob);
+
+        // cp-abe ciphertext
+        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
+        // and now decrypt again with mathcing sk
+        let _matching = decrypt(&_gp, &_bob, &ct_cp).unwrap();
+        assert_eq!(_matching, _plaintext);
+    }
+
+    #[test]
+    fn not() {
+        // global setup
+        let _gp = setup();
+        // setup attribute authority 1 with
+        // a set of two attributes "A" "B"
+        let mut att_authority1: Vec<String> = Vec::new();
+        att_authority1.push(String::from("A"));
+        att_authority1.push(String::from("B"));
+        let (_auth1_pk, _auth1_msk) = authgen(&_gp, &att_authority1).unwrap();
+        // setup attribute authority 1 with
+        // a set of two attributes "C" "D"
+        let mut att_authority2: Vec<String> = Vec::new();
+        att_authority2.push(String::from("C"));
+        att_authority2.push(String::from("D"));
+        let (_auth2_pk, _auth2_msk) = authgen(&_gp, &att_authority2).unwrap();
+        // setup a user "bob" and give him some attribute-keys
+        let mut _bob = keygen(
+            &_gp,
+            &_auth1_msk,
+            &String::from("bob"),
+            &vec![String::from("A")],
+        ).unwrap();
+        // our plaintext
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let _policy = String::from(
+            r#"{"OR": [{"ATT": "B"}, {"AND": [{"ATT": "C"}, {"ATT": "A"}]}]}"#,
+        );
+        // a vector of public attribute keys
+        let mut _pks: Vec<Aw11PublicKey> = Vec::new();
+        _pks.push(_auth2_pk);
+        _pks.push(_auth1_pk);
+        // add attribute "C" and "D" of auth2 to bobs key
+        add_attribute(&_gp, &_auth2_msk, &String::from("D"), &mut _bob);
+        // cp-abe ciphertext
+        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
+        // and now decrypt again
+        assert_eq!(decrypt(&_gp, &_bob, &ct_cp), None);
     }
 }

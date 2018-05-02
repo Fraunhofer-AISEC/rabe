@@ -654,7 +654,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ac17kp_and() {
+    fn kp_and() {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
@@ -672,7 +672,7 @@ mod tests {
     }
 
     #[test]
-    fn ac17kp_or_and() {
+    fn kp_or_and() {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
@@ -697,7 +697,7 @@ mod tests {
     }
 
     #[test]
-    fn ac17kp_or() {
+    fn kp_or() {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
@@ -713,9 +713,25 @@ mod tests {
         assert_eq!(kp_decrypt(&sk, &ct).unwrap(), plaintext);
     }
 
+    #[test]
+    fn kp_not() {
+        // setup scheme
+        let (pk, msk) = setup();
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // kp-abe ciphertext
+        let ct: Ac17KpCiphertext = kp_encrypt(&pk, &vec!["C".to_string()], &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy).unwrap();
+        // and now decrypt again
+        assert_eq!(kp_decrypt(&sk, &ct), None);
+    }
 
     #[test]
-    fn ac17cp_and() {
+    fn cp_and() {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
@@ -732,7 +748,7 @@ mod tests {
     }
 
     #[test]
-    fn ac17cp_or() {
+    fn cp_or() {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
@@ -757,7 +773,7 @@ mod tests {
     }
 
     #[test]
-    fn ac17cp_or_and_and() {
+    fn cp_or_and_and() {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
@@ -779,5 +795,22 @@ mod tests {
         ).unwrap();
         // and now decrypt again
         assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn cp_not() {
+        // setup scheme
+        let (pk, msk) = setup();
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+        // our policy
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        // kp-abe ciphertext
+        let ct: Ac17CpCiphertext = cp_encrypt(&pk, &policy, &plaintext).unwrap();
+        // a kp-abe SK key
+        let sk: Ac17CpSecretKey = cp_keygen(&msk, &vec!["C".to_string()]).unwrap();
+        // and now decrypt again
+        assert_eq!(cp_decrypt(&sk, &ct), None);
     }
 }
