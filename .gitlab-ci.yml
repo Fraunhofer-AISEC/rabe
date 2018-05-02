@@ -22,7 +22,7 @@ lib:
   only:
     - master
   script:
-    - cargo doc
+    - cargo doc --no-deps
     - cargo build --release
     - rm -rf public
     - mkdir public
