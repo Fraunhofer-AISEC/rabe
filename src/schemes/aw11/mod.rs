@@ -75,13 +75,6 @@ pub struct Aw11GlobalContext {
     pub _gk: Aw11GlobalKey,
 }
 
-/// A Context for an AW11 Key Pair (MK/PK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub struct Aw11Context {
-    pub _msk: Aw11MasterKey,
-    pub _pk: Aw11PublicKey,
-}
-
 /// Sets up a new AW11 Scheme by creating a Global Parameters Key (GK)
 pub fn setup() -> Aw11GlobalKey {
     // random number generator

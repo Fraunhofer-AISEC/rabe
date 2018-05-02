@@ -121,19 +121,6 @@ pub struct BdabeCiphertext {
     pub _ct: Vec<u8>,
 }
 
-/// A BDABE Global Context
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub struct BdabeGlobalContext {
-    pub _gk: BdabePublicKey,
-}
-
-/// A BDABE Context
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub struct BdabeContext {
-    pub _mk: BdabeMasterKey,
-    pub _pk: BdabePublicKey,
-}
-
 /// The setup algorithm of BDABE. Generates a BdabePublicKey and a BdabeMasterKey.
 pub fn setup() -> (BdabePublicKey, BdabeMasterKey) {
     // random number generator

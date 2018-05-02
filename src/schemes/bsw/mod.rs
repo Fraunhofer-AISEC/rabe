@@ -40,64 +40,43 @@ use utils::hash::blake2b_hash_g2;
 /// A BSW Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbePublicKey {
-    _g1: bn::G1,
-    _g2: bn::G2,
-    _h: bn::G1,
-    _f: bn::G2,
-    _e_gg_alpha: bn::Gt,
+    pub _g1: bn::G1,
+    pub _g2: bn::G2,
+    pub _h: bn::G1,
+    pub _f: bn::G2,
+    pub _e_gg_alpha: bn::Gt,
 }
 
 /// A BSW Master Key (MSK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeMasterKey {
-    _beta: bn::Fr,
-    _g2_alpha: bn::G2,
+    pub _beta: bn::Fr,
+    pub _g2_alpha: bn::G2,
 }
 
-
-/**
- * TODO MSC: I added a _public_ expected plaintext length to
- * this struct. Maybe this can be exposed throug a function.
- * I assume pt len == ct len (at least the aes ct) but not sure.
- * This information is _required_ when the ct should be serialized
- * and if ct len != pt len.
- */
 /// A BSW Ciphertext (CT)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeCiphertext {
-    _policy: String,
-    _c: bn::G1,
-    _c_p: bn::Gt,
-    _c_y: Vec<CpAbeAttribute>,
-    _ct: Vec<u8>,
-    pub pt_len: u32
+    pub _policy: String,
+    pub _c: bn::G1,
+    pub _c_p: bn::Gt,
+    pub _c_y: Vec<CpAbeAttribute>,
+    pub _ct: Vec<u8>,
 }
 
 /// A BSW Secret User Key (SK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeSecretKey {
-    _d: bn::G2,
-    _d_j: Vec<CpAbeAttribute>,
+    pub _d: bn::G2,
+    pub _d_j: Vec<CpAbeAttribute>,
 }
 
 /// A BSW Attribute
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeAttribute {
-    _str: String,
-    _g1: bn::G1,
-    _g2: bn::G2,
-}
-
-/**
- * TODO:  MSC: This struct is not used in the code
- * The only place where this is useful (maybe even required)
- * is the C ffi interface as we cannot handle tuples there (or can we?)
- */
-/// A BSW ABE Context
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub struct CpAbeContext {
-    pub _msk: CpAbeMasterKey,
-    pub _pk: CpAbePublicKey,
+    pub _str: String,
+    pub _g1: bn::G1,
+    pub _g2: bn::G2,
 }
 
 /// The setup algorithm of BSW CP-ABE. Generates a new CpAbePublicKey and a new CpAbeMasterKey.
@@ -263,7 +242,6 @@ pub fn encrypt(
         _c_p: _c_p,
         _c_y: _c_y,
         _ct: encrypt_symmetric(&_msg, &_plaintext).unwrap(),
-        pt_len: _plaintext.len() as u32
     });
 
 }

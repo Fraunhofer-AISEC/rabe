@@ -75,13 +75,6 @@ pub struct KpAbeCiphertext {
     _ct: Vec<u8>,
 }
 
-/// A LSW Context (MSK/PK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub struct KpAbeContext {
-    pub _pk: KpAbePublicKey,
-    pub _msk: KpAbeMasterKey,
-}
-
 /// The setup algorithm of LSW KP-ABE. Generates a new KpAbePublicKey and a new KpAbeMasterKey.
 pub fn setup() -> (KpAbePublicKey, KpAbeMasterKey) {
     // random number generator

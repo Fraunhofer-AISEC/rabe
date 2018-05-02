@@ -125,13 +125,6 @@ pub struct Mke08CTConjunction {
     pub _j6: bn::G2,
 }
 
-/// A MKE08 Context
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub struct Mke08Context {
-    pub _mk: Mke08MasterKey,
-    pub _pk: Mke08PublicKey,
-}
-
 /// The setup algorithm of MKE08. Generates a Mke08PublicKey and a Mke08PublicKey.
 pub fn setup() -> (Mke08PublicKey, Mke08MasterKey) {
     // random number generator

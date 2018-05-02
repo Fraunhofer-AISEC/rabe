@@ -4,25 +4,28 @@ use libc::*;
 use std::ffi::CStr;
 use std::mem::transmute;
 use std::mem;
-use std::{slice,ptr};
+use std::{slice, ptr};
 use std::string::String;
 use serde_json;
 
 extern crate libc;
 
-/**
- * TODO:
- * - *_destroy functions for structs
- * - remove "unwraps()" and handle errors (return error codes etc)
- */
+/// A BSW ABE Context
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
+pub struct CpAbeContext {
+    pub _msk: CpAbeMasterKey,
+    pub _pk: CpAbePublicKey,
+}
 
 #[no_mangle]
 pub extern "C" fn rabe_bsw_context_create() -> *mut CpAbeContext {
-    let (_pk,_msk) = setup();
-    let _ctx = unsafe { transmute(Box::new(CpAbeContext {
-      _pk: _pk,
-      _msk: _msk
-    })) };
+    let (_pk, _msk) = setup();
+    let _ctx = unsafe {
+        transmute(Box::new(CpAbeContext {
+            _pk: _pk,
+            _msk: _msk,
+        }))
+    };
     _ctx
 }
 
@@ -35,7 +38,7 @@ pub extern "C" fn rabe_bsw_context_destroy(ctx: *mut CpAbeContext) {
 #[no_mangle]
 pub extern "C" fn rabe_bsw_keygen(
     ctx: *mut CpAbeContext,
-    attributes: *const c_char
+    attributes: *const c_char,
 ) -> *mut CpAbeSecretKey {
     //let _attr = unsafe { &mut *attributes };
     let _cstr = unsafe { CStr::from_ptr(attributes).to_str().unwrap() };
@@ -82,7 +85,7 @@ pub extern "C" fn rabe_bsw_encrypt(
     pt: *mut u8,
     pt_len: u32,
     ct_buf: *mut *mut u8,
-    ct_buf_len: *mut u32
+    ct_buf_len: *mut u32,
 ) -> i32 {
     let p = unsafe { &mut *policy };
     let mut _pol = unsafe { CStr::from_ptr(p) };
@@ -91,7 +94,7 @@ pub extern "C" fn rabe_bsw_encrypt(
     if let Err(_) = _pol_str {
         return -1;
     }
-    pol_tmp.insert_str (0, _pol_str.unwrap());
+    pol_tmp.insert_str(0, _pol_str.unwrap());
     let _ctx = unsafe { &*ctx };
     let _slice = unsafe { slice::from_raw_parts(pt, pt_len as usize) };
     let mut _data_vec = Vec::new();
@@ -107,11 +110,11 @@ pub extern "C" fn rabe_bsw_encrypt(
     }
     let _ct_str = _ct_ser_str.unwrap();
     unsafe {
-        let _size = (_ct_str.len()+1) as u32;
+        let _size = (_ct_str.len() + 1) as u32;
         *ct_buf = libc::malloc(_size as usize) as *mut u8;
         ptr::write_bytes(*ct_buf, 0, _size as usize);
         ptr::copy_nonoverlapping(_ct_str.as_ptr(), *ct_buf, _ct_str.len() as usize);
-        
+
         ptr::copy_nonoverlapping(&_size, ct_buf_len, mem::size_of::<u32>());
     }
     0
@@ -120,7 +123,7 @@ pub extern "C" fn rabe_bsw_encrypt(
 #[no_mangle]
 pub extern "C" fn rabe_bsw_decrypt_get_size(ct: *mut CpAbeCiphertext) -> u32 {
     let _ct = unsafe { &mut *ct };
-    _ct.pt_len
+    (_ct._ct.len() as u32) - 16
 }
 
 #[no_mangle]
@@ -129,7 +132,8 @@ pub extern "C" fn rabe_bsw_decrypt(
     ct: *mut u8,
     ct_len: u32,
     pt_buf: *mut *mut u8,
-    pt_buf_len: *mut u32) -> i32 {
+    pt_buf_len: *mut u32,
+) -> i32 {
     let _sk = unsafe { &mut *sk };
 
     let mut _cstr = unsafe { CStr::from_ptr(ct as *mut c_char) };
@@ -137,7 +141,7 @@ pub extern "C" fn rabe_bsw_decrypt(
     if let Err(_) = _cstr_str {
         return -1;
     }
-    assert!(_cstr_str.unwrap().len() == (ct_len-1) as usize);
+    assert!(_cstr_str.unwrap().len() == (ct_len - 1) as usize);
     let _serde_res = serde_json::from_str(_cstr_str.unwrap());
     if let Err(_) = _serde_res {
         return -1;
@@ -147,13 +151,13 @@ pub extern "C" fn rabe_bsw_decrypt(
         None => return -1,
         Some(_pt) => {
             unsafe {
-                let _size = _ct.pt_len as u32;
-                *pt_buf = libc::malloc(_ct.pt_len as usize) as *mut u8;
-                ptr::copy_nonoverlapping(&_pt.as_slice()[0], *pt_buf, _ct.pt_len as usize);
-                ptr::copy_nonoverlapping(&_size, pt_buf_len, mem::size_of::<u32>());    
+                let _size = (_ct._ct.len() as u32) - 16;
+                *pt_buf = libc::malloc(_size as usize) as *mut u8;
+                ptr::copy_nonoverlapping(&_pt.as_slice()[0], *pt_buf, _size as usize);
+                ptr::copy_nonoverlapping(&_size, pt_buf_len, mem::size_of::<u32>());
             }
             return 0;
         }
     }
-    
+
 }

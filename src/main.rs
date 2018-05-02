@@ -34,11 +34,10 @@ use std::fmt;
 #[macro_use]
 extern crate arrayref;
 #[macro_use]
-extern crate rabe_derive;
-#[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate clap;
+
 
 const CT_EXTENSION: &'static str = "rabe";
 const KEY_EXTENSION: &'static str = "key";

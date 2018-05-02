@@ -8,7 +8,6 @@ name="rabe"
 crate-type=["rlib", "cdylib"]
 
 [dependencies]
-rabe_derive = { path = "rabe_derive" }
 arrayref = "0.3.4"
 libc = "0.2.0"
 bn = { git = "https://github.com/georgbramm/bn" }
