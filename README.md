@@ -1,6 +1,4 @@
-[![pipeline status](https://git-int.aisec.fraunhofer.de/sas/rust-abe/badges/master/pipeline.svg)](https://git-int.aisec.fraunhofer.de/sas/rust-abe/pipelines)
-
-A Rust implementation of some ABE scheme's using a modified version of the bn library of zcash (type-3 pairing / baretto naering curve).
+A Rust implementation of some Attribute Based Encryption (ABE) schemes using a modified version of the bn library of zcash (type-3 pairing / Baretto Naering curve).
 The modification enabled serde and disabled rustc_serialize.
 
 Implemented CP-ABE Schemes:
@@ -28,4 +26,6 @@ $ ./target/debug/rabe --scheme AC17KP setup
 ```
 
 To compile the C testfile:
+```bash
 gcc test.c -lrabe -L./target/debug -o test
+```
