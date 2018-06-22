@@ -4,7 +4,7 @@ rabe is a rust library implementing several Attribute Based Encryption (ABE) sch
 
 This is a rust crate and comes with C bindings. For integration in distributed applications head over to [rabe-keyserver](ttps://github.com/Fraunhofer-AISEC/rabe-keyserver), which wraps rabe in a standalone REST API webserver.
 
-# Implemented CP-ABE Schemes:
+# Implemented Ciphertext Policy Schemes (CP-ABE)
 
 ## BDABE CP-ABE
 
@@ -27,7 +27,7 @@ John Bethencourt, Amit Sahai, Brent Waters, "Ciphertext-Policy Attribute-Based E
 S Müller, S Katzenbeisser, C Eckert , "Distributed Attribute-based Encryption". Published in International Conference on Information Security and Cryptology, Heidelberg, 2008. Available from http://www2.seceng.informatik.tu-darmstadt.de/assets/mueller/icisc08.pdf
 
 
-# Implemented KP-ABE Schemes:
+# Implemented Key Policy Schemes (KP-ABE)
 
 ## AC17 KP-ABE
 
