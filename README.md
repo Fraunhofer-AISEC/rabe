@@ -42,6 +42,7 @@ Allison Lewko, Amit Sahai and Brent Waters, "Revocation Systems with Very Small 
 In order to compile and test:
 - install rust nightly
 - git clone library 
+- install build-essential
 - and then run 'cargo build && RUST_BACKTRACE=1 cargo test -- --nocapture'
 
 In order to run on the console use 
