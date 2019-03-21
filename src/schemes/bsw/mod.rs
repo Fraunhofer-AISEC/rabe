@@ -272,14 +272,27 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
                     let _z = calc_coefficients_str(&_ct._policy).unwrap();
                     let mut _a = Gt::one();
                     for _j in x.1 {
-                        let _c_j = _ct._c_y.iter().find(|x| x._str == _j.to_string()).unwrap();
-                        let _d_j = _sk._d_j.iter().find(|x| x._str == _j.to_string()).unwrap();
-                        for _z_tuple in _z.iter() {
-                            if _z_tuple.0 == _j {
-                                _a = _a *
-                                    (pairing(_c_j._g1, _d_j._g2) *
-                                         pairing(_d_j._g1, _c_j._g2).inverse())
-                                        .pow(_z_tuple.1);
+
+                        match _ct._c_y.iter().find(|x| x._str == _j.to_string()) {
+                            Some(_c_j) => {
+                                match _sk._d_j.iter().find(|x| x._str == _j.to_string()) {
+                                    Some(_d_j) => {
+                                        for _z_tuple in _z.iter() {
+                                            if _z_tuple.0 == _j {
+                                                _a = _a *
+                                                    (pairing(_c_j._g1, _d_j._g2) *
+                                                         pairing(_d_j._g1, _c_j._g2).inverse())
+                                                        .pow(_z_tuple.1);
+                                            }
+                                        }
+                                    }
+                                    None => {
+                                        // do nothing
+                                    }
+                                }
+                            }
+                            None => {
+                                // do nothing
                             }
                         }
                     }
