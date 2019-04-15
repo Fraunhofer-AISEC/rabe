@@ -2,6 +2,8 @@
 /rabe_derive/target/*
 **/*.rs.bk
 *.key
+.idea
 .settings
 .project
+rabe.iml
 Cargo.lock

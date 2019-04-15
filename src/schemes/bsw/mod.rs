@@ -295,7 +295,6 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
                             }
                         }
                     }
-                    let _ms
                     let _msg = _ct._c_p * ((pairing(_ct._c, _sk._d)) * _a.inverse()).inverse();
                     // Decrypt plaintext using derived secret from cp-abe scheme
                     return decrypt_symmetric(&_msg, &_ct._ct);
