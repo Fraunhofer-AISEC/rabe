@@ -8,7 +8,7 @@ This is a rust crate and comes with C bindings. For integration in distributed a
 
 ## BDABE CP-ABE
 
-Georg Bramm, Mark Gall, Julian Schütte , "Blockchain based Distributed Attribute-based Encryption". In Proceedings of SECRYPT 2018. (not published yet)
+Georg Bramm, Mark Gall, Julian Schütte , "Blockchain based Distributed Attribute-based Encryption". In Proceedings of the 15th International Joint Conference on e-Business and Telecommunications (ICETE 2018) - Volume 2: SECRYPT, pages 99-110. Available from https://doi.org/10.5220/0006852602650276
 
 ## AC17 CP-ABE
 
