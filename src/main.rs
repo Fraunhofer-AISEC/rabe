@@ -13,6 +13,7 @@ extern crate crypto;
 extern crate bincode;
 extern crate num_bigint;
 extern crate blake2_rfc;
+extern crate base64;
 
 mod utils;
 mod schemes;
@@ -30,6 +31,9 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::fmt;
+use base64::{encode, decode};
+use serde_cbor::{to_vec, from_slice};
+use serde_cbor::ser::to_vec_packed;
 
 #[macro_use]
 extern crate arrayref;
@@ -38,6 +42,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate clap;
 
+extern crate serde_cbor;
 
 const CT_EXTENSION: &'static str = "rabe";
 const KEY_EXTENSION: &'static str = "key";
@@ -46,6 +51,20 @@ const MSK_FILE: &'static str = "msk";
 const SK_FILE: &'static str = "sk";
 const SKA_FILE: &'static str = "ska";
 const PK_FILE: &'static str = "pk";
+const JSON: &'static str = "json";
+
+const SK_BEGIN: &'static str = "-----BEGIN USER PRIVATE KEY BLOCK-----\n";
+const SK_END: &'static str = "\n-----END USER PRIVATE KEY BLOCK-----";
+const MSK_BEGIN: &'static str = "-----BEGIN MASTER SECRET KEY BLOCK-----\n";
+const MSK_END: &'static str = "\n-----END MASTER SECRET KEY BLOCK-----";
+const PK_BEGIN: &'static str = "-----BEGIN MASTER PUBLIC KEY BLOCK-----\n";
+const PK_END: &'static str = "\n-----END MASTER PUBLIC KEY BLOCK-----";
+const CT_BEGIN: &'static str = "-----BEGIN CIPHERTEXT BLOCK-----\n";
+const CT_END: &'static str = "\n-----END CIPHERTEXT BLOCK-----";
+const GP_BEGIN: &'static str = "-----BEGIN GLOBAL BLOCK-----\n";
+const GP_END: &'static str = "\n-----END GLOBAL BLOCK-----";
+const AU_BEGIN: &'static str = "-----BEGIN AUTHORITY BLOCK-----\n";
+const AU_END: &'static str = "\n-----END AUTHORITY BLOCK-----";
 
 #[derive(Debug)]
 struct RabeError {
@@ -85,7 +104,7 @@ fn main() {
 	    }
 	}
     let _abe_app = App::new("RABE")
-        .version("0.1.1")
+        .version("0.1.2")
         .author(crate_authors!("\n"))
         .about("ABE in Rust")
         .arg(
@@ -101,11 +120,11 @@ fn main() {
             SubCommand::with_name("setup")
                 .about("sets up a scheme, creates msk and pk or gp.")
                 .arg(
-                    Arg::with_name("msk")
-                        .long("msk")
+                    Arg::with_name(MSK_FILE)
+                        .long(MSK_FILE)
                         .required(false)
                         .takes_value(true)
-                        .value_name("msk")
+                        .value_name(MSK_FILE)
                         .help("master secret key file."),
                 )
                 .arg(
@@ -123,6 +142,14 @@ fn main() {
                         .takes_value(true)
                         .value_name("gk")
                         .help("global parameters file."),
+                ) 
+                .arg(
+                    Arg::with_name("json")
+                        .long("json")
+                        .required(false)
+                        .takes_value(false)
+                        .value_name("json")
+                        .help("export the key in json format."),
                 ),
         )
         .subcommand(
@@ -182,6 +209,14 @@ fn main() {
                         .takes_value(true)
                         .value_name("name")
                         .help("name of the attribute authority (MKE08/BDABE)"),
+                ) 
+                .arg(
+                    Arg::with_name("json")
+                        .long("json")
+                        .required(false)
+                        .takes_value(false)
+                        .value_name("json")
+                        .help("export the key in json format."),
                 ),
         )
         .subcommand(
@@ -258,6 +293,14 @@ fn main() {
                         .takes_value(true)
                         .value_name("name")
                         .help("name (gid) of the user (AW11)"),
+                ) 
+                .arg(
+                    Arg::with_name("json")
+                        .long("json")
+                        .required(false)
+                        .takes_value(false)
+                        .value_name("json")
+                        .help("export the key in json format."),
                 ),
         )
         .subcommand(
@@ -289,6 +332,14 @@ fn main() {
                         .multiple(true)
                         .value_name("attributes")
                         .help("attributes to use."),
+                ) 
+                .arg(
+                    Arg::with_name("json")
+                        .long("json")
+                        .required(false)
+                        .takes_value(false)
+                        .value_name("json")
+                        .help("export the key in json format."),
                 ),
         )
         .subcommand(
@@ -339,6 +390,14 @@ fn main() {
                         .takes_value(true)
                         .value_name("file")
                         .help("file to use."),
+                )
+                .arg(
+                    Arg::with_name("json")
+                        .long("json")
+                        .required(false)
+                        .takes_value(false)
+                        .value_name("json")
+                        .help("export the file in json format."),
                 ),
         )
         .subcommand(
@@ -404,6 +463,11 @@ fn main() {
         let mut _msk_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
+        let mut _as_json = false;
+        match arguments.value_of(JSON) {
+            None => {}
+            Some(_value) => _as_json = true,
+        }
         match arguments.value_of(MSK_FILE) {
             None => {
                 _msk_file.push_str(MSK_FILE);
@@ -428,68 +492,143 @@ fn main() {
             }
             Some(_file) => _gp_file = _file.to_string(),
         }
-        match _scheme {
+        match _scheme {        	
             Scheme::AC17CP | Scheme::AC17KP => {
                 let (_pk, _msk) = schemes::ac17::setup();
-                write_file(
-                    Path::new(&_msk_file),
-                    serde_json::to_string_pretty(&_msk).unwrap(),
-                );
-                write_file(
-                    Path::new(&_pk_file),
-                    serde_json::to_string_pretty(&_pk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_msk_file),
+                        serde_json::to_string_pretty(&_msk).unwrap(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        serde_json::to_string_pretty(&_pk).unwrap(),
+                    );
+                } else {
+                    let serialized_msk = to_vec_packed(&_msk).unwrap();
+                    let serialized_pk = to_vec_packed(&_pk).unwrap();
+                    write_file(
+                        Path::new(&_msk_file),
+                        [MSK_BEGIN, &encode(&serialized_msk).as_str(), MSK_END].concat(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        [PK_BEGIN, &encode(&serialized_pk).as_str(), PK_END].concat(),
+                    );
+                }
             }
             Scheme::AW11 => {
                 let _gp = schemes::aw11::setup();
-                write_file(
-                    Path::new(&_gp_file),
-                    serde_json::to_string_pretty(&_gp).unwrap(),
-                );
+                let serialized_gp = to_vec_packed(&_gp).unwrap();
+                if _as_json {
+                    write_file(
+                        Path::new(&_gp_file),
+                        serde_json::to_string_pretty(&_gp).unwrap(),
+                    );
+                } else {
+                    write_file(
+                        Path::new(&_msk_file),
+                        [GP_BEGIN, &encode(&serialized_gp).as_str(), GP_END].concat(),
+                    );
+
+                }
             }
             Scheme::BDABE => {
                 let (_pk, _msk) = schemes::bdabe::setup();
-                write_file(
-                    Path::new(&_msk_file),
-                    serde_json::to_string_pretty(&_msk).unwrap(),
-                );
-                write_file(
-                    Path::new(&_pk_file),
-                    serde_json::to_string_pretty(&_pk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_msk_file),
+                        serde_json::to_string_pretty(&_msk).unwrap(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        serde_json::to_string_pretty(&_pk).unwrap(),
+                    );
+                } else {
+                    let serialized_msk = to_vec_packed(&_msk).unwrap();
+                    let serialized_pk = to_vec_packed(&_pk).unwrap();
+                    write_file(
+                        Path::new(&_msk_file),
+                        [MSK_BEGIN, &encode(&serialized_msk).as_str(), MSK_END].concat(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        [PK_BEGIN, &encode(&serialized_pk).as_str(), PK_END].concat(),
+                    );
+                }
             }
             Scheme::BSW => {
                 let (_pk, _msk) = schemes::bsw::setup();
-                write_file(
-                    Path::new(&_msk_file),
-                    serde_json::to_string_pretty(&_msk).unwrap(),
-                );
-                write_file(
-                    Path::new(&_pk_file),
-                    serde_json::to_string_pretty(&_pk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_msk_file),
+                        serde_json::to_string_pretty(&_msk).unwrap(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        serde_json::to_string_pretty(&_pk).unwrap(),
+                    );
+                } else {
+                    let serialized_msk = to_vec_packed(&_msk).unwrap();
+                    let serialized_pk = to_vec_packed(&_pk).unwrap();
+                    write_file(
+                        Path::new(&_msk_file),
+                        [MSK_BEGIN, &encode(&serialized_msk).as_str(), MSK_END].concat(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        [PK_BEGIN, &encode(&serialized_pk).as_str(), PK_END].concat(),
+                    );
+
+                }
             }
             Scheme::LSW => {
                 let (_pk, _msk) = schemes::lsw::setup();
-                write_file(
-                    Path::new(&_msk_file),
-                    serde_json::to_string_pretty(&_msk).unwrap(),
-                );
-                write_file(
-                    Path::new(&_pk_file),
-                    serde_json::to_string_pretty(&_pk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_msk_file),
+                        serde_json::to_string_pretty(&_msk).unwrap(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        serde_json::to_string_pretty(&_pk).unwrap(),
+                    );
+                } else {
+                    let serialized_msk = to_vec_packed(&_msk).unwrap();
+                    let serialized_pk = to_vec_packed(&_pk).unwrap();
+                    write_file(
+                        Path::new(&_msk_file),
+                        [MSK_BEGIN, &encode(&serialized_msk).as_str(), MSK_END].concat(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        [PK_BEGIN, &encode(&serialized_pk).as_str(), PK_END].concat(),
+                    );
+                }
             } 
             Scheme::MKE08 => {
                 let (_pk, _msk) = schemes::mke08::setup();
-                write_file(
-                    Path::new(&_msk_file),
-                    serde_json::to_string_pretty(&_msk).unwrap(),
-                );
-                write_file(
-                    Path::new(&_pk_file),
-                    serde_json::to_string_pretty(&_pk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_msk_file),
+                        serde_json::to_string_pretty(&_msk).unwrap(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        serde_json::to_string_pretty(&_pk).unwrap(),
+                    );
+                } else {
+                    let serialized_msk = to_vec_packed(&_msk).unwrap();
+                    let serialized_pk = to_vec_packed(&_pk).unwrap();
+                    write_file(
+                        Path::new(&_msk_file),
+                        [MSK_BEGIN, &encode(&serialized_msk).as_str(), MSK_END].concat(),
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        [PK_BEGIN, &encode(&serialized_pk).as_str(), PK_END].concat(),
+                    );
+                }
             }          
         }
         Ok(())
@@ -503,6 +642,11 @@ fn main() {
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
         let mut _au_file = String::from("");
+        let mut _as_json = false;
+        match arguments.value_of(JSON) {
+            None => {}
+            Some(_value) => _as_json = true,
+        }
         match arguments.value_of(MSK_FILE) {
             None => {
                 _msk_file.push_str(MSK_FILE);
@@ -529,7 +673,14 @@ fn main() {
         }
         match arguments.values_of("attributes") {
             None => {}
-            Some(_attr) => _attributes = _attr.map(|s| s.to_string()).collect(),
+            Some(_attr) => {
+                let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
+                for _a in _b {
+                    for _at in _a.split_whitespace() {
+                        _attributes.push(_at.to_string());
+                    }
+                }
+            }
         }
         match arguments.value_of("policy") {
             None => {}
@@ -558,8 +709,12 @@ fn main() {
                 return Err(RabeError::new("LSW is not a multi-authoriy scheme"));
             }
             Scheme::AW11 => {
-                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
-                    .unwrap();
+                let mut _gp: Aw11GlobalKey;
+                if _as_json {
+                    _gp = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
+                } else {
+                    _gp = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
+                }
                 match schemes::aw11::authgen(&_gp, &_attributes) {
                     None => {
                         return Err(RabeError::new(
@@ -567,38 +722,77 @@ fn main() {
                         ));
                     }
                     Some((_pk, _msk)) => {
-                        write_file(
-                            Path::new(&_msk_file),
-                            serde_json::to_string_pretty(&_msk).unwrap(),
-                        );
-                        write_file(
-                            Path::new(&_pk_file),
-                            serde_json::to_string_pretty(&_pk).unwrap(),
-                        );
+                        if _as_json {
+                            write_file(
+                                Path::new(&_msk_file),
+                                serde_json::to_string_pretty(&_msk).unwrap(),
+                            );
+                            write_file(
+                                Path::new(&_pk_file),
+                                serde_json::to_string_pretty(&_pk).unwrap(),
+                            );
+                        } else {
+                            let serialized_msk = to_vec_packed(&_msk).unwrap();
+                            let serialized_pk = to_vec_packed(&_pk).unwrap();
+                            write_file(
+                                Path::new(&_msk_file),
+                                [MSK_BEGIN, &encode(&serialized_msk).as_str(), MSK_END].concat(),
+                            );
+                            write_file(
+                                Path::new(&_pk_file),
+                                [PK_BEGIN, &encode(&serialized_pk).as_str(), PK_END].concat(),
+                            );
+                        }
                     }
                 }
             }
             Scheme::BDABE => {
-                let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
-                let _msk: BdabeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
-                    .unwrap();
+                let mut _pk: BdabePublicKey;
+                let mut _msk: BdabeMasterKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                }
                 let _sk: BdabeSecretAuthorityKey = schemes::bdabe::authgen(&_pk, &_msk, &_name);
-                write_file(
-                    Path::new(&_au_file),
-                    serde_json::to_string_pretty(&_sk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_au_file),
+                        serde_json::to_string_pretty(&_sk).unwrap(),
+                    );
+                } else {
+                    let serialized_sk = to_vec_packed(&_sk).unwrap();
+                    write_file(
+                        Path::new(&_au_file),
+                        [AU_BEGIN, &encode(&serialized_sk).as_str(), AU_END].concat(),
+                    );
+                }
             }
             Scheme::MKE08 => {
-                let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
-                let _msk: Mke08MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
-                    .unwrap();
+                let mut _pk: Mke08PublicKey;
+                let mut _msk: Mke08MasterKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                }
                 let _sk: Mke08SecretAuthorityKey = schemes::mke08::authgen(&_name);
-                write_file(
-                    Path::new(&_au_file),
-                    serde_json::to_string_pretty(&_sk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_au_file),
+                        serde_json::to_string_pretty(&_sk).unwrap(),
+                    );
+                } else {
+                    let serialized_sk = to_vec_packed(&_sk).unwrap();
+                    write_file(
+                        Path::new(&_au_file),
+                        [AU_BEGIN, &encode(&serialized_sk).as_str(), AU_END].concat(),
+                    );
+                }
             }   
         }
         Ok(())
@@ -614,6 +808,11 @@ fn main() {
         let mut _msk_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
+        let mut _as_json = false;
+        match arguments.value_of(JSON) {
+            None => {}
+            Some(_value) => _as_json = true,
+        }
         match arguments.value_of(MSK_FILE) {
             None => {
                 _msk_file.push_str(MSK_FILE);
@@ -656,7 +855,14 @@ fn main() {
         }
         match arguments.values_of("attributes") {
             None => {}
-            Some(_attr) => _attributes = _attr.map(|s| s.to_string()).collect(),
+            Some(_attr) => {
+                let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
+                for _a in _b {
+                    for _at in _a.split_whitespace() {
+                        _attributes.push(_at.to_string());
+                    }
+                }
+            }
         }
         match arguments.value_of("policy") {
             None => {}
@@ -673,79 +879,168 @@ fn main() {
         }
         match _scheme {
             Scheme::AC17CP => {
-                let _msk: Ac17MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
-                    .unwrap();
+                let mut _msk: Ac17MasterKey;
+                if _as_json {
+                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
+                } else {
+                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                }
                 let _sk: Ac17CpSecretKey = schemes::ac17::cp_keygen(&_msk, &_attributes).unwrap();
-                write_file(
-                    Path::new(&_sk_file),
-                    serde_json::to_string_pretty(&_sk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_sk_file),
+                        serde_json::to_string_pretty(&_sk).unwrap(),
+                    );
+                } else {
+                    let serialized_sk = to_vec_packed(&_sk).unwrap();
+                    write_file(
+                        Path::new(&_sk_file),
+                        [SK_BEGIN, &encode(&serialized_sk).as_str(), SK_END].concat(),
+                    );
+                }
             }
             Scheme::AC17KP => {
-                let _msk: Ac17MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
-                    .unwrap();
+                let mut _msk: Ac17MasterKey;
+                if _as_json {
+                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
+                } else {
+                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                }
                 let _sk: Ac17KpSecretKey = schemes::ac17::kp_keygen(&_msk, &_policy).unwrap();
-                write_file(
-                    Path::new(&_sk_file),
-                    serde_json::to_string_pretty(&_sk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_sk_file),
+                        serde_json::to_string_pretty(&_sk).unwrap(),
+                    );
+                } else {
+                    let serialized_sk = to_vec_packed(&_sk).unwrap();
+                    write_file(
+                        Path::new(&_sk_file),
+                        [SK_BEGIN, &encode(&serialized_sk).as_str(), SK_END].concat(),
+                    );
+                }
             }
             Scheme::BSW => {
-                let _msk: CpAbeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
-                    .unwrap();
-                let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: CpAbePublicKey;
+                let mut _msk: CpAbeMasterKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                }
                 let _sk: CpAbeSecretKey = schemes::bsw::keygen(&_pk, &_msk, &_attributes).unwrap();
-                write_file(
-                    Path::new(&_sk_file),
-                    serde_json::to_string_pretty(&_sk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_sk_file),
+                        serde_json::to_string_pretty(&_sk).unwrap(),
+                    );
+                } else {
+                    let serialized_sk = to_vec_packed(&_sk).unwrap();
+                    write_file(
+                        Path::new(&_sk_file),
+                        [SK_BEGIN, &encode(&serialized_sk).as_str(), SK_END].concat(),
+                    );
+                }
             }
             Scheme::LSW => {
-                let _msk: KpAbeMasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
-                    .unwrap();
-                let _pk: KpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: KpAbePublicKey;
+                let mut _msk: KpAbeMasterKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                }
                 let _sk: KpAbeSecretKey = schemes::lsw::keygen(&_pk, &_msk, &_policy).unwrap();
-                write_file(
-                    Path::new(&_sk_file),
-                    serde_json::to_string_pretty(&_sk).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_sk_file),
+                        serde_json::to_string_pretty(&_sk).unwrap(),
+                    );
+                } else {
+                    let serialized_sk = to_vec_packed(&_sk).unwrap();
+                    write_file(
+                        Path::new(&_sk_file),
+                        [SK_BEGIN, &encode(&serialized_sk).as_str(), SK_END].concat(),
+                    );
+                }
             }
             Scheme::AW11 => {
-                let _msk: Aw11MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
+                let mut _pk: Aw11GlobalKey;
+                let mut _msk: Aw11MasterKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
+                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                }
+                let _sk: Aw11SecretKey = schemes::aw11::keygen(&_pk, &_msk, &_name, &_attributes)
                     .unwrap();
-                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
-                    .unwrap();
-                let _sk: Aw11SecretKey = schemes::aw11::keygen(&_gp, &_msk, &_name, &_attributes)
-                    .unwrap();
-                write_file(
-                    Path::new(&_name_file),
-                    serde_json::to_string_pretty(&_sk).unwrap(),
-                );
-            }
-            Scheme::BDABE => {
-                let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
-                let _ska: BdabeSecretAuthorityKey =
-                    serde_json::from_str(&read_file(Path::new(&_ska_file))).unwrap();
-                let _sk: BdabeUserKey = schemes::bdabe::keygen(&_pk, &_ska, &_name);
-                write_file(
-                    Path::new(&_name_file),
-                    serde_json::to_string_pretty(&_sk).unwrap(),
-                );
-            }
-            Scheme::MKE08 => {
-                let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
-                let _msk: Mke08MasterKey = serde_json::from_str(&read_file(Path::new(&_msk_file)))
-                    .unwrap();
-                if _name != String::from("") {
-                    let _sk: Mke08UserKey = schemes::mke08::keygen(&_pk, &_msk, &_name);
+                if _as_json {
                     write_file(
                         Path::new(&_name_file),
                         serde_json::to_string_pretty(&_sk).unwrap(),
                     );
+                } else {
+                    let serialized_sk = to_vec_packed(&_sk).unwrap();
+                    write_file(
+                        Path::new(&_name_file),
+                        [SK_BEGIN, &encode(&serialized_sk).as_str(), SK_END].concat(),
+                    );
+                }
+            }
+            Scheme::BDABE => {
+                let mut _pk: BdabePublicKey;
+                let mut _msk: BdabeSecretAuthorityKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _msk = serde_json::from_str(&read_file(Path::new(&_ska_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_file(Path::new(&_ska_file))).unwrap()).unwrap();
+                }
+                let _sk: BdabeUserKey = schemes::bdabe::keygen(&_pk, &_msk, &_name);
+                if _as_json {
+                    write_file(
+                        Path::new(&_name_file),
+                        serde_json::to_string_pretty(&_sk).unwrap(),
+                    );
+                } else {
+                    let serialized_sk = to_vec_packed(&_sk).unwrap();
+                    write_file(
+                        Path::new(&_name_file),
+                        [SK_BEGIN, &encode(&serialized_sk).as_str(), SK_END].concat(),
+                    );
+                }
+            }
+            Scheme::MKE08 => {
+                let mut _pk: Mke08PublicKey;
+                let mut _msk: Mke08MasterKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                }
+                if _name != String::from("") {
+                    let _sk: Mke08UserKey = schemes::mke08::keygen(&_pk, &_msk, &_name);
+                    if _as_json {
+                        write_file(
+                            Path::new(&_name_file),
+                            serde_json::to_string_pretty(&_sk).unwrap(),
+                        );
+                    } else {
+                        let serialized_sk = to_vec_packed(&_sk).unwrap();
+                        write_file(
+                            Path::new(&_name_file),
+                            [SK_BEGIN, &encode(&serialized_sk).as_str(), SK_END].concat(),
+                        );
+                    }
                 } else {
                     return Err(RabeError::new("MKE08: name for user key not set."));
                 }
@@ -761,6 +1056,11 @@ fn main() {
         let mut _pk_file = String::from("");
         let mut _policy: String = String::new();
         let mut _attributes: Vec<String> = Vec::new();
+        let mut _as_json = false;
+        match arguments.value_of(JSON) {
+            None => {}
+            Some(_value) => _as_json = true,
+        }
         match arguments.value_of(PK_FILE) {
             None => {
                 _pk_file.push_str(PK_FILE);
@@ -783,7 +1083,14 @@ fn main() {
         }
         match arguments.values_of("attributes") {
             None => {}
-            Some(_attr) => _attributes = _attr.map(|s| s.to_string()).collect(),
+            Some(_attr) => {
+                let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
+                for _a in _b {
+                    for _at in _a.split_whitespace() {
+                        _attributes.push(_at.to_string());
+                    }
+                }
+            }
         }
         match arguments.value_of("policy") {
             None => {}
@@ -801,10 +1108,15 @@ fn main() {
                 ));
             }
             Scheme::BSW => {
-                let _msk: CpAbeSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
-                    .unwrap();
-                let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: CpAbePublicKey;
+                let mut _msk: CpAbeSecretKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _msk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                }
                 let _sk: Option<CpAbeSecretKey> = schemes::bsw::delegate(&_pk, &_msk, &_attributes);
                 match _sk {
                     None => {
@@ -813,10 +1125,18 @@ fn main() {
                         ));
                     }
                     Some(_delegated_key) => {
-                        write_file(
-                            Path::new(&_dg_file),
-                            serde_json::to_string_pretty(&_delegated_key).unwrap(),
-                        );
+                        if _as_json {
+                            write_file(
+                                Path::new(&_dg_file),
+                                serde_json::to_string_pretty(&_delegated_key).unwrap(),
+                            );
+                        } else {
+                            let serialized_dk = to_vec_packed(&_delegated_key).unwrap();
+                            write_file(
+                                Path::new(&_dg_file),
+                                [SK_BEGIN, &encode(&serialized_dk).as_str(), SK_END].concat(),
+                            );
+                        }
                     }
                 }
             }
@@ -850,6 +1170,11 @@ fn main() {
         let mut _pt_file: String = String::new();
         let mut _policy: String = String::new();
         let mut _attributes: Vec<String> = Vec::new();
+        let mut _as_json = false;
+        match arguments.value_of(JSON) {
+            None => {}
+            Some(_value) => _as_json = true,
+        }
         match arguments.value_of(PK_FILE) {
             None => {
                 _pk_file.push_str(PK_FILE);
@@ -873,7 +1198,14 @@ fn main() {
         }
         match arguments.values_of("attributes") {
             None => {}
-            Some(x) => _attributes = x.map(|s| s.to_string()).collect(),
+            Some(_attr) => {
+                let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
+                for _a in _b {
+                    for _at in _a.split_whitespace() {
+                        _attributes.push(_at.to_string());
+                    }
+                }
+            }
         }
         match arguments.value_of("policy") {
             None => {}
@@ -891,88 +1223,188 @@ fn main() {
         let buffer: Vec<u8> = read_to_vec(Path::new(&_pt_file));
         match _scheme {
             Scheme::AC17CP => {
-                let _pk: Ac17PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: Ac17PublicKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                }
                 let _ct = schemes::ac17::cp_encrypt(&_pk, &_policy, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    serde_json::to_string_pretty(&_ct).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_ct_file),
+                        serde_json::to_string_pretty(&_ct).unwrap(),
+                    );
+                } else {
+                    let serialized_ct = to_vec_packed(&_ct).unwrap();
+                    write_file(
+                        Path::new(&_ct_file),
+                        [CT_BEGIN, &encode(&serialized_ct).as_str(), CT_END].concat(),
+                    );
+                }
 
             }
             Scheme::AC17KP => {
-                let _pk: Ac17PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: Ac17PublicKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                }
                 let _ct = schemes::ac17::kp_encrypt(&_pk, &_attributes, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    serde_json::to_string_pretty(&_ct).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_ct_file),
+                        serde_json::to_string_pretty(&_ct).unwrap(),
+                    );
+                } else {
+                    let serialized_ct = to_vec_packed(&_ct).unwrap();
+                    write_file(
+                        Path::new(&_ct_file),
+                        [CT_BEGIN, &encode(&serialized_ct).as_str(), CT_END].concat(),
+                    );
+                }
             }
             Scheme::BSW => {
-                let _pk: CpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: CpAbePublicKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                }
                 let _ct = schemes::bsw::encrypt(&_pk, &_policy, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    serde_json::to_string_pretty(&_ct).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_ct_file),
+                        serde_json::to_string_pretty(&_ct).unwrap(),
+                    );
+                } else {
+                    let serialized_ct = to_vec_packed(&_ct).unwrap();
+                    write_file(
+                        Path::new(&_ct_file),
+                        [CT_BEGIN, &encode(&serialized_ct).as_str(), CT_END].concat(),
+                    );
+                }
             }
             Scheme::LSW => {
-                let _pk: KpAbePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: KpAbePublicKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                }
                 let _ct = schemes::lsw::encrypt(&_pk, &_attributes, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    serde_json::to_string_pretty(&_ct).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_ct_file),
+                        serde_json::to_string_pretty(&_ct).unwrap(),
+                    );
+                } else {
+                    let serialized_ct = to_vec_packed(&_ct).unwrap();
+                    write_file(
+                        Path::new(&_ct_file),
+                        [CT_BEGIN, &encode(&serialized_ct).as_str(), CT_END].concat(),
+                    );
+                }
             }
             Scheme::AW11 => {
-                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
-                    .unwrap();
-                let _pk: Aw11PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _gp: Aw11GlobalKey;
+                let mut _pk: Aw11PublicKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _gp = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _gp = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
+                }
                 let mut _pks: Vec<Aw11PublicKey> = Vec::new();
                 for filename in _pk_files {
-                    let _pk: Aw11PublicKey = serde_json::from_str(&read_file(Path::new(&filename)))
-                        .unwrap();
-                    _pks.push(_pk);
+                    let mut _pka: Aw11PublicKey;
+                    if _as_json {
+                        _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
+                    } else {
+                        _pka = from_slice(&decode(&read_file(Path::new(&filename))).unwrap())
+                            .unwrap();
+                    }
+                    _pks.push(_pka);
                 }
                 let _ct = schemes::aw11::encrypt(&_gp, &_pks, &_policy, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    serde_json::to_string_pretty(&_ct).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_ct_file),
+                        serde_json::to_string_pretty(&_ct).unwrap(),
+                    );
+                } else {
+                    let serialized_ct = to_vec_packed(&_ct).unwrap();
+                    write_file(
+                        Path::new(&_ct_file),
+                        [CT_BEGIN, &encode(&serialized_ct).as_str(), CT_END].concat(),
+                    );
+                }
             } 
             Scheme::BDABE => {
-                let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: BdabePublicKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                }
                 let mut _attr_vec: Vec<BdabePublicAttributeKey> = Vec::new();
                 for filename in _pk_files {
-                    let _pk: BdabePublicAttributeKey =
-                        serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
-                    _attr_vec.push(_pk);
+                    let mut _pka: BdabePublicAttributeKey;
+                    if _as_json {
+                        _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
+                    } else {
+                        _pka = from_slice(&decode(&read_file(Path::new(&filename))).unwrap())
+                            .unwrap();
+                    }
+                    _attr_vec.push(_pka);
                 }
                 let _ct = schemes::bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    serde_json::to_string_pretty(&_ct).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_ct_file),
+                        serde_json::to_string_pretty(&_ct).unwrap(),
+                    );
+                } else {
+                    let serialized_ct = to_vec_packed(&_ct).unwrap();
+                    write_file(
+                        Path::new(&_ct_file),
+                        [CT_BEGIN, &encode(&serialized_ct).as_str(), CT_END].concat(),
+                    );
+                }
             } 
             Scheme::MKE08 => {
-                let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
+                let mut _pk: Mke08PublicKey;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                }
                 let mut _attr_vec: Vec<Mke08PublicAttributeKey> = Vec::new();
                 for filename in _pk_files {
-                    let _pk: Mke08PublicAttributeKey =
-                        serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
-                    _attr_vec.push(_pk);
+                    let mut _pka: Mke08PublicAttributeKey;
+                    if _as_json {
+                        _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
+                    } else {
+                        _pka = from_slice(&decode(&read_file(Path::new(&filename))).unwrap())
+                            .unwrap();
+                    }
+                    _attr_vec.push(_pka);
                 }
                 let _ct = schemes::mke08::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    serde_json::to_string_pretty(&_ct).unwrap(),
-                );
+                if _as_json {
+                    write_file(
+                        Path::new(&_ct_file),
+                        serde_json::to_string_pretty(&_ct).unwrap(),
+                    );
+                } else {
+                    let serialized_ct = to_vec_packed(&_ct).unwrap();
+                    write_file(
+                        Path::new(&_ct_file),
+                        [CT_BEGIN, &encode(&serialized_ct).as_str(), CT_END].concat(),
+                    );
+                }
             } 
         }
         Ok(())
@@ -985,6 +1417,11 @@ fn main() {
         let mut _file: String = String::from("");
         let mut _pt_option: Option<Vec<u8>> = None;
         let mut _policy: String = String::new();
+        let mut _as_json = false;
+        match arguments.value_of(JSON) {
+            None => {}
+            Some(_value) => _as_json = true,
+        }
         match arguments.value_of(SK_FILE) {
             None => {
                 _sk_file.push_str(SK_FILE);
@@ -1019,58 +1456,96 @@ fn main() {
         }
         match _scheme {
             Scheme::AC17CP => {
-                let _sk: Ac17CpSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
-                    .unwrap();
-                let _ct: Ac17CpCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
-                    .unwrap();
+                let mut _sk: Ac17CpSecretKey;
+                let mut _ct: Ac17CpCiphertext;
+                if _as_json {
+                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
+                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
+                } else {
+                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                }
                 _pt_option = schemes::ac17::cp_decrypt(&_sk, &_ct);
             }
             Scheme::AC17KP => {
-                let _sk: Ac17KpSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
-                    .unwrap();
-                let _ct: Ac17KpCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
-                    .unwrap();
+                let mut _sk: Ac17KpSecretKey;
+                let mut _ct: Ac17KpCiphertext;
+                if _as_json {
+                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
+                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
+                } else {
+                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                }
                 _pt_option = schemes::ac17::kp_decrypt(&_sk, &_ct);
             }
             Scheme::BSW => {
-                let _sk: CpAbeSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
-                    .unwrap();
-                let _ct: CpAbeCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
-                    .unwrap();
+                let mut _sk: CpAbeSecretKey;
+                let mut _ct: CpAbeCiphertext;
+                if _as_json {
+                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
+                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
+                } else {
+                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                }
                 _pt_option = schemes::bsw::decrypt(&_sk, &_ct);
             }
             Scheme::LSW => {
-                let _sk: KpAbeSecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
-                    .unwrap();
-                let _ct: KpAbeCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
-                    .unwrap();
+                let mut _sk: KpAbeSecretKey;
+                let mut _ct: KpAbeCiphertext;
+                if _as_json {
+                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
+                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
+                } else {
+                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                }
                 _pt_option = schemes::lsw::decrypt(&_sk, &_ct);
             }
             Scheme::AW11 => {
-                let _gp: Aw11GlobalKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
-                    .unwrap();
-                let _sk: Aw11SecretKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
-                    .unwrap();
-                let _ct: Aw11Ciphertext = serde_json::from_str(&read_file(Path::new(&_file)))
-                    .unwrap();
+                let mut _gp: Aw11GlobalKey;
+                let mut _sk: Aw11SecretKey;
+                let mut _ct: Aw11Ciphertext;
+                if _as_json {
+                    _gp = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
+                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
+                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
+                } else {
+                    _gp = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                }
                 _pt_option = schemes::aw11::decrypt(&_gp, &_sk, &_ct);
             } 
             Scheme::BDABE => {
-                let _pk: BdabePublicKey = serde_json::from_str(&read_file(Path::new(&_pk_file)))
-                    .unwrap();
-                let _sk: BdabeUserKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
-                    .unwrap();
-                let _ct: BdabeCiphertext = serde_json::from_str(&read_file(Path::new(&_file)))
-                    .unwrap();
+                let mut _pk: BdabePublicKey;
+                let mut _sk: BdabeUserKey;
+                let mut _ct: BdabeCiphertext;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
+                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                }
                 _pt_option = schemes::bdabe::decrypt(&_pk, &_sk, &_ct);
             } 
             Scheme::MKE08 => {
-                let _pk: Mke08PublicKey = serde_json::from_str(&read_file(Path::new(&_gp_file)))
-                    .unwrap();
-                let _sk: Mke08UserKey = serde_json::from_str(&read_file(Path::new(&_sk_file)))
-                    .unwrap();
-                let _ct: Mke08Ciphertext = serde_json::from_str(&read_file(Path::new(&_file)))
-                    .unwrap();
+                let mut _pk: Mke08PublicKey;
+                let mut _sk: Mke08UserKey;
+                let mut _ct: Mke08Ciphertext;
+                if _as_json {
+                    _pk = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
+                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
+                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
+                } else {
+                    _pk = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                }
                 _pt_option = schemes::mke08::decrypt(&_pk, &_sk, &_ct);
             } 
         }
@@ -1135,14 +1610,11 @@ fn main() {
 
     fn write_file(_path: &Path, _content: String) -> bool {
         let display = _path.display();
-
-        // Open a file in write-only mode, returns `io::Result<File>`
         let mut file = match File::create(_path) {
             Err(why) => panic!("couldn't create {}: {}", display, why.description()),
             Ok(file) => file,
         };
         let mut _ret: bool = false;
-        // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
         match file.write_all(_content.as_bytes()) {
             Err(why) => {
                 _ret = false;
