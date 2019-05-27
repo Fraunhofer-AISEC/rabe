@@ -1,6 +1,6 @@
 [package]
 name = "rabe"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>", "Bramm, Georg <georg.bramm@aisec.fraunhofer.de>", "Schuette, Julian <julian.schuette@aisec.fraunhofer.de>"]
 
 [lib]
