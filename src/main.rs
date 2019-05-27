@@ -29,6 +29,7 @@ use schemes::lsw::*;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
+use std::ops::{Bound, RangeBounds};
 use std::path::Path;
 use std::fmt;
 use base64::{encode, decode};
@@ -713,7 +714,8 @@ fn main() {
                 if _as_json {
                     _gp = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
                 } else {
-                    _gp = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
+                    _gp = from_slice(&decode(&read_raw(&read_file(Path::new(&_gp_file))))
+                        .unwrap()).unwrap();
                 }
                 match schemes::aw11::authgen(&_gp, &_attributes) {
                     None => {
@@ -753,8 +755,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                     _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: BdabeSecretAuthorityKey = schemes::bdabe::authgen(&_pk, &_msk, &_name);
                 if _as_json {
@@ -777,8 +781,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                     _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: Mke08SecretAuthorityKey = schemes::mke08::authgen(&_name);
                 if _as_json {
@@ -883,7 +889,8 @@ fn main() {
                 if _as_json {
                     _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
                 } else {
-                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: Ac17CpSecretKey = schemes::ac17::cp_keygen(&_msk, &_attributes).unwrap();
                 if _as_json {
@@ -904,7 +911,8 @@ fn main() {
                 if _as_json {
                     _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
                 } else {
-                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: Ac17KpSecretKey = schemes::ac17::kp_keygen(&_msk, &_policy).unwrap();
                 if _as_json {
@@ -927,8 +935,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                     _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: CpAbeSecretKey = schemes::bsw::keygen(&_pk, &_msk, &_attributes).unwrap();
                 if _as_json {
@@ -951,8 +961,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                     _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: KpAbeSecretKey = schemes::lsw::keygen(&_pk, &_msk, &_policy).unwrap();
                 if _as_json {
@@ -975,8 +987,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
                     _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
-                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_gp_file))))
+                        .unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: Aw11SecretKey = schemes::aw11::keygen(&_pk, &_msk, &_name, &_attributes)
                     .unwrap();
@@ -1000,8 +1014,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                     _msk = serde_json::from_str(&read_file(Path::new(&_ska_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _msk = from_slice(&decode(&read_file(Path::new(&_ska_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_ska_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: BdabeUserKey = schemes::bdabe::keygen(&_pk, &_msk, &_name);
                 if _as_json {
@@ -1024,8 +1040,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                     _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _msk = from_slice(&decode(&read_file(Path::new(&_msk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
+                        .unwrap()).unwrap();
                 }
                 if _name != String::from("") {
                     let _sk: Mke08UserKey = schemes::mke08::keygen(&_pk, &_msk, &_name);
@@ -1114,8 +1132,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                     _msk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _msk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _sk: Option<CpAbeSecretKey> = schemes::bsw::delegate(&_pk, &_msk, &_attributes);
                 match _sk {
@@ -1227,7 +1247,8 @@ fn main() {
                 if _as_json {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _ct = schemes::ac17::cp_encrypt(&_pk, &_policy, &buffer);
                 if _as_json {
@@ -1249,7 +1270,8 @@ fn main() {
                 if _as_json {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _ct = schemes::ac17::kp_encrypt(&_pk, &_attributes, &buffer);
                 if _as_json {
@@ -1270,7 +1292,8 @@ fn main() {
                 if _as_json {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _ct = schemes::bsw::encrypt(&_pk, &_policy, &buffer);
                 if _as_json {
@@ -1291,7 +1314,8 @@ fn main() {
                 if _as_json {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
                 }
                 let _ct = schemes::lsw::encrypt(&_pk, &_attributes, &buffer);
                 if _as_json {
@@ -1314,8 +1338,10 @@ fn main() {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                     _gp = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _gp = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _gp = from_slice(&decode(&read_raw(&read_file(Path::new(&_gp_file))))
+                        .unwrap()).unwrap();
                 }
                 let mut _pks: Vec<Aw11PublicKey> = Vec::new();
                 for filename in _pk_files {
@@ -1323,8 +1349,8 @@ fn main() {
                     if _as_json {
                         _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
                     } else {
-                        _pka = from_slice(&decode(&read_file(Path::new(&filename))).unwrap())
-                            .unwrap();
+                        _pka = from_slice(&decode(&read_raw(&read_file(Path::new(&filename))))
+                            .unwrap()).unwrap();
                     }
                     _pks.push(_pka);
                 }
@@ -1347,7 +1373,8 @@ fn main() {
                 if _as_json {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
                 }
                 let mut _attr_vec: Vec<BdabePublicAttributeKey> = Vec::new();
                 for filename in _pk_files {
@@ -1355,8 +1382,8 @@ fn main() {
                     if _as_json {
                         _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
                     } else {
-                        _pka = from_slice(&decode(&read_file(Path::new(&filename))).unwrap())
-                            .unwrap();
+                        _pka = from_slice(&decode(&read_raw(&read_file(Path::new(&filename))))
+                            .unwrap()).unwrap();
                     }
                     _attr_vec.push(_pka);
                 }
@@ -1379,7 +1406,8 @@ fn main() {
                 if _as_json {
                     _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
                 }
                 let mut _attr_vec: Vec<Mke08PublicAttributeKey> = Vec::new();
                 for filename in _pk_files {
@@ -1387,8 +1415,8 @@ fn main() {
                     if _as_json {
                         _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
                     } else {
-                        _pka = from_slice(&decode(&read_file(Path::new(&filename))).unwrap())
-                            .unwrap();
+                        _pka = from_slice(&decode(&read_raw(&read_file(Path::new(&filename))))
+                            .unwrap()).unwrap();
                     }
                     _attr_vec.push(_pka);
                 }
@@ -1462,8 +1490,10 @@ fn main() {
                     _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
                     _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
                 } else {
-                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
-                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
+                        .unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
+                        .unwrap();
                 }
                 _pt_option = schemes::ac17::cp_decrypt(&_sk, &_ct);
             }
@@ -1474,8 +1504,10 @@ fn main() {
                     _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
                     _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
                 } else {
-                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
-                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
+                        .unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
+                        .unwrap();
                 }
                 _pt_option = schemes::ac17::kp_decrypt(&_sk, &_ct);
             }
@@ -1486,8 +1518,10 @@ fn main() {
                     _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
                     _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
                 } else {
-                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
-                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
+                        .unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
+                        .unwrap();
                 }
                 _pt_option = schemes::bsw::decrypt(&_sk, &_ct);
             }
@@ -1498,8 +1532,10 @@ fn main() {
                     _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
                     _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
                 } else {
-                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
-                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
+                        .unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
+                        .unwrap();
                 }
                 _pt_option = schemes::lsw::decrypt(&_sk, &_ct);
             }
@@ -1512,9 +1548,12 @@ fn main() {
                     _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
                     _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
                 } else {
-                    _gp = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
-                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
-                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                    _gp = from_slice(&decode(&read_raw(&read_file(Path::new(&_gp_file))))
+                        .unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
+                        .unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
+                        .unwrap();
                 }
                 _pt_option = schemes::aw11::decrypt(&_gp, &_sk, &_ct);
             } 
@@ -1527,9 +1566,12 @@ fn main() {
                     _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
                     _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_pk_file))).unwrap()).unwrap();
-                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
-                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
+                        .unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
+                        .unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
+                        .unwrap();
                 }
                 _pt_option = schemes::bdabe::decrypt(&_pk, &_sk, &_ct);
             } 
@@ -1542,9 +1584,12 @@ fn main() {
                     _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
                     _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
                 } else {
-                    _pk = from_slice(&decode(&read_file(Path::new(&_gp_file))).unwrap()).unwrap();
-                    _sk = from_slice(&decode(&read_file(Path::new(&_sk_file))).unwrap()).unwrap();
-                    _ct = from_slice(&decode(&read_file(Path::new(&_file))).unwrap()).unwrap();
+                    _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_gp_file))))
+                        .unwrap()).unwrap();
+                    _sk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
+                        .unwrap()).unwrap();
+                    _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
+                        .unwrap();
                 }
                 _pt_option = schemes::mke08::decrypt(&_pk, &_sk, &_ct);
             } 
@@ -1608,6 +1653,12 @@ fn main() {
         }
     }
 
+    fn read_raw(_raw: &String) -> String {
+        let lines = &mut _raw.lines();
+        let middle = lines.nth(1).unwrap().to_string();
+        return middle;
+    }
+
     fn write_file(_path: &Path, _content: String) -> bool {
         let display = _path.display();
         let mut file = match File::create(_path) {
@@ -1626,5 +1677,69 @@ fn main() {
             }
         }
         return _ret;
+    }
+}
+
+trait StringUtils {
+    fn substring(&self, start: usize, len: usize) -> &str;
+    fn slice(&self, range: impl RangeBounds<usize>) -> &str;
+    fn find(&self, char: char) -> usize;
+}
+
+impl StringUtils for str {
+    fn substring(&self, start: usize, len: usize) -> &str {
+        let mut char_pos = 0;
+        let mut byte_start = 0;
+        let mut it = self.chars();
+        loop {
+            if char_pos == start {
+                break;
+            }
+            if let Some(c) = it.next() {
+                char_pos += 1;
+                byte_start += c.len_utf8();
+            } else {
+                break;
+            }
+        }
+        char_pos = 0;
+        let mut byte_end = byte_start;
+        loop {
+            if char_pos == len {
+                break;
+            }
+            if let Some(c) = it.next() {
+                char_pos += 1;
+                byte_end += c.len_utf8();
+            } else {
+                break;
+            }
+        }
+        &self[byte_start..byte_end]
+    }
+    fn slice(&self, range: impl RangeBounds<usize>) -> &str {
+        let start = match range.start_bound() {
+            Bound::Included(bound) |
+            Bound::Excluded(bound) => *bound,
+            Bound::Unbounded => 0,
+        };
+        let len = match range.end_bound() {
+            Bound::Included(bound) => *bound + 1,
+            Bound::Excluded(bound) => *bound,
+            Bound::Unbounded => self.len(),
+        } - start;
+        self.substring(start, len)
+    }
+    fn find(&self, char: char) -> usize {
+        let char_vec: Vec<char> = self.chars().collect();
+        let mut counter: usize = 0;
+        for c in char_vec {
+            if c == char {
+                break;
+            } else {
+                counter += 1;
+            }
+        }
+        return counter;
     }
 }
