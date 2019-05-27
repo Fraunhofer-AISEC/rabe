@@ -3,6 +3,8 @@
 **/*.rs.bk
 *.key
 .pydevproject
+.idea
 .settings
 .project
+rabe.iml
 Cargo.lock

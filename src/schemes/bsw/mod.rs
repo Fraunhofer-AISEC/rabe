@@ -272,7 +272,6 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
                     let _z = calc_coefficients_str(&_ct._policy).unwrap();
                     let mut _a = Gt::one();
                     for _j in x.1 {
-
                         match _ct._c_y.iter().find(|x| x._str == _j.to_string()) {
                             Some(_c_j) => {
                                 match _sk._d_j.iter().find(|x| x._str == _j.to_string()) {
