@@ -46,7 +46,9 @@ extern crate clap;
 extern crate serde_cbor;
 
 const CT_EXTENSION: &'static str = "rabe";
-const KEY_EXTENSION: &'static str = "key";
+const KEY_EXTENSION: &'static str = "rkey";
+const KEY_DELEGATE: &'static str = "delegate";
+const DOT: &'static str = ".";
 const GP_FILE: &'static str = "gp";
 const MSK_FILE: &'static str = "msk";
 const SK_FILE: &'static str = "sk";
@@ -104,6 +106,13 @@ fn main() {
 	        MKE08
 	    }
 	}
+    // Default file names
+    let _msk_default = [MSK_FILE, DOT, KEY_EXTENSION].concat();
+    let _pk_default = [PK_FILE, DOT, KEY_EXTENSION].concat();
+    let _gp_default = [GP_FILE, DOT, KEY_EXTENSION].concat();
+    let _sk_default = [SK_FILE, DOT, KEY_EXTENSION].concat();
+    let _ska_default = [SKA_FILE, DOT, KEY_EXTENSION].concat();
+
     let _abe_app = App::new("RABE")
         .version("0.1.2")
         .author(crate_authors!("\n"))
@@ -113,9 +122,14 @@ fn main() {
                 .long("scheme")
                 .required(true)
                 .takes_value(true)
-                .value_name("scheme")
                 .possible_values(&Scheme::variants())
                 .help("scheme to use."),
+        )
+        .arg(
+	        Arg::with_name(JSON)
+		        .long(JSON)
+	            .required(false)
+	            .takes_value(false),
         )
         .subcommand(
             SubCommand::with_name("setup")
@@ -125,32 +139,24 @@ fn main() {
                         .long(MSK_FILE)
                         .required(false)
                         .takes_value(true)
-                        .value_name(MSK_FILE)
+                        .default_value(&_msk_default)
                         .help("master secret key file."),
                 )
                 .arg(
-                    Arg::with_name("pk")
-                        .long("pk")
+                    Arg::with_name(PK_FILE)
+                        .long(PK_FILE)
                         .required(false)
                         .takes_value(true)
-                        .value_name("pk")
+                        .default_value(&_pk_default)
                         .help("public key file."),
                 )
                 .arg(
-                    Arg::with_name("gp")
-                        .long("gp")
+                    Arg::with_name(GP_FILE)
+                        .long(GP_FILE)
                         .required(false)
                         .takes_value(true)
-                        .value_name("gk")
+                        .default_value(&_gp_default)
                         .help("global parameters file."),
-                ) 
-                .arg(
-                    Arg::with_name("json")
-                        .long("json")
-                        .required(false)
-                        .takes_value(false)
-                        .value_name("json")
-                        .help("export the key in json format."),
                 ),
         )
         .subcommand(
@@ -163,8 +169,7 @@ fn main() {
                         .long("gp")
                         .required(false)
                         .takes_value(true)
-                        .default_value(GP_FILE)
-                        .value_name("gp")
+                        .default_value(&_gp_default)
                         .help("global parameters file."),
                 )
                 .arg(
@@ -172,8 +177,7 @@ fn main() {
                         .long("msk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(MSK_FILE)
-                        .value_name("msk")
+                        .default_value(&_msk_default)
                         .help("master secret key file."),
                 )
                 .arg(
@@ -181,8 +185,7 @@ fn main() {
                         .long("pk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(PK_FILE)
-                        .value_name("pk")
+                        .default_value(&_pk_default)
                         .help("public key file."),
                 )
                 .arg(
@@ -192,7 +195,6 @@ fn main() {
                         .required(false)
                         .takes_value(true)
                         .multiple(true)
-                        .value_name("attributes")
                         .help("attributes to use."),
                 )
                 .arg(
@@ -200,7 +202,6 @@ fn main() {
                         .long("policy")
                         .required(false)
                         .takes_value(true)
-                        .value_name("policy")
                         .help("policy to use."),
                 )
                 .arg(
@@ -208,16 +209,7 @@ fn main() {
                         .long("name")
                         .required(false)
                         .takes_value(true)
-                        .value_name("name")
                         .help("name of the attribute authority (MKE08/BDABE)"),
-                ) 
-                .arg(
-                    Arg::with_name("json")
-                        .long("json")
-                        .required(false)
-                        .takes_value(false)
-                        .value_name("json")
-                        .help("export the key in json format."),
                 ),
         )
         .subcommand(
@@ -230,8 +222,7 @@ fn main() {
                         .long("gp")
                         .required(false)
                         .takes_value(true)
-                        .default_value(GP_FILE)
-                        .value_name("gp")
+                        .default_value(&_gp_default)
                         .help("global parameters file."),
                 )
                 .arg(
@@ -239,8 +230,7 @@ fn main() {
                         .long("sk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(SK_FILE)
-                        .value_name("sk")
+                        .default_value(&_sk_default)
                         .help("user key file."),
                 )
                 .arg(
@@ -248,8 +238,7 @@ fn main() {
                         .long("ska")
                         .required(false)
                         .takes_value(true)
-                        .default_value(SK_FILE)
-                        .value_name("ska")
+                        .default_value(&_ska_default)
                         .help("authrotiy secret key file."),
                 )
                 .arg(
@@ -257,8 +246,7 @@ fn main() {
                         .long("msk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(MSK_FILE)
-                        .value_name("msk")
+                        .default_value(&_msk_default)
                         .help("master secret key file."),
                 )
                 .arg(
@@ -266,8 +254,7 @@ fn main() {
                         .long("pk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(PK_FILE)
-                        .value_name("pk")
+                        .default_value(&_pk_default)
                         .help("public key file."),
                 )
                 .arg(
@@ -276,7 +263,6 @@ fn main() {
                         .required(false)
                         .takes_value(true)
                         .multiple(true)
-                        .value_name("attributes")
                         .help("attributes to use."),
                 )
                 .arg(
@@ -284,7 +270,6 @@ fn main() {
                         .long("policy")
                         .required(false)
                         .takes_value(true)
-                        .value_name("policy")
                         .help("policy to use."),
                 )
                 .arg(
@@ -292,16 +277,7 @@ fn main() {
                         .long("name")
                         .required(false)
                         .takes_value(true)
-                        .value_name("name")
                         .help("name (gid) of the user (AW11)"),
-                ) 
-                .arg(
-                    Arg::with_name("json")
-                        .long("json")
-                        .required(false)
-                        .takes_value(false)
-                        .value_name("json")
-                        .help("export the key in json format."),
                 ),
         )
         .subcommand(
@@ -312,8 +288,7 @@ fn main() {
                         .long("sk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(SK_FILE)
-                        .value_name("sk")
+                        .default_value(&_sk_default)
                         .help("user key file."),
                 )
                 .arg(
@@ -321,8 +296,7 @@ fn main() {
                         .long("pk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(PK_FILE)
-                        .value_name("pk")
+                        .default_value(&_pk_default)
                         .help("public key file."),
                 )
                 .arg(
@@ -331,16 +305,7 @@ fn main() {
                         .required(false)
                         .takes_value(true)
                         .multiple(true)
-                        .value_name("attributes")
                         .help("attributes to use."),
-                ) 
-                .arg(
-                    Arg::with_name("json")
-                        .long("json")
-                        .required(false)
-                        .takes_value(false)
-                        .value_name("json")
-                        .help("export the key in json format."),
                 ),
         )
         .subcommand(
@@ -353,8 +318,7 @@ fn main() {
                         .long("gp")
                         .required(false)
                         .takes_value(true)
-                        .default_value(GP_FILE)
-                        .value_name("gp")
+                        .default_value(&_gp_default)
                         .help("global parameters file."),
                 )
                 .arg(
@@ -362,8 +326,7 @@ fn main() {
                         .long("pk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(PK_FILE)
-                        .value_name("pk")
+                        .default_value(&_msk_default)
                         .multiple(true)
                         .help("public key file."),
                 )
@@ -373,7 +336,6 @@ fn main() {
                         .required(false)
                         .takes_value(true)
                         .multiple(true)
-                        .value_name("attributes")
                         .help("attributes to use."),
                 )
                 .arg(
@@ -381,7 +343,6 @@ fn main() {
                         .long("policy")
                         .required(false)
                         .takes_value(true)
-                        .value_name("policy")
                         .help("policy to use."),
                 )
                 .arg(
@@ -389,16 +350,7 @@ fn main() {
                         .long("file")
                         .required(false)
                         .takes_value(true)
-                        .value_name("file")
                         .help("file to use."),
-                )
-                .arg(
-                    Arg::with_name("json")
-                        .long("json")
-                        .required(false)
-                        .takes_value(false)
-                        .value_name("json")
-                        .help("export the file in json format."),
                 ),
         )
         .subcommand(
@@ -409,8 +361,7 @@ fn main() {
                         .long("gp")
                         .required(false)
                         .takes_value(true)
-                        .default_value(GP_FILE)
-                        .value_name("gp")
+                        .default_value(&_gp_default)
                         .help("global parameters file."),
                 )
                 .arg(
@@ -418,8 +369,7 @@ fn main() {
                         .long("pk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(PK_FILE)
-                        .value_name("pk")
+                        .default_value(&_pk_default)
                         .help("public key file."),
                 )
                 .arg(
@@ -427,8 +377,7 @@ fn main() {
                         .long("sk")
                         .required(false)
                         .takes_value(true)
-                        .default_value(SK_FILE)
-                        .value_name("sk")
+                        .default_value(&_sk_default)
                         .help("user key file."),
                 )
                 .arg(
@@ -436,7 +385,6 @@ fn main() {
                         .long("file")
                         .required(false)
                         .takes_value(true)
-                        .value_name("file")
                         .help("file to use."),
                 ),
         )
@@ -449,47 +397,45 @@ fn main() {
 
     fn run(matches: ArgMatches) -> Result<(), RabeError> {
         let _scheme = value_t!(matches.value_of("scheme"), Scheme).unwrap();
+        let _json: bool = matches.is_present(JSON);
         match matches.subcommand() {
-            ("setup", Some(matches)) => run_setup(matches, _scheme),
-            ("authgen", Some(matches)) => run_authgen(matches, _scheme),
-            ("keygen", Some(matches)) => run_keygen(matches, _scheme),
-            ("delegate", Some(matches)) => run_delegate(matches, _scheme),
-            ("encrypt", Some(matches)) => run_encrypt(matches, _scheme),
-            ("decrypt", Some(matches)) => run_decrypt(matches, _scheme),
+            ("setup", Some(matches)) => run_setup(matches, _scheme, _json),
+            ("authgen", Some(matches)) => run_authgen(matches, _scheme, _json),
+            ("keygen", Some(matches)) => run_keygen(matches, _scheme, _json),
+            ("delegate", Some(matches)) => run_delegate(matches, _scheme, _json),
+            ("encrypt", Some(matches)) => run_encrypt(matches, _scheme, _json),
+            ("decrypt", Some(matches)) => run_decrypt(matches, _scheme, _json),
             _ => Ok(()),
         }
     }
 
-    fn run_setup(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+    fn run_setup(arguments: &ArgMatches, _scheme: Scheme, _as_json: bool) -> Result<(), RabeError> {
         let mut _msk_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
-        let mut _as_json = false;
-        match arguments.value_of(JSON) {
-            None => {}
-            Some(_value) => _as_json = true,
-        }
         match arguments.value_of(MSK_FILE) {
             None => {
-                _msk_file.push_str(MSK_FILE);
-                _msk_file.push_str(".");
-                _msk_file.push_str(KEY_EXTENSION);
+                _msk_file.push_str(&MSK_FILE);
+                _msk_file.push_str(&DOT);
+                _msk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _msk_file = _file.to_string(),
         }
+        print!("MSK file:{:?}\n", _msk_file);
         match arguments.value_of(PK_FILE) {
             None => {
-                _pk_file.push_str(PK_FILE);
-                _pk_file.push_str(".");
-                _pk_file.push_str(KEY_EXTENSION);
+                _pk_file.push_str(&PK_FILE);
+                _pk_file.push_str(&DOT);
+                _pk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _pk_file = _file.to_string(),
         }
+        print!("PK file:{:?}\n", _pk_file);
         match arguments.value_of(GP_FILE) {
             None => {
-                _gp_file.push_str(GP_FILE);
-                _gp_file.push_str(".");
-                _gp_file.push_str(KEY_EXTENSION);
+                _gp_file.push_str(&GP_FILE);
+                _gp_file.push_str(&DOT);
+                _gp_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _gp_file = _file.to_string(),
         }
@@ -635,7 +581,11 @@ fn main() {
         Ok(())
     }
 
-    fn run_authgen(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+    fn run_authgen(
+        arguments: &ArgMatches,
+        _scheme: Scheme,
+        _as_json: bool,
+    ) -> Result<(), RabeError> {
         let mut _policy: String = String::new();
         let mut _attributes: Vec<String> = Vec::new();
         let mut _name: String = String::from("");
@@ -643,32 +593,27 @@ fn main() {
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
         let mut _au_file = String::from("");
-        let mut _as_json = false;
-        match arguments.value_of(JSON) {
-            None => {}
-            Some(_value) => _as_json = true,
-        }
         match arguments.value_of(MSK_FILE) {
             None => {
-                _msk_file.push_str(MSK_FILE);
-                _msk_file.push_str(".");
-                _msk_file.push_str(KEY_EXTENSION);
+                _msk_file.push_str(&MSK_FILE);
+                _msk_file.push_str(&DOT);
+                _msk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _msk_file = _file.to_string(),
         }
         match arguments.value_of(PK_FILE) {
             None => {
-                _pk_file.push_str(PK_FILE);
-                _pk_file.push_str(".");
-                _pk_file.push_str(KEY_EXTENSION);
+                _pk_file.push_str(&PK_FILE);
+                _pk_file.push_str(&DOT);
+                _pk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _pk_file = _file.to_string(),
         }
         match arguments.value_of(GP_FILE) {
             None => {
-                _gp_file.push_str(GP_FILE);
-                _gp_file.push_str(".");
-                _gp_file.push_str(KEY_EXTENSION);
+                _gp_file.push_str(&GP_FILE);
+                _gp_file.push_str(&DOT);
+                _gp_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _gp_file = _file.to_string(),
         }
@@ -692,8 +637,8 @@ fn main() {
             Some(_n) => {
                 _name = _n.to_string();
                 _au_file.push_str(&_n.to_string());
-                _au_file.push_str(".");
-                _au_file.push_str(KEY_EXTENSION)
+                _au_file.push_str(&DOT);
+                _au_file.push_str(&KEY_EXTENSION)
             }
         }
         match _scheme { 
@@ -804,7 +749,11 @@ fn main() {
         Ok(())
     }
 
-    fn run_keygen(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+    fn run_keygen(
+        arguments: &ArgMatches,
+        _scheme: Scheme,
+        _as_json: bool,
+    ) -> Result<(), RabeError> {
         let mut _sk_file = String::from("");
         let mut _ska_file = String::from("");
         let mut _name = String::from("");
@@ -814,48 +763,49 @@ fn main() {
         let mut _msk_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
-        let mut _as_json = false;
-        match arguments.value_of(JSON) {
-            None => {}
-            Some(_value) => _as_json = true,
-        }
         match arguments.value_of(MSK_FILE) {
             None => {
-                _msk_file.push_str(MSK_FILE);
-                _msk_file.push_str(".");
-                _msk_file.push_str(KEY_EXTENSION);
+                _msk_file.push_str(&MSK_FILE);
+                _msk_file.push_str(&DOT);
+                _msk_file.push_str(&KEY_EXTENSION);
+                print!("MSK file:{:?}\n", _msk_file);
             }
-            Some(_file) => _msk_file = _file.to_string(),
+            Some(_file) => {
+                _msk_file = _file.to_string();
+                print!("custom MSK file:{:?}\n", _msk_file);
+            }
         }
+
         match arguments.value_of(PK_FILE) {
             None => {
-                _pk_file.push_str(PK_FILE);
-                _pk_file.push_str(".");
-                _pk_file.push_str(KEY_EXTENSION);
+                _pk_file.push_str(&PK_FILE);
+                _pk_file.push_str(&DOT);
+                _pk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _pk_file = _file.to_string(),
         }
+        print!("PK file:{:?}\n", _pk_file);
         match arguments.value_of(GP_FILE) {
             None => {
-                _gp_file.push_str(GP_FILE);
-                _gp_file.push_str(".");
-                _gp_file.push_str(KEY_EXTENSION);
+                _gp_file.push_str(&GP_FILE);
+                _gp_file.push_str(&DOT);
+                _gp_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _gp_file = _file.to_string(),
         }
         match arguments.value_of(SK_FILE) {
             None => {
-                _sk_file.push_str(SK_FILE);
-                _sk_file.push_str(".");
-                _sk_file.push_str(KEY_EXTENSION);
+                _sk_file.push_str(&SK_FILE);
+                _sk_file.push_str(&DOT);
+                _sk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _sk_file = _file.to_string(),
         }
         match arguments.value_of(SKA_FILE) {
             None => {
-                _ska_file.push_str(SKA_FILE);
-                _ska_file.push_str(".");
-                _ska_file.push_str(KEY_EXTENSION);
+                _ska_file.push_str(&SKA_FILE);
+                _ska_file.push_str(&DOT);
+                _ska_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _ska_file = _file.to_string(),
         }
@@ -879,8 +829,8 @@ fn main() {
             Some(_n) => {
                 _name = _n.to_string();
                 _name_file.push_str(&_n.to_string());
-                _name_file.push_str(".");
-                _name_file.push_str(KEY_EXTENSION);
+                _name_file.push_str(&DOT);
+                _name_file.push_str(&KEY_EXTENSION);
             }
         }
         match _scheme {
@@ -1068,34 +1018,34 @@ fn main() {
         Ok(())
     }
 
-    fn run_delegate(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+    fn run_delegate(
+        arguments: &ArgMatches,
+        _scheme: Scheme,
+        _as_json: bool,
+    ) -> Result<(), RabeError> {
         let mut _sk_file = String::from("");
         let mut _dg_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _policy: String = String::new();
         let mut _attributes: Vec<String> = Vec::new();
-        let mut _as_json = false;
-        match arguments.value_of(JSON) {
-            None => {}
-            Some(_value) => _as_json = true,
-        }
         match arguments.value_of(PK_FILE) {
             None => {
-                _pk_file.push_str(PK_FILE);
-                _pk_file.push_str(".");
-                _pk_file.push_str(KEY_EXTENSION);
+                _pk_file.push_str(&PK_FILE);
+                _pk_file.push_str(&DOT);
+                _pk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _pk_file = _file.to_string(),
         }
         match arguments.value_of(SK_FILE) {
             None => {
-                _sk_file.push_str(SK_FILE);
-                _sk_file.push_str(".");
-                _sk_file.push_str(KEY_EXTENSION);
-                _dg_file.push_str(SK_FILE);
-                _dg_file.push_str("_dele");
-                _dg_file.push_str(".");
-                _dg_file.push_str(KEY_EXTENSION);
+                _sk_file.push_str(&SK_FILE);
+                _sk_file.push_str(&DOT);
+                _sk_file.push_str(&KEY_EXTENSION);
+                _dg_file.push_str(&SK_FILE);
+                _dg_file.push_str(&DOT);
+                _dg_file.push_str(&KEY_DELEGATE);
+                _dg_file.push_str(&DOT);
+                _dg_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _sk_file = _file.to_string(),
         }
@@ -1182,7 +1132,11 @@ fn main() {
         Ok(())
     }
 
-    fn run_encrypt(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+    fn run_encrypt(
+        arguments: &ArgMatches,
+        _scheme: Scheme,
+        _as_json: bool,
+    ) -> Result<(), RabeError> {
         let mut _pk_files: Vec<String> = Vec::new();
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
@@ -1190,16 +1144,11 @@ fn main() {
         let mut _pt_file: String = String::new();
         let mut _policy: String = String::new();
         let mut _attributes: Vec<String> = Vec::new();
-        let mut _as_json = false;
-        match arguments.value_of(JSON) {
-            None => {}
-            Some(_value) => _as_json = true,
-        }
         match arguments.value_of(PK_FILE) {
             None => {
-                _pk_file.push_str(PK_FILE);
-                _pk_file.push_str(".");
-                _pk_file.push_str(KEY_EXTENSION);
+                _pk_file.push_str(&PK_FILE);
+                _pk_file.push_str(&DOT);
+                _pk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => {
                 let files: Vec<_> = arguments.values_of(PK_FILE).unwrap().collect();
@@ -1210,9 +1159,9 @@ fn main() {
         }
         match arguments.value_of(GP_FILE) {
             None => {
-                _gp_file.push_str(GP_FILE);
-                _gp_file.push_str(".");
-                _gp_file.push_str(KEY_EXTENSION);
+                _gp_file.push_str(&GP_FILE);
+                _gp_file.push_str(&DOT);
+                _gp_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _gp_file = _file.to_string(),
         }
@@ -1236,8 +1185,8 @@ fn main() {
             Some(_file) => {
                 _pt_file = _file.to_string();
                 _ct_file = _pt_file.to_string();
-                _ct_file.push_str(".");
-                _ct_file.push_str(CT_EXTENSION);
+                _ct_file.push_str(&DOT);
+                _ct_file.push_str(&CT_EXTENSION);
             }
         }
         let buffer: Vec<u8> = read_to_vec(Path::new(&_pt_file));
@@ -1438,39 +1387,38 @@ fn main() {
         Ok(())
     }
 
-    fn run_decrypt(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
+    fn run_decrypt(
+        arguments: &ArgMatches,
+        _scheme: Scheme,
+        _as_json: bool,
+    ) -> Result<(), RabeError> {
         let mut _sk_file = String::from("");
         let mut _gp_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _file: String = String::from("");
         let mut _pt_option: Option<Vec<u8>> = None;
         let mut _policy: String = String::new();
-        let mut _as_json = false;
-        match arguments.value_of(JSON) {
-            None => {}
-            Some(_value) => _as_json = true,
-        }
         match arguments.value_of(SK_FILE) {
             None => {
-                _sk_file.push_str(SK_FILE);
-                _sk_file.push_str(".");
-                _sk_file.push_str(KEY_EXTENSION);
+                _sk_file.push_str(&SK_FILE);
+                _sk_file.push_str(&DOT);
+                _sk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _sk_file = _file.to_string(),
         }
         match arguments.value_of(GP_FILE) {
             None => {
-                _gp_file.push_str(GP_FILE);
-                _gp_file.push_str(".");
-                _gp_file.push_str(KEY_EXTENSION);
+                _gp_file.push_str(&GP_FILE);
+                _gp_file.push_str(&DOT);
+                _gp_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _gp_file = _file.to_string(),
         }
         match arguments.value_of(PK_FILE) {
             None => {
-                _pk_file.push_str(PK_FILE);
-                _pk_file.push_str(".");
-                _pk_file.push_str(KEY_EXTENSION);
+                _pk_file.push_str(&PK_FILE);
+                _pk_file.push_str(&DOT);
+                _pk_file.push_str(&KEY_EXTENSION);
             }
             Some(_file) => _pk_file = _file.to_string(),
         }
