@@ -38,14 +38,14 @@ extern crate rand;
 extern crate serde;
 extern crate serde_json;
 
-use std::string::String;
-use std::ops::Neg;
 use bn::*;
-use utils::policy::msp::AbePolicy;
-use utils::tools::*;
-use utils::secretsharing::*;
+use std::ops::Neg;
+use std::string::String;
 use utils::aes::*;
 use utils::hash::blake2b_hash_g1;
+use utils::policy::msp::AbePolicy;
+use utils::secretsharing::*;
+use utils::tools::*;
 
 /// An AC17 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -353,7 +353,6 @@ pub fn cp_encrypt(
             _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
         },
     });
-
 }
 
 /// The decrypt algorithm of AC17CP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17CpCiphertext with a matching Ac17CpSecretKey.
@@ -404,12 +403,10 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>
                     println!("Error: attributes in sk do not match policy in ct.");
                     return None;
                 }
-
             }
         }
     }
 }
-
 
 /// The key generation algorithm of AC17KP. Generates an Ac17KpSecretKey using an Ac17MasterKey and a policy given as String.
 ///
@@ -658,8 +655,8 @@ mod tests {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
@@ -676,8 +673,8 @@ mod tests {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         // kp-abe ciphertext
@@ -701,8 +698,8 @@ mod tests {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
@@ -718,8 +715,8 @@ mod tests {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
@@ -735,8 +732,8 @@ mod tests {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
@@ -752,8 +749,8 @@ mod tests {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}, {"ATT": "C"}]}"#);
         // kp-abe ciphertext
@@ -777,8 +774,8 @@ mod tests {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
         // kp-abe ciphertext
@@ -792,7 +789,8 @@ mod tests {
                 "C".to_string(),
                 "D".to_string(),
             ],
-        ).unwrap();
+        )
+        .unwrap();
         // and now decrypt again
         assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
     }
@@ -802,8 +800,8 @@ mod tests {
         // setup scheme
         let (pk, msk) = setup();
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext

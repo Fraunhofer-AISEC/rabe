@@ -1,8 +1,8 @@
 extern crate blake2_rfc;
 extern crate bn;
 
-use bn::*;
 use blake2_rfc::blake2b::blake2b;
+use bn::*;
 
 /// hash a String to an element of G1 using blake2b and generator g
 pub fn blake2b_hash_g1(g: bn::G1, data: &String) -> bn::G1 {

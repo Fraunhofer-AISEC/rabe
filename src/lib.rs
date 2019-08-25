@@ -13,17 +13,17 @@ extern crate serde_derive;
 extern crate arrayref;
 
 extern crate base64;
-extern crate libc;
-extern crate serde;
-extern crate serde_json;
+extern crate bincode;
+extern crate blake2_rfc;
 extern crate bn;
-extern crate rand;
 extern crate byteorder;
 extern crate crypto;
-extern crate bincode;
+extern crate libc;
 extern crate num_bigint;
-extern crate blake2_rfc;
+extern crate rand;
+extern crate serde;
+extern crate serde_json;
 
-pub mod utils;
-pub mod schemes;
 pub mod ffi;
+pub mod schemes;
+pub mod utils;

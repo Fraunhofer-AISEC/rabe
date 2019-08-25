@@ -1,14 +1,13 @@
 #[allow(dead_code)]
-
 extern crate bn;
-extern crate serde;
-extern crate serde_json;
-extern crate rand;
 extern crate crypto;
 extern crate num_bigint;
+extern crate rand;
+extern crate serde;
+extern crate serde_json;
 
-use num_bigint::ToBigInt;
 use bn::*;
+use num_bigint::ToBigInt;
 use std::collections::HashSet;
 
 pub fn is_negative(_attr: &String) -> bool {
@@ -33,7 +32,8 @@ pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
 }
 
 pub fn contains(data: &Vec<(String)>, value: &String) -> bool {
-    let len = data.into_iter()
+    let len = data
+        .into_iter()
         .filter(|&i| i == value)
         .collect::<Vec<_>>()
         .len();
@@ -122,9 +122,8 @@ mod tests {
         let policyfalse = String::from(r#"joking-around?"#);
         let policy1 = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         let policy2 = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-        let policy3 = String::from(
-            r#"{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}"#,
-        );
+        let policy3 =
+            String::from(r#"{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}"#);
         let mut _set0: Vec<String> = Vec::new();
         _set0.push(String::from("X"));
         _set0.push(String::from("Y"));

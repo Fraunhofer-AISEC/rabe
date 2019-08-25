@@ -30,12 +30,12 @@ extern crate rand;
 extern crate serde;
 extern crate serde_json;
 
-use std::string::String;
 use bn::*;
-use utils::policy::*;
-use utils::tools::*;
+use std::string::String;
 use utils::aes::*;
 use utils::hash::blake2b_hash_fr;
+use utils::policy::*;
+use utils::tools::*;
 
 /// A BDABE Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -317,7 +317,8 @@ pub fn encrypt(
 ///	* `_ct` - A BdabeCiphertext Ciphertext
 ///
 pub fn decrypt(_pk: &BdabePublicKey, _sk: &BdabeUserKey, _ct: &BdabeCiphertext) -> Option<Vec<u8>> {
-    let _str_attr = _sk._ska
+    let _str_attr = _sk
+        ._ska
         .iter()
         .map(|_values| _values._str.to_string())
         .collect::<Vec<_>>();
@@ -329,8 +330,10 @@ pub fn decrypt(_pk: &BdabePublicKey, _sk: &BdabeUserKey, _ct: &BdabeCiphertext) 
         for (_i, _ct_j) in _ct._j.iter().enumerate() {
             if is_satisfiable(&_ct_j._str, &_sk._ska) {
                 let _sk_sum = calc_satisfiable(&_ct_j._str, &_sk._ska);
-                _msg = _ct_j._e1 * pairing(_ct_j._e2, _sk_sum.1) * pairing(_sk_sum.0, _ct_j._e3) *
-                    (pairing(_ct_j._e4, _sk._sk._u2) * pairing(_sk._sk._u1, _ct_j._e5)).inverse();
+                _msg = _ct_j._e1
+                    * pairing(_ct_j._e2, _sk_sum.1)
+                    * pairing(_sk_sum.0, _ct_j._e3)
+                    * (pairing(_ct_j._e4, _sk._sk._u2) * pairing(_sk._sk._u1, _ct_j._e5)).inverse();
                 break;
             }
         }
@@ -376,9 +379,10 @@ fn calc_satisfiable(
 ) -> (bn::G1, bn::G2) {
     let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
     for _i in 0usize.._conjunction.len() {
-        match _sk.into_iter().find(
-            |&x| x._str == _conjunction[_i].to_string(),
-        ) {
+        match _sk
+            .into_iter()
+            .find(|&x| x._str == _conjunction[_i].to_string())
+        {
             None => {}
             Some(_found) => {
                 if _i == 0 {
@@ -425,7 +429,6 @@ fn is_eligible(_attr: &String, _user: &String) -> bool {
     return true;
 }
 
-
 #[cfg(test)]
 mod tests {
 
@@ -449,28 +452,20 @@ mod tests {
         // authority2 owns B
         let _att2_pk = request_attribute_pk(&_pk, &_a2_key, &_att2).unwrap();
         // add attribute sk's to user key
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a1_key,
-                &_att1,
-            ).unwrap(),
-        );
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a2_key,
-                &_att2,
-            ).unwrap(),
-        );
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a1_key, &_att1).unwrap());
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a2_key, &_att2).unwrap());
         // our plaintext
-        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let _plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy = String::from(r#"{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
         // cp-abe ciphertext
-        let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
-            .unwrap();
+        let _ct: BdabeCiphertext =
+            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_some(), true);
@@ -495,28 +490,20 @@ mod tests {
         // authority2 owns B
         let _att2_pk = request_attribute_pk(&_pk, &_a2_key, &_att2).unwrap();
         // add attribute sk's to user key
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a1_key,
-                &_att1,
-            ).unwrap(),
-        );
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a2_key,
-                &_att2,
-            ).unwrap(),
-        );
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a1_key, &_att1).unwrap());
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a2_key, &_att2).unwrap());
         // our plaintext
-        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let _plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy = String::from(r#"{"OR": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
         // cp-abe ciphertext
-        let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
-            .unwrap();
+        let _ct: BdabeCiphertext =
+            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_some(), true);
@@ -546,43 +533,30 @@ mod tests {
         // authority3 owns C
         let _att2_pk = request_attribute_pk(&_pk, &_a3_key, &_att3).unwrap();
         // add attribute sk's to user key
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a1_key,
-                &_att1,
-            ).unwrap(),
-        );
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a2_key,
-                &_att2,
-            ).unwrap(),
-        );
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a3_key,
-                &_att3,
-            ).unwrap(),
-        );
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a1_key, &_att1).unwrap());
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a2_key, &_att2).unwrap());
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a3_key, &_att3).unwrap());
         // our plaintext
-        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let _plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy = String::from(
             r#"{"OR": [{"AND": [{"ATT": "aa3::C"}, {"ATT": "aa2::B"}]}, {"ATT": "aa1::X"}]}"#,
         );
         // cp-abe ciphertext
-        let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
-            .unwrap();
+        let _ct: BdabeCiphertext =
+            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_some(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
-
 
     #[test]
     fn not() {
@@ -602,28 +576,20 @@ mod tests {
         // authority2 owns B
         let _att2_pk = request_attribute_pk(&_pk, &_a2_key, &_att2).unwrap();
         // add attribute sk's to user key
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a1_key,
-                &_att1,
-            ).unwrap(),
-        );
-        _u_key._ska.push(
-            request_attribute_sk(
-                &_u_key._pk,
-                &_a2_key,
-                &_att2,
-            ).unwrap(),
-        );
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a1_key, &_att1).unwrap());
+        _u_key
+            ._ska
+            .push(request_attribute_sk(&_u_key._pk, &_a2_key, &_att2).unwrap());
         // our plaintext
-        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let _plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy = String::from(r#"{"OR": [{"ATT": "aa1::B"}, {"ATT": "aa2::A"}]}"#);
         // cp-abe ciphertext
-        let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
-            .unwrap();
+        let _ct: BdabeCiphertext =
+            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_none(), true);

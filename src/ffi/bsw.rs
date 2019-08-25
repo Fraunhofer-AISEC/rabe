@@ -1,12 +1,12 @@
-use schemes::bsw::*;
-use std::ops::Deref;
 use libc::*;
-use std::ffi::CStr;
-use std::mem::transmute;
-use std::mem;
-use std::{slice, ptr};
-use std::string::String;
+use schemes::bsw::*;
 use serde_json;
+use std::ffi::CStr;
+use std::mem;
+use std::mem::transmute;
+use std::ops::Deref;
+use std::string::String;
+use std::{ptr, slice};
 
 extern crate libc;
 
@@ -76,7 +76,6 @@ pub extern "C" fn rabe_bsw_delegate(
     let _dsk = unsafe { transmute(Box::new(delegate(&_ctx._pk, &_sk, &attr_vec).unwrap())) };
     _dsk
 }
-
 
 #[no_mangle]
 pub extern "C" fn rabe_bsw_encrypt(
@@ -159,5 +158,4 @@ pub extern "C" fn rabe_bsw_decrypt(
             return 0;
         }
     }
-
 }

@@ -1,10 +1,10 @@
+extern crate rand;
 #[allow(dead_code)]
 extern crate serde;
 extern crate serde_json;
-extern crate rand;
 
 use bn::*;
-use utils::tools::{usize_to_fr, contains, string_to_json};
+use utils::tools::{contains, string_to_json, usize_to_fr};
 
 pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool, Vec<(String)>)> {
     let _json = string_to_json(_policy);
@@ -52,14 +52,13 @@ pub fn required_attributes(
             _match = true;
             if _num_terms >= 2 {
                 for _i in 0usize.._num_terms {
-                    let (_found, mut _list) = required_attributes(_attr, &_json["AND"][_i])
-                        .unwrap();
+                    let (_found, mut _list) =
+                        required_attributes(_attr, &_json["AND"][_i]).unwrap();
                     _match = _match && _found;
                     if _match {
                         _emtpy_list.append(&mut _list);
                     }
                 }
-
             } else {
                 println!("Error: Invalid policy (OR with just a single child).");
                 return None;
@@ -68,7 +67,6 @@ pub fn required_attributes(
                 _emtpy_list = Vec::new();
             }
             return Some((_match, _emtpy_list));
-
         }
         // leaf node
         else if _json["ATT"] != serde_json::Value::Null {
@@ -323,9 +321,7 @@ mod tests {
         );
         let _result2 = calc_pruned_str(
             &_attributes,
-            &String::from(
-                r#"{"OR": [{"ATT": "3"}, {"AND": [{"ATT": "4"}, {"ATT": "5"}]}]}"#,
-            ),
+            &String::from(r#"{"OR": [{"ATT": "3"}, {"AND": [{"ATT": "4"}, {"ATT": "5"}]}]}"#),
         );
         let _result3 = calc_pruned_str(
             &_attributes,

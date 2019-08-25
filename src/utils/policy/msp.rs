@@ -1,7 +1,7 @@
+extern crate bn;
 #[allow(dead_code)]
 extern crate serde;
 extern crate serde_json;
-extern crate bn;
 
 use std::string::String;
 use utils::tools::string_to_json;
@@ -78,7 +78,6 @@ fn lw(msp: &mut AbePolicy, p: &serde_json::Value, v: Vec<i32>) -> bool {
         v_tmp_left.push(MINUS);
         msp._deg += 1;
         return lw(msp, &p["AND"][0], v_tmp_right) && lw(msp, &p["AND"][1], v_tmp_left);
-
     }
     //Leaf
     else if p["ATT"] != serde_json::Value::Null {

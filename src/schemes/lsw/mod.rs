@@ -19,24 +19,24 @@
 //!let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_kp).unwrap(), plaintext);
 //! ```
-extern crate libc;
-extern crate serde;
-extern crate serde_json;
+extern crate bincode;
+extern crate blake2_rfc;
 extern crate bn;
-extern crate rand;
 extern crate byteorder;
 extern crate crypto;
-extern crate bincode;
+extern crate libc;
 extern crate num_bigint;
-extern crate blake2_rfc;
+extern crate rand;
+extern crate serde;
+extern crate serde_json;
 
-use std::string::String;
 use bn::*;
 use std::ops::Neg;
-use utils::tools::*;
-use utils::secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
+use std::string::String;
 use utils::aes::*;
 use utils::hash::{blake2b_hash_fr, blake2b_hash_g1};
+use utils::secretsharing::{calc_coefficients_str, calc_pruned_str, gen_shares_str};
+use utils::tools::*;
 
 /// A LSW Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -139,15 +139,14 @@ pub fn keygen(
                 G1::zero(),
                 G2::zero(),
                 (_pk._g_g1 * _share_value) + (_pk._g_g1_b2 * _r),
-                _pk._g_g1_b * (blake2b_hash_fr(&_share_str) * _r) +
-                    (_msk._h_g1 * _r),
+                _pk._g_g1_b * (blake2b_hash_fr(&_share_str) * _r) + (_msk._h_g1 * _r),
                 _pk._g_g1 * _r.neg(),
             ));
         } else {
             _d.push((
                 _share_str.to_string(),
-                (_pk._g_g1 * (_msk._alpha2 * _share_value)) +
-                    (blake2b_hash_g1(_pk._g_g1, &_share_str) * _r),
+                (_pk._g_g1 * (_msk._alpha2 * _share_value))
+                    + (blake2b_hash_g1(_pk._g_g1, &_share_str) * _r),
                 _pk._g_g2 * _r,
                 G1::zero(),
                 G1::zero(),
@@ -195,8 +194,7 @@ pub fn encrypt(
                 _attr.to_string(),
                 blake2b_hash_g1(_pk._g_g1, &_attr) * _s,
                 _pk._g_g1_b * _sx[_i],
-                (_pk._g_g1_b2 * (_sx[_i] * blake2b_hash_fr(&_attr))) +
-                    (_pk._h_g1_b * _sx[_i]),
+                (_pk._g_g1_b2 * (_sx[_i] * blake2b_hash_fr(&_attr))) + (_pk._h_g1_b * _sx[_i]),
             ));
         }
         // random message
@@ -208,7 +206,6 @@ pub fn encrypt(
             _ej: _ej,
             _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
         });
-
     }
 }
 
@@ -220,7 +217,8 @@ pub fn encrypt(
 ///	* `_ct` - A LSW KP-ABE Ciphertext
 ///
 pub fn decrypt(_sk: &KpAbeSecretKey, _ct: &KpAbeCiphertext) -> Option<Vec<u8>> {
-    let _attrs_str = _ct._ej
+    let _attrs_str = _ct
+        ._ej
         .iter()
         .map(|values| values.clone().0.to_string())
         .collect::<Vec<_>>();
@@ -236,12 +234,14 @@ pub fn decrypt(_sk: &KpAbeSecretKey, _ct: &KpAbeCiphertext) -> Option<Vec<u8>> {
                 let mut _z_y = Gt::one();
                 let _coeffs: Vec<(String, bn::Fr)> = calc_coefficients_str(&_sk._policy).unwrap();
                 for _attr_str in _list.iter() {
-                    let _sk_attr = _sk._dj
+                    let _sk_attr = _sk
+                        ._dj
                         .iter()
                         .filter(|_attr| _attr.0 == _attr_str.to_string())
                         .nth(0)
                         .unwrap();
-                    let _ct_attr = _ct._ej
+                    let _ct_attr = _ct
+                        ._ej
                         .iter()
                         .filter(|_attr| _attr.0 == _attr_str.to_string())
                         .nth(0)
@@ -253,16 +253,16 @@ pub fn decrypt(_sk: &KpAbeSecretKey, _ct: &KpAbeCiphertext) -> Option<Vec<u8>> {
                         .unwrap();
                     if is_negative(&_attr_str) {
                         // TODO !!
-		                /*let _sum_e4 = G2::zero();
-		                let _sum_e5 = G2::zero();
-		                _prod_t = _prod_t *
-		                    (pairing(sk._d_i[_i].3, ct._e2) *
-		                         (pairing(sk._d_i[_i].4, _sum_e4) * pairing(sk._d_i[_i].5, _sum_e5))
-		                             .inverse());
-		                */
+                        /*let _sum_e4 = G2::zero();
+                        let _sum_e5 = G2::zero();
+                        _prod_t = _prod_t *
+                            (pairing(sk._d_i[_i].3, ct._e2) *
+                                 (pairing(sk._d_i[_i].4, _sum_e4) * pairing(sk._d_i[_i].5, _sum_e5))
+                                     .inverse());
+                        */
                     } else {
-                        _z_y = pairing(_sk_attr.1, _ct._e2) *
-                            pairing(_ct_attr.1, _sk_attr.2).inverse();
+                        _z_y = pairing(_sk_attr.1, _ct._e2)
+                            * pairing(_ct_attr.1, _sk_attr.2).inverse();
                     }
                     _prod_t = _prod_t * _z_y.pow(_coeff_attr.1);
                 }
@@ -291,8 +291,8 @@ mod tests {
         att_matching.push(String::from("B"));
         att_matching.push(String::from("C"));
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
@@ -313,8 +313,8 @@ mod tests {
         att_matching.push(String::from("B"));
         att_matching.push(String::from("C"));
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
@@ -335,12 +335,11 @@ mod tests {
         att_matching.push(String::from("Y"));
         att_matching.push(String::from("Z"));
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let policy = String::from(
-            r#"{"OR": [{"ATT": "X"}, {"AND": [{"ATT": "Y"}, {"ATT": "Z"}]}]}"#,
-        );
+        let policy =
+            String::from(r#"{"OR": [{"ATT": "X"}, {"AND": [{"ATT": "Y"}, {"ATT": "Z"}]}]}"#);
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
@@ -358,8 +357,8 @@ mod tests {
         att_matching.push(String::from("A"));
         att_matching.push(String::from("B"));
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "Y"}]}"#);
         // kp-abe ciphertext
