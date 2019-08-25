@@ -1,3 +1,6 @@
+
+[![CircleCI](https://img.shields.io/circleci/build/github/Fraunhofer-AISEC/rabe/master?style=flat-square&token=34294d6ee7dca20e0fe912aeffea61aa53b812a6)](https://circleci.com/gh/Fraunhofer-AISEC/rabe)
+
 # Rabe
 
 rabe is a rust library implementing several Attribute Based Encryption (ABE) schemes using a modified version of the `bn` library of zcash (type-3 pairing / Baretto Naering curve). The modification of `bn` brings in `serde` instead of the deprecated `rustc_serialize`.
