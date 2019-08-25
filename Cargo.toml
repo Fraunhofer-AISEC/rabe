@@ -3,6 +3,8 @@ name = "rabe"
 version = "0.1.2"
 authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>", "Bramm, Georg <georg.bramm@aisec.fraunhofer.de>", "Schuette, Julian <julian.schuette@aisec.fraunhofer.de>"]
 license = "MIT"
+description = "Rabe is a library for Attribute Based Encryption (ABE), supporting several Ciphertext-Policy (CP-ABE) and Key Policy (KP-ABE) schemes."
+repository = "https://github.com/Fraunhofer-AISEC/rabe"
 
 [lib]
 name="rabe"
@@ -11,7 +13,7 @@ crate-type=["rlib", "cdylib"]
 [dependencies]
 arrayref = "0.3.4"
 libc = "0.2.0"
-bn = { git = "https://github.com/georgbramm/bn" }
+bn = { path = "libs/bn-update", version="0.4.4" }
 blake2-rfc = "0.2.17"
 rand = "0.3"
 rust-crypto = "0.2.36"
@@ -24,3 +26,9 @@ serde_cbor = "0.9"
 serde_derive = "1.0.16"
 clap = "2.27.1"
 base64 = "0.10.1"
+
+[patch.crates-io]
+bn = { path = "libs/bn-update" }
+
+[badges]
+circle-ci = { repository = "Fraunhofer-AISEC/rabe", branch = "master" }
