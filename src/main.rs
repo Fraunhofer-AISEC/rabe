@@ -122,7 +122,7 @@ impl RabeError {
 
 impl fmt::Display for RabeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.details)
+        write!(f, "Error: {}", self.details)
     }
 }
 
