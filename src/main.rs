@@ -1347,10 +1347,12 @@ fn main() {
                 // only one pk is allowed
                 if _pk_files.len() == 1 {
                     if _as_json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_files[0].clone())))
+                            .unwrap();
                     } else {
-                        _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
-                            .unwrap()).unwrap();
+                        _pk = from_slice(&decode(
+                            &read_raw(&read_file(Path::new(&_pk_files[0].clone()))),
+                        ).unwrap()).unwrap();
                     }
                     let _ct = schemes::bsw::encrypt(&_pk, &_policy, &buffer);
                     if _as_json {
@@ -1376,10 +1378,12 @@ fn main() {
                 // only one pk is allowed
                 if _pk_files.len() == 1 {
                     if _as_json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
+                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_files[0].clone())))
+                            .unwrap();
                     } else {
-                        _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
-                            .unwrap()).unwrap();
+                        _pk = from_slice(&decode(
+                            &read_raw(&read_file(Path::new(&_pk_files[0].clone()))),
+                        ).unwrap()).unwrap();
                     }
                     let _ct = schemes::lsw::encrypt(&_pk, &_attributes, &buffer);
                     if _as_json {
@@ -1928,7 +1932,7 @@ fn main() {
         let mut file = match File::open(_path) {
             // The `description` method of `io::Error` returns a string that
             // describes the error
-            Err(why) => panic!("couldn't open {}: {}", display, why.description()),
+            Err(why) => panic!("couldn't open {}: {}", _path.display(), why.description()),
             Ok(file) => file,
         };
         // Read the file contents into a string, returns `io::Result<usize>`
