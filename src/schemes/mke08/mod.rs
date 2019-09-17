@@ -314,8 +314,7 @@ pub fn encrypt(
 ///	* `_policy` - An access policy given as JSON String
 ///
 pub fn decrypt(_pk: &Mke08PublicKey, _sk: &Mke08UserKey, _ct: &Mke08Ciphertext) -> Option<Vec<u8>> {
-    let _attr = _sk
-        ._sk_a
+    let _attr = _sk._sk_a
         .iter()
         .map(|triple| {
             let _a = triple.clone();
@@ -330,11 +329,9 @@ pub fn decrypt(_pk: &Mke08PublicKey, _sk: &Mke08UserKey, _ct: &Mke08Ciphertext) 
         for (_i, _e_j) in _ct._e.iter().enumerate() {
             if is_satisfiable(&_e_j._str, &_sk._sk_a) {
                 let _sk_sum = calc_satisfiable(&_e_j._str, &_sk._sk_a);
-                _msg = _e_j._j1
-                    * _e_j._j2
-                    * pairing(_e_j._j3, _sk_sum.1)
-                    * pairing(_sk_sum.0, _e_j._j4)
-                    * (pairing(_e_j._j5, _sk._sk_u._sk_g2) * pairing(_sk._sk_u._sk_g1, _e_j._j6))
+                _msg = _e_j._j1 * _e_j._j2 * pairing(_e_j._j3, _sk_sum.1) *
+                    pairing(_sk_sum.0, _e_j._j4) *
+                    (pairing(_e_j._j5, _sk._sk_u._sk_g2) * pairing(_sk._sk_u._sk_g1, _e_j._j6))
                         .inverse();
                 break;
             }
@@ -381,10 +378,9 @@ fn calc_satisfiable(
 ) -> (bn::G1, bn::G2) {
     let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
     for _i in 0usize.._conjunction.len() {
-        match _sk
-            .into_iter()
-            .find(|&x| x._str == _conjunction[_i].to_string())
-        {
+        match _sk.into_iter().find(
+            |&x| x._str == _conjunction[_i].to_string(),
+        ) {
             None => {}
             Some(_found) => {
                 if _i == 0 {
@@ -410,6 +406,7 @@ fn calc_satisfiable(
 ///	* `_attr` - Name of the attribute given as String
 ///	* `_sk` - Name of the auhtority given as String
 ///
+#[allow(dead_code)]
 fn from_authority(_attr: &String, _authority: &String) -> bool {
     let v: Vec<_> = _attr.match_indices("::").collect();
     if v.len() == 1 {
@@ -427,6 +424,7 @@ fn from_authority(_attr: &String, _authority: &String) -> bool {
 ///	* `_attr` - Name of the attribute given as String
 ///	* `_user` - Name of the user given as String
 ///
+#[allow(dead_code)]
 fn is_eligible(_attr: &String, _user: &String) -> bool {
     return true;
 }
@@ -454,20 +452,20 @@ mod tests {
         // authority2 owns B
         let _att2_pk = request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
         // add attribute sk's to user key
-        _u_key
-            ._sk_a
-            .push(request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap());
-        _u_key
-            ._sk_a
-            .push(request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap());
+        _u_key._sk_a.push(
+            request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap(),
+        );
+        _u_key._sk_a.push(
+            request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap(),
+        );
         // our plaintext
-        let _plaintext =
-            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
         // our policy
         let _policy = String::from(r#"{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
         // cp-abe ciphertext
-        let _ct: Mke08Ciphertext =
-            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+            .unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_some(), true);
@@ -492,20 +490,20 @@ mod tests {
         // authority2 owns B
         let _att2_pk = request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
         // add attribute sk's to user key
-        _u_key
-            ._sk_a
-            .push(request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap());
-        _u_key
-            ._sk_a
-            .push(request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap());
+        _u_key._sk_a.push(
+            request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap(),
+        );
+        _u_key._sk_a.push(
+            request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap(),
+        );
         // our plaintext
-        let _plaintext =
-            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
         // our policy
         let _policy = String::from(r#"{"OR": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
         // cp-abe ciphertext
-        let _ct: Mke08Ciphertext =
-            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+            .unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_some(), true);
@@ -532,15 +530,15 @@ mod tests {
         let _att2_pk = request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
         let _att3_pk = request_authority_pk(&_pk, &_att3, &_a2_key).unwrap();
         // add attribute sk's to user key
-        _u_key
-            ._sk_a
-            .push(request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap());
-        _u_key
-            ._sk_a
-            .push(request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap());
+        _u_key._sk_a.push(
+            request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap(),
+        );
+        _u_key._sk_a.push(
+            request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap(),
+        );
         // our plaintext
-        let _plaintext =
-            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
         // our policy
         let _policy = String::from(
             r#"{"OR": [{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}, {"ATT": "aa2::X"}]}"#,
@@ -551,8 +549,7 @@ mod tests {
             &vec![_att1_pk, _att2_pk, _att3_pk],
             &_policy,
             &_plaintext,
-        )
-        .unwrap();
+        ).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_some(), true);
@@ -606,20 +603,20 @@ mod tests {
         // authority2 owns B
         let _att2_pk = request_authority_pk(&_pk, &_att2, &_a2_key).unwrap();
         // add attribute sk's to user key
-        _u_key
-            ._sk_a
-            .push(request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap());
-        _u_key
-            ._sk_a
-            .push(request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap());
+        _u_key._sk_a.push(
+            request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap(),
+        );
+        _u_key._sk_a.push(
+            request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap(),
+        );
         // our plaintext
-        let _plaintext =
-            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
+        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
         // our policy
         let _policy = String::from(r#"{"OR": [{"ATT": "aa2::A"}, {"ATT": "aa1::B"}]}"#);
         // cp-abe ciphertext
-        let _ct: Mke08Ciphertext =
-            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+            .unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
         assert_eq!(_match.is_none(), true);

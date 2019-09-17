@@ -1,6 +1,7 @@
 [package]
 name = "rabe"
-version = "0.1.2"
+version = "0.2.0"
+description = "ABE Schemes implemented in rust."
 authors = ["Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>", "Bramm, Georg <georg.bramm@aisec.fraunhofer.de>", "Schuette, Julian <julian.schuette@aisec.fraunhofer.de>"]
 license = "MIT"
 

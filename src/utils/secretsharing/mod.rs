@@ -52,8 +52,8 @@ pub fn required_attributes(
             _match = true;
             if _num_terms >= 2 {
                 for _i in 0usize.._num_terms {
-                    let (_found, mut _list) =
-                        required_attributes(_attr, &_json["AND"][_i]).unwrap();
+                    let (_found, mut _list) = required_attributes(_attr, &_json["AND"][_i])
+                        .unwrap();
                     _match = _match && _found;
                     if _match {
                         _emtpy_list.append(&mut _list);
@@ -246,6 +246,7 @@ pub fn gen_shares(_secret: Fr, _k: usize, _n: usize) -> Vec<Fr> {
     return _shares;
 }
 
+#[allow(dead_code)]
 pub fn recover_secret(_shares: Vec<Fr>, _policy: &String) -> Fr {
     let _coeff = calc_coefficients_str(_policy).unwrap();
     let mut _secret = Fr::zero();
@@ -321,7 +322,9 @@ mod tests {
         );
         let _result2 = calc_pruned_str(
             &_attributes,
-            &String::from(r#"{"OR": [{"ATT": "3"}, {"AND": [{"ATT": "4"}, {"ATT": "5"}]}]}"#),
+            &String::from(
+                r#"{"OR": [{"ATT": "3"}, {"AND": [{"ATT": "4"}, {"ATT": "5"}]}]}"#,
+            ),
         );
         let _result3 = calc_pruned_str(
             &_attributes,
