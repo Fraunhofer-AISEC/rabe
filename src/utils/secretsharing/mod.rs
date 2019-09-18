@@ -170,13 +170,12 @@ pub fn recover_coefficients(_list: Vec<Fr>) -> Vec<Fr> {
 }
 
 pub fn gen_shares_str(_secret: Fr, _policy: &String) -> Option<Vec<(String, Fr)>> {
-    let _json = string_to_json(_policy);
-    match _json {
+    match string_to_json(_policy) {
         None => {
             return None;
         }
-        Some(_j) => {
-            return gen_shares_json(_secret, &_j);
+        Some(_json_policy) => {
+            return gen_shares_json(_secret, &_json_policy);
         }
     }
 }

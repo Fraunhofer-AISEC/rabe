@@ -25,13 +25,11 @@ use schemes::bdabe::*;
 use schemes::bsw::*;
 use schemes::lsw::*;
 use schemes::mke08::*;
+use utils::file::{write_file, read_file, read_raw, write_from_vec, read_to_vec};
 use serde_cbor::ser::to_vec_packed;
 use serde_cbor::from_slice;
 use std::error::Error;
 use std::fmt;
-use std::fs::File;
-use std::io::prelude::*;
-use std::ops::{Bound, RangeBounds};
 use std::path::Path;
 use std::process;
 
@@ -41,7 +39,6 @@ extern crate arrayref;
 extern crate serde_derive;
 #[macro_use]
 extern crate clap;
-
 extern crate serde_cbor;
 
 // File extensions
@@ -696,8 +693,6 @@ fn main() {
                 }
             }
         }
-        print!("MSK file: {:?}\n", _msk_file);
-        print!("PK file: {:?}\n", _pk_file);
         Ok(())
     }
 
@@ -776,7 +771,7 @@ fn main() {
                 match schemes::aw11::authgen(&_gp, &_attributes) {
                     None => {
                         return Err(RabeError::new(
-                            "could not generate authority. Attribute set empty.",
+                            "sorry, could not generate authority. The attribute set empty.",
                         ));
                     }
                     Some((_pk, _msk)) => {
@@ -803,8 +798,6 @@ fn main() {
                         }
                     }
                 }
-                print!("MSK file: {:?}\n", _msk_file);
-                print!("PK file: {:?}\n", _pk_file);
             }
             Scheme::BDABE => {
                 let mut _pk: BdabePublicKey;
@@ -831,7 +824,6 @@ fn main() {
                         [AU_SK_BEGIN, &encode(&serialized_sk).as_str(), AU_SK_END].concat(),
                     );
                 }
-                print!("AU file: {:?}\n", _au_file);
             }
             Scheme::MKE08 => {
                 let mut _pk: Mke08PublicKey;
@@ -858,7 +850,6 @@ fn main() {
                         [AU_SK_BEGIN, &encode(&serialized_sk).as_str(), AU_SK_END].concat(),
                     );
                 }
-                print!("AU file: {:?}\n", _au_file);
             }
         }
         Ok(())
@@ -1121,11 +1112,12 @@ fn main() {
                         );
                     }
                 } else {
-                    return Err(RabeError::new("MKE08: name for user key not set."));
+                    return Err(RabeError::new(
+                        "sorry, the name/id for the user key is not set.",
+                    ));
                 }
             }
         }
-        print!("SK file: {:?}\n", _sk_file);
         Ok(())
     }
 
@@ -1198,7 +1190,7 @@ fn main() {
                 match _sk {
                     None => {
                         return Err(RabeError::new(
-                            "sorry, could not delegate attributes. Attributes are not a subset.",
+                            "sorry, could not delegate attributes. The given attributes are not a subset.",
                         ));
                     }
                     Some(_delegated_key) => {
@@ -1218,7 +1210,6 @@ fn main() {
                 }
             }
         }
-        print!("SK file: {:?}\n", _dg_file);
         Ok(())
     }
 
@@ -1308,7 +1299,7 @@ fn main() {
                     }
                 } else {
                     return Err(RabeError::new(
-                        "Error: Encryption using the AC17CP Scheme with zero or multiple PKs is not possible. ",
+                        "sorry, encryption using the AC17CP Scheme with zero or multiple PKs is not possible. ",
                     ));
                 }
             }
@@ -1338,7 +1329,7 @@ fn main() {
                     }
                 } else {
                     return Err(RabeError::new(
-                        "Error: Encryption using the AC17KP Scheme with zero or multiple PKs is not possible. ",
+                        "sorry, encryption using the AC17KP Scheme with zero or multiple PKs is not possible. ",
                     ));
                 }
             }
@@ -1369,7 +1360,7 @@ fn main() {
                     }
                 } else {
                     return Err(RabeError::new(
-                        "Error: Encryption using the BSW Scheme with zero or multiple PKs is not possible. ",
+                        "sorry, encryption using the BSW Scheme with zero or multiple PKs is not possible. ",
                     ));
                 }
             }
@@ -1400,7 +1391,7 @@ fn main() {
                     }
                 } else {
                     return Err(RabeError::new(
-                        "Error: Encryption using the LSW Scheme with zero or multiple PKs is not possible. ",
+                        "sorry, encryption using the LSW Scheme with zero or multiple PKs is not possible. ",
                     ));
                 }
             }
@@ -1504,7 +1495,6 @@ fn main() {
                 }
             }
         }
-        print!("encrypted file: {:?}\n", _ct_file);
         Ok(())
     }
 
@@ -1668,7 +1658,6 @@ fn main() {
                 return Err(RabeError::new("sorry, could not decrypt!"));
             }
             Some(_pt_u) => {
-                print!("decrypted file: {:?}\n", _file);
                 write_from_vec(Path::new(&_file), &_pt_u);
             }
         }
@@ -1756,7 +1745,6 @@ fn main() {
                             }
                         }
                     }
-                    print!("public attribute key file: {:?}\n", _pka_file);
                 }
                 Scheme::BDABE => {
                     let mut _pk: BdabePublicKey;
@@ -1788,11 +1776,12 @@ fn main() {
                             }
                         }
                     }
-                    print!("public attribute key file: {:?}\n", _pka_file);
                 }
             }
         } else {
-            return Err(RabeError::new("sorry, only one attribute is allowed."));
+            return Err(RabeError::new(
+                "sorry, could not request because only one attribute is allowed.",
+            ));
         }
         Ok(())
     }
@@ -1883,8 +1872,6 @@ fn main() {
                             }
                         }
                     }
-                    print!("secret attribute key file: {:?}\n", _ask_file);
-
                 }
                 Scheme::BDABE => {
                     let mut _usk: BdabeUserKey;
@@ -1917,159 +1904,13 @@ fn main() {
                             }
                         }
                     }
-                    print!("secret attribute key file: {:?}\n", _au_sk_file);
                 }
             }
         } else {
-            return Err(RabeError::new("sorry, only one attribute is allowed."));
+            return Err(RabeError::new(
+                "sorry, could not request because only one attribute is allowed.",
+            ));
         }
         Ok(())
-    }
-
-    fn read_file(_path: &Path) -> String {
-        let display = _path.display();
-        // Open the path in read-only mode, returns `io::Result<File>`
-        let mut file = match File::open(_path) {
-            // The `description` method of `io::Error` returns a string that
-            // describes the error
-            Err(why) => panic!("couldn't open {}: {}", _path.display(), why.description()),
-            Ok(file) => file,
-        };
-        // Read the file contents into a string, returns `io::Result<usize>`
-        let mut s = String::new();
-        match file.read_to_string(&mut s) {
-            Err(why) => panic!("couldn't read {}: {}", display, why.description()),
-            Ok(_) => print!("successfully read {}", display),
-        }
-        return s;
-    }
-
-    fn read_to_vec(_path: &Path) -> Vec<u8> {
-        let mut data: Vec<u8> = Vec::new();
-        let display = _path.display();
-        // Open the path in read-only mode, returns `io::Result<File>`
-        let mut file = match File::open(_path) {
-            // The `description` method of `io::Error` returns a string that
-            // describes the error
-            Err(why) => panic!("couldn't open {}: {}", display, why.description()),
-            Ok(file) => file,
-        };
-        // read the whole file
-        match file.read_to_end(&mut data) {
-            Ok(bytes) => {
-                println!("parsed {:?} bytes", bytes);
-                return data;
-            }
-            Err(e) => {
-                println!("error parsing data: {:?}", e);
-                return Vec::new();
-            }
-        }
-
-    }
-
-    fn write_from_vec(_path: &Path, _data: &Vec<u8>) {
-        let display = _path.display();
-        // Open the path in read-only mode, returns `io::Result<File>`
-        let mut file = match File::open(_path) {
-            // The `description` method of `io::Error` returns a string that
-            // describes the error
-            Err(why) => panic!("couldn't open {}: {}", display, why.description()),
-            Ok(file) => file,
-        };
-        match file.write_all(_data) {
-            Err(why) => panic!("couldn't write to {}: {}", display, why.description()),
-            Ok(_) => println!("successfully wrote to {}", display),
-        }
-    }
-
-    fn read_raw(_raw: &String) -> String {
-        let lines = &mut _raw.lines();
-        let middle = lines.nth(1).unwrap().to_string();
-        return middle;
-    }
-
-    fn write_file(_path: &Path, _content: String) -> bool {
-        let display = _path.display();
-        let mut file = match File::create(_path) {
-            Err(why) => panic!("couldn't create {}: {}", display, why.description()),
-            Ok(file) => file,
-        };
-        let mut _ret: bool = false;
-        match file.write_all(_content.as_bytes()) {
-            Err(why) => {
-                _ret = false;
-                panic!("couldn't write to {}: {}", display, why.description());
-            }
-            Ok(_) => {
-                _ret = true;
-                println!("successfully wrote to {}", display);
-            }
-        }
-        return _ret;
-    }
-}
-
-trait StringUtils {
-    fn substring(&self, start: usize, len: usize) -> &str;
-    fn slice(&self, range: impl RangeBounds<usize>) -> &str;
-    fn find(&self, char: char) -> usize;
-}
-
-impl StringUtils for str {
-    fn substring(&self, start: usize, len: usize) -> &str {
-        let mut char_pos = 0;
-        let mut byte_start = 0;
-        let mut it = self.chars();
-        loop {
-            if char_pos == start {
-                break;
-            }
-            if let Some(c) = it.next() {
-                char_pos += 1;
-                byte_start += c.len_utf8();
-            } else {
-                break;
-            }
-        }
-        char_pos = 0;
-        let mut byte_end = byte_start;
-        loop {
-            if char_pos == len {
-                break;
-            }
-            if let Some(c) = it.next() {
-                char_pos += 1;
-                byte_end += c.len_utf8();
-            } else {
-                break;
-            }
-        }
-        &self[byte_start..byte_end]
-    }
-    fn slice(&self, range: impl RangeBounds<usize>) -> &str {
-        let start = match range.start_bound() {
-            Bound::Included(bound) |
-            Bound::Excluded(bound) => *bound,
-            Bound::Unbounded => 0,
-        };
-        let len = match range.end_bound() {
-            Bound::Included(bound) => *bound + 1,
-            Bound::Excluded(bound) => *bound,
-            Bound::Unbounded => self.len(),
-        } - start;
-        self.substring(start, len)
-    }
-    fn find(&self, char: char) -> usize {
-        let char_vec: Vec<char> = self.chars().collect();
-        let mut counter: usize = 0;
-        for c in char_vec {
-            if c == char {
-                break;
-            } else {
-                counter += 1;
-            }
-        }
-        return counter;
     }
 }
