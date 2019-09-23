@@ -387,39 +387,68 @@ mod tests {
     }
 
     #[test]
-    fn or250() {
+    fn and_or150_and150() {
         // setup scheme
         let (pk, msk) = setup();
+        let _num_and = 150;
+        let _num_or = 150;
         // a set of two attributes matching the policy
         let mut att_matching: Vec<String> = Vec::new();
-        att_matching.push(String::from("attr4"));
+        for _i in 1..(_num_and + 1) {
+            let mut _attr = String::from("a");
+            _attr.push_str(&_i.to_string());
+            att_matching.push(_attr);
+            let mut _attr2 = String::from("b");
+            _attr2.push_str(&_i.to_string());
+            att_matching.push(_attr2);
+
+        }
         // a set of two attributes NOT matching the policy
         let mut att_not_matching: Vec<String> = Vec::new();
-        att_not_matching.push(String::from("attr301"));
-        att_not_matching.push(String::from("attr300"));
+        att_not_matching.push(String::from("x"));
+        att_not_matching.push(String::from("y"));
 
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
 
-        let mut _policy = String::from("{\"OR\": [");
-        for n in 1..51 {
-            let mut _current = String::from("{\"ATT\": \"attr");
-            if n < 50 {
+        let mut _policy_or = String::from("{\"OR\": [");
+        for n in 1..(_num_or + 1) {
+            let mut _current = String::from("{\"ATT\": \"a");
+            if n < _num_or {
                 _current.push_str(&n.to_string());
-                _current.push_str(&String::from("\"}, "));
+                _current.push_str(&String::from("\"},"));
             } else {
                 _current.push_str(&n.to_string());
                 _current.push_str(&String::from("\"}]"));
             }
-            _policy.push_str(&_current);
+            _policy_or.push_str(&_current);
         }
-        _policy.push_str(&String::from("}"));
+        _policy_or.push_str(&String::from("}"));
 
-        println!("{}", _policy);
+
+        let mut _policy_and = String::from("{\"AND\": [");
+        for n in 1..(_num_and + 1) {
+            let mut _current = String::from("{\"ATT\": \"b");
+            if n < _num_and {
+                _current.push_str(&n.to_string());
+                _current.push_str(&String::from("\"},"));
+            } else {
+                _current.push_str(&n.to_string());
+                _current.push_str(&String::from("\"}]"));
+            }
+            _policy_and.push_str(&_current);
+        }
+        let mut _policy_root = String::from("{\"AND\": [");
+        _policy_root.push_str(&_policy_or);
+        _policy_root.push_str(&String::from(","));
+        _policy_root.push_str(&_policy_and);
+        _policy_root.push_str(&String::from("}]}"));
+
+        println!("{}", _policy_root);
 
         // cp-abe ciphertext
-        let ct_cp: CpAbeCiphertext = encrypt(&pk, &_policy, &plaintext).unwrap();
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &_policy_root, &plaintext).unwrap();
 
         // and now decrypt again with mathcing sk
         let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
