@@ -10,6 +10,7 @@ use std::{ptr, slice};
 
 extern crate libc;
 
+
 /// A BSW ABE Context
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeContext {
@@ -32,7 +33,7 @@ pub extern "C" fn rabe_bsw_context_create() -> *mut CpAbeContext {
 #[no_mangle]
 pub extern "C" fn rabe_bsw_context_destroy(ctx: *mut CpAbeContext) {
     let _ctx: Box<CpAbeContext> = unsafe { transmute(ctx) };
-    _ctx.deref();
+    let _context = _ctx.deref();
 }
 
 #[no_mangle]
@@ -60,7 +61,7 @@ pub extern "C" fn rabe_bsw_keygen(
 #[no_mangle]
 pub extern "C" fn rabe_bsw_keygen_destroy(sk: *mut CpAbeSecretKey) {
     let _sk: Box<CpAbeSecretKey> = unsafe { transmute(sk) };
-    _sk.deref();
+    let _sk = _sk.deref();
 }
 
 #[no_mangle]
