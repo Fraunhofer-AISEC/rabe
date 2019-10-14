@@ -177,6 +177,7 @@ pub fn recover_coefficients(_list: Vec<Fr>) -> Vec<Fr> {
 pub fn gen_shares_str(_secret: Fr, _policy: &String) -> Option<Vec<(String, Fr)>> {
     match string_to_json(_policy) {
         None => {
+            println!("Could not convert policy {:?} to JSON", _policy);
             return None;
         }
         Some(_json_policy) => {

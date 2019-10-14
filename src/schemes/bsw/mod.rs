@@ -459,6 +459,55 @@ mod tests {
         assert_eq!(_no_match.is_none(), true);
     }
 
+
+    #[test]
+    fn nested() {
+        // setup scheme
+        let (pk, msk) = setup();
+        let _num_nested = 30; // maximum at about 50 to 60
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        for _i in 1..(_num_nested + 1) {
+            let mut _attr = String::from("a");
+            _attr.push_str(&_i.to_string());
+            att_matching.push(_attr);
+        }
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("x"));
+        att_not_matching.push(String::from("y"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        let mut _policy_mut = String::from("{\"AND\": [{\"ATT\": \"a2\"}, {\"ATT\": \"a1\"}]}");
+
+        for _i in 3.._num_nested {
+            let mut _str = String::from("{\"AND\":[");
+            _str.push_str("{\"ATT\":\"");
+            _str.push_str(&att_matching[_i - 1]);
+            _str.push_str("\"},");
+            _str.push_str(&_policy_mut);
+            _str.push_str("]}");
+            _policy_mut = _str.clone();
+        }
+
+        println!("{}", _policy_mut);
+
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &_policy_mut, &plaintext).unwrap();
+
+        // and now decrypt again with mathcing sk
+        let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), plaintext);
+
+        let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
+        assert_eq!(_no_match.is_none(), true);
+    }
+
+
     #[test]
     fn or3() {
         // setup scheme
