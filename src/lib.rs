@@ -1,7 +1,6 @@
 //! This is the documentation for the RABE library.
 //!
 //! * Developped by Georg Bramm, Martin Schanzenbach
-//! * Available from https://eprint.iacr.org/2017/807.pdf
 //! * Type: encryption (attribute-based)
 //! * Setting: bilinear groups (asymmetric), based on the bn library by zcash
 //! * Date: 04/2018
