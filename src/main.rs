@@ -13,18 +13,23 @@ extern crate num_bigint;
 extern crate rand;
 extern crate serde;
 extern crate serde_json;
+extern crate paillier;
+extern crate mongodb;
+extern crate bson;
+#[macro_use]
+extern crate lazy_static;
 
 mod schemes;
 mod utils;
 
 use base64::{decode, encode};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use schemes::ac17::*;
-use schemes::aw11::*;
-use schemes::bdabe::*;
-use schemes::bsw::*;
-use schemes::lsw::*;
-use schemes::mke08::*;
+use schemes::abe::ac17::*;
+use schemes::abe::aw11::*;
+use schemes::abe::bdabe::*;
+use schemes::abe::bsw::*;
+use schemes::abe::lsw::*;
+use schemes::abe::mke08::*;
 use utils::file::{write_file, read_file, read_raw, write_from_vec, read_to_vec};
 use serde_cbor::ser::to_vec_packed;
 use serde_cbor::from_slice;
@@ -32,6 +37,8 @@ use std::error::Error;
 use std::fmt;
 use std::path::Path;
 use std::process;
+
+
 
 #[macro_use]
 extern crate arrayref;
@@ -558,7 +565,7 @@ fn main() {
         }
         match _scheme {
             Scheme::AC17CP | Scheme::AC17KP => {
-                let (_pk, _msk) = schemes::ac17::setup();
+                let (_pk, _msk) = schemes::abe::ac17::setup();
                 if _as_json {
                     write_file(
                         Path::new(&_msk_file),
@@ -582,7 +589,7 @@ fn main() {
                 }
             }
             Scheme::AW11 => {
-                let _gp = schemes::aw11::setup();
+                let _gp = schemes::abe::aw11::setup();
                 let serialized_gp = to_vec_packed(&_gp).unwrap();
                 if _as_json {
                     write_file(
@@ -597,7 +604,7 @@ fn main() {
                 }
             }
             Scheme::BDABE => {
-                let (_pk, _msk) = schemes::bdabe::setup();
+                let (_pk, _msk) = schemes::abe::bdabe::setup();
                 if _as_json {
                     write_file(
                         Path::new(&_msk_file),
@@ -621,7 +628,7 @@ fn main() {
                 }
             }
             Scheme::BSW => {
-                let (_pk, _msk) = schemes::bsw::setup();
+                let (_pk, _msk) = schemes::abe::bsw::setup();
                 if _as_json {
                     write_file(
                         Path::new(&_msk_file),
@@ -645,7 +652,7 @@ fn main() {
                 }
             }
             Scheme::LSW => {
-                let (_pk, _msk) = schemes::lsw::setup();
+                let (_pk, _msk) = schemes::abe::lsw::setup();
                 if _as_json {
                     write_file(
                         Path::new(&_msk_file),
@@ -669,7 +676,7 @@ fn main() {
                 }
             }
             Scheme::MKE08 => {
-                let (_pk, _msk) = schemes::mke08::setup();
+                let (_pk, _msk) = schemes::abe::mke08::setup();
                 if _as_json {
                     write_file(
                         Path::new(&_msk_file),
@@ -768,7 +775,7 @@ fn main() {
                     _gp = from_slice(&decode(&read_raw(&read_file(Path::new(&_gp_file))))
                         .unwrap()).unwrap();
                 }
-                match schemes::aw11::authgen(&_gp, &_attributes) {
+                match schemes::abe::aw11::authgen(&_gp, &_attributes) {
                     None => {
                         return Err(RabeError::new(
                             "sorry, could not generate authority. The attribute set empty.",
@@ -811,7 +818,8 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: BdabeSecretAuthorityKey = schemes::bdabe::authgen(&_pk, &_msk, &_name);
+                let _sk: BdabeSecretAuthorityKey =
+                    schemes::abe::bdabe::authgen(&_pk, &_msk, &_name);
                 if _as_json {
                     write_file(
                         Path::new(&_au_file),
@@ -837,7 +845,7 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: Mke08SecretAuthorityKey = schemes::mke08::authgen(&_name);
+                let _sk: Mke08SecretAuthorityKey = schemes::abe::mke08::authgen(&_name);
                 if _as_json {
                     write_file(
                         Path::new(&_au_file),
@@ -944,7 +952,8 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: Ac17CpSecretKey = schemes::ac17::cp_keygen(&_msk, &_attributes).unwrap();
+                let _sk: Ac17CpSecretKey = schemes::abe::ac17::cp_keygen(&_msk, &_attributes)
+                    .unwrap();
                 if _as_json {
                     write_file(
                         Path::new(&_sk_file),
@@ -966,7 +975,7 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: Ac17KpSecretKey = schemes::ac17::kp_keygen(&_msk, &_policy).unwrap();
+                let _sk: Ac17KpSecretKey = schemes::abe::ac17::kp_keygen(&_msk, &_policy).unwrap();
                 if _as_json {
                     write_file(
                         Path::new(&_sk_file),
@@ -992,7 +1001,8 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: CpAbeSecretKey = schemes::bsw::keygen(&_pk, &_msk, &_attributes).unwrap();
+                let _sk: CpAbeSecretKey = schemes::abe::bsw::keygen(&_pk, &_msk, &_attributes)
+                    .unwrap();
                 if _as_json {
                     write_file(
                         Path::new(&_sk_file),
@@ -1018,7 +1028,7 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: KpAbeSecretKey = schemes::lsw::keygen(&_pk, &_msk, &_policy).unwrap();
+                let _sk: KpAbeSecretKey = schemes::abe::lsw::keygen(&_pk, &_msk, &_policy).unwrap();
                 if _as_json {
                     write_file(
                         Path::new(&_sk_file),
@@ -1044,8 +1054,8 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_msk_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: Aw11SecretKey = schemes::aw11::keygen(&_pk, &_msk, &_name, &_attributes)
-                    .unwrap();
+                let _sk: Aw11SecretKey =
+                    schemes::abe::aw11::keygen(&_pk, &_msk, &_name, &_attributes).unwrap();
                 if _as_json {
                     write_file(
                         Path::new(&_name_file),
@@ -1071,7 +1081,7 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_ska_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: BdabeUserKey = schemes::bdabe::keygen(&_pk, &_msk, &_name);
+                let _sk: BdabeUserKey = schemes::abe::bdabe::keygen(&_pk, &_msk, &_name);
                 if _as_json {
                     write_file(
                         Path::new(&_name_file),
@@ -1098,7 +1108,7 @@ fn main() {
                         .unwrap()).unwrap();
                 }
                 if _name != String::from("") {
-                    let _sk: Mke08UserKey = schemes::mke08::keygen(&_pk, &_msk, &_name);
+                    let _sk: Mke08UserKey = schemes::abe::mke08::keygen(&_pk, &_msk, &_name);
                     if _as_json {
                         write_file(
                             Path::new(&_name_file),
@@ -1186,7 +1196,8 @@ fn main() {
                     _msk = from_slice(&decode(&read_raw(&read_file(Path::new(&_sk_file))))
                         .unwrap()).unwrap();
                 }
-                let _sk: Option<CpAbeSecretKey> = schemes::bsw::delegate(&_pk, &_msk, &_attributes);
+                let _sk: Option<CpAbeSecretKey> =
+                    schemes::abe::bsw::delegate(&_pk, &_msk, &_attributes);
                 match _sk {
                     None => {
                         return Err(RabeError::new(
@@ -1284,7 +1295,7 @@ fn main() {
                         _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
                             .unwrap()).unwrap();
                     }
-                    let _ct = schemes::ac17::cp_encrypt(&_pk, &_policy, &buffer);
+                    let _ct = schemes::abe::ac17::cp_encrypt(&_pk, &_policy, &buffer);
                     if _as_json {
                         write_file(
                             Path::new(&_ct_file),
@@ -1314,7 +1325,7 @@ fn main() {
                         _pk = from_slice(&decode(&read_raw(&read_file(Path::new(&_pk_file))))
                             .unwrap()).unwrap();
                     }
-                    let _ct = schemes::ac17::kp_encrypt(&_pk, &_attributes, &buffer);
+                    let _ct = schemes::abe::ac17::kp_encrypt(&_pk, &_attributes, &buffer);
                     if _as_json {
                         write_file(
                             Path::new(&_ct_file),
@@ -1345,7 +1356,7 @@ fn main() {
                             &read_raw(&read_file(Path::new(&_pk_files[0].clone()))),
                         ).unwrap()).unwrap();
                     }
-                    let _ct = schemes::bsw::encrypt(&_pk, &_policy, &buffer);
+                    let _ct = schemes::abe::bsw::encrypt(&_pk, &_policy, &buffer);
                     if _as_json {
                         write_file(
                             Path::new(&_ct_file),
@@ -1376,7 +1387,7 @@ fn main() {
                             &read_raw(&read_file(Path::new(&_pk_files[0].clone()))),
                         ).unwrap()).unwrap();
                     }
-                    let _ct = schemes::lsw::encrypt(&_pk, &_attributes, &buffer);
+                    let _ct = schemes::abe::lsw::encrypt(&_pk, &_attributes, &buffer);
                     if _as_json {
                         write_file(
                             Path::new(&_ct_file),
@@ -1414,7 +1425,7 @@ fn main() {
                     }
                     _pks.push(_pka);
                 }
-                let _ct = schemes::aw11::encrypt(&_gp, &_pks, &_policy, &buffer);
+                let _ct = schemes::abe::aw11::encrypt(&_gp, &_pks, &_policy, &buffer);
                 if _as_json {
                     write_file(
                         Path::new(&_ct_file),
@@ -1447,7 +1458,7 @@ fn main() {
                     }
                     _attr_vec.push(_pka);
                 }
-                let _ct = schemes::bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
+                let _ct = schemes::abe::bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
                 if _as_json {
                     write_file(
                         Path::new(&_ct_file),
@@ -1480,7 +1491,7 @@ fn main() {
                     }
                     _attr_vec.push(_pka);
                 }
-                let _ct = schemes::mke08::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
+                let _ct = schemes::abe::mke08::encrypt(&_pk, &_attr_vec, &_policy, &buffer);
                 if _as_json {
                     write_file(
                         Path::new(&_ct_file),
@@ -1554,7 +1565,7 @@ fn main() {
                     _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
                         .unwrap();
                 }
-                _pt_option = schemes::ac17::cp_decrypt(&_sk, &_ct);
+                _pt_option = schemes::abe::ac17::cp_decrypt(&_sk, &_ct);
             }
             Scheme::AC17KP => {
                 let mut _sk: Ac17KpSecretKey;
@@ -1568,7 +1579,7 @@ fn main() {
                     _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
                         .unwrap();
                 }
-                _pt_option = schemes::ac17::kp_decrypt(&_sk, &_ct);
+                _pt_option = schemes::abe::ac17::kp_decrypt(&_sk, &_ct);
             }
             Scheme::BSW => {
                 let mut _sk: CpAbeSecretKey;
@@ -1582,7 +1593,7 @@ fn main() {
                     _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
                         .unwrap();
                 }
-                _pt_option = schemes::bsw::decrypt(&_sk, &_ct);
+                _pt_option = schemes::abe::bsw::decrypt(&_sk, &_ct);
             }
             Scheme::LSW => {
                 let mut _sk: KpAbeSecretKey;
@@ -1596,7 +1607,7 @@ fn main() {
                     _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
                         .unwrap();
                 }
-                _pt_option = schemes::lsw::decrypt(&_sk, &_ct);
+                _pt_option = schemes::abe::lsw::decrypt(&_sk, &_ct);
             }
             Scheme::AW11 => {
                 let mut _gp: Aw11GlobalKey;
@@ -1614,7 +1625,7 @@ fn main() {
                     _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
                         .unwrap();
                 }
-                _pt_option = schemes::aw11::decrypt(&_gp, &_sk, &_ct);
+                _pt_option = schemes::abe::aw11::decrypt(&_gp, &_sk, &_ct);
             }
             Scheme::BDABE => {
                 let mut _pk: BdabePublicKey;
@@ -1632,7 +1643,7 @@ fn main() {
                     _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
                         .unwrap();
                 }
-                _pt_option = schemes::bdabe::decrypt(&_pk, &_sk, &_ct);
+                _pt_option = schemes::abe::bdabe::decrypt(&_pk, &_sk, &_ct);
             }
             Scheme::MKE08 => {
                 let mut _pk: Mke08PublicKey;
@@ -1650,7 +1661,7 @@ fn main() {
                     _ct = from_slice(&decode(&read_raw(&read_file(Path::new(&_file)))).unwrap())
                         .unwrap();
                 }
-                _pt_option = schemes::mke08::decrypt(&_pk, &_sk, &_ct);
+                _pt_option = schemes::abe::mke08::decrypt(&_pk, &_sk, &_ct);
             }
         }
         match _pt_option {
@@ -1727,7 +1738,7 @@ fn main() {
                         _ska = from_slice(&decode(&read_raw(&read_file(Path::new(&_au_sk_file))))
                             .unwrap()).unwrap();
                     }
-                    match schemes::mke08::request_authority_pk(&_pk, &_attributes[0], &_ska) {
+                    match schemes::abe::mke08::request_authority_pk(&_pk, &_attributes[0], &_ska) {
                         None => {}
                         Some(_a_pk) => {
                             if _as_json {
@@ -1758,7 +1769,7 @@ fn main() {
                         _ska = from_slice(&decode(&read_raw(&read_file(Path::new(&_au_sk_file))))
                             .unwrap()).unwrap();
                     }
-                    match schemes::bdabe::request_attribute_pk(&_pk, &_ska, &_attributes[0]) {
+                    match schemes::abe::bdabe::request_attribute_pk(&_pk, &_ska, &_attributes[0]) {
                         None => {}
                         Some(_a_pk) => {
                             if _as_json {
@@ -1850,7 +1861,7 @@ fn main() {
                         _skau = from_slice(&decode(&read_raw(&read_file(Path::new(&_au_sk_file))))
                             .unwrap()).unwrap();
                     }
-                    match schemes::mke08::request_authority_sk(
+                    match schemes::abe::mke08::request_authority_sk(
                         &_attributes[0],
                         &_skau,
                         &_usk._pk_u,
@@ -1886,7 +1897,11 @@ fn main() {
                         _skau = from_slice(&decode(&read_raw(&read_file(Path::new(&_au_sk_file))))
                             .unwrap()).unwrap();
                     }
-                    match schemes::bdabe::request_attribute_sk(&_usk._pk, &_skau, &_attributes[0]) {
+                    match schemes::abe::bdabe::request_attribute_sk(
+                        &_usk._pk,
+                        &_skau,
+                        &_attributes[0],
+                    ) {
                         None => {}
                         Some(_a_sk) => {
                             if _as_json {

@@ -25,3 +25,7 @@ serde_cbor = "0.9"
 serde_derive = "1.0.16"
 clap = "2.27.1"
 base64 = "0.10.1"
+paillier = { git = "https://github.com/georgbramm/rust-paillier" }
+mongodb = "0.4.0"
+bson = "0.14"
+lazy_static = "1.4.0"

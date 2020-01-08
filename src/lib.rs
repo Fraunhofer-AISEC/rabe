@@ -10,7 +10,8 @@
 extern crate serde_derive;
 #[macro_use]
 extern crate arrayref;
-
+#[macro_use]
+extern crate lazy_static;
 extern crate base64;
 extern crate bincode;
 extern crate blake2_rfc;
@@ -22,6 +23,11 @@ extern crate num_bigint;
 extern crate rand;
 extern crate serde;
 extern crate serde_json;
+extern crate serde_cbor;
+extern crate paillier;
+extern crate mongodb;
+extern crate bson;
+
 
 pub mod ffi;
 pub mod schemes;

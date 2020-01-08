@@ -4,8 +4,8 @@ extern crate serde;
 extern crate serde_json;
 
 use bn::*;
-use schemes::bdabe::*;
-use schemes::mke08::*;
+use schemes::abe::bdabe::*;
+use schemes::abe::mke08::*;
 use std::string::String;
 use utils::tools::string_to_json;
 
