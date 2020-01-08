@@ -7,6 +7,12 @@ rabe is a rust library implementing several Attribute Based Encryption (ABE) sch
 
 This is a rust crate and comes with C bindings. For integration in distributed applications head over to [rabe-keyserver](ttps://github.com/Fraunhofer-AISEC/rabe-keyserver), which wraps rabe in a standalone REST API webserver.
 
+# Implemented Somewhat homomorphic Schemes (SHE)
+
+## hOPE
+
+Peng, Yanguo, et al. "hOPE: improved order preserving encryption with the power to homomorphic operations of ciphertexts." Science China Information Sciences 60.6 (2017): 062101.
+
 # Implemented Ciphertext Policy Schemes (CP-ABE)
 
 ## BDABE CP-ABE
