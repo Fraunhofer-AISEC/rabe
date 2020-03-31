@@ -12,7 +12,7 @@ crate-type=["rlib", "cdylib"]
 [dependencies]
 arrayref = "0.3.4"
 libc = "0.2.0"
-bn = { git = "https://github.com/georgbramm/bn" }
+bn = { git = "https://github.com/georgbramm/bn", rev="b22bd6474eb3794e38b5ecda792c853cf8749234" }
 blake2-rfc = "0.2.17"
 rand = "0.3"
 rust-crypto = "0.2.36"
