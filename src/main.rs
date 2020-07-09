@@ -49,9 +49,8 @@ use std::{
     path::Path,
     process
 };
-
-pub mod schemes;
-pub mod utils;
+mod schemes;
+mod utils;
 
 // File extensions
 const CT_EXTENSION: &'static str = "rct";
