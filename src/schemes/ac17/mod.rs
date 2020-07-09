@@ -150,12 +150,11 @@ pub fn setup() -> (Ac17PublicKey, Ac17MasterKey) {
     for _i in 0usize..ASSUMPTION_SIZE {
         _e_gh_ka.push(_e_gh.pow(_k[_i] * _a[_i] + _k[ASSUMPTION_SIZE]));
     }
-
-    let _pk = Ac17PublicKey { _g,_h_a,_e_gh_ka};
-    let _msk = Ac17MasterKey {_g, _h, _g_k, _a, _b};
-
     // return PK and MSK
-    return (_pk, _msk);
+    return (
+        Ac17PublicKey {_g, _h_a, _e_gh_ka},
+        Ac17MasterKey {_g, _h, _g_k, _a, _b}
+    )
 }
 
 /// The key generation algorithm of AC17CP. Generates an Ac17CpSecretKey using a Ac17MasterKey and a set of attributes given as Vec<String>.
@@ -233,10 +232,9 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
         _k_p.push(_prod);
     }
     _k_p.push(_g_k[ASSUMPTION_SIZE] + (msk._g * _sigma.neg()));
-    return Some(Ac17CpSecretKey {
-        _attr: attributes.clone(),
-        _sk: Ac17SecretKey {_k_0, _k, _k_p},
-    });
+    let _attr = attributes.clone();
+    let _sk = Ac17SecretKey {_k_0, _k, _k_p};
+    return Some(Ac17CpSecretKey {_attr, _sk});
 }
 
 /// The encrypt algorithm of AC17CP. Generates an Ac17CpCiphertext using an Ac17PublicKey, an access policy given as String and some plaintext data given as [u8].
@@ -327,12 +325,13 @@ pub fn cp_encrypt(
     }
     // random msg
     let _msg: Gt = _rng.gen();
-    let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
+    let _aes_ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
     _c_p = _c_p * _msg;
+    let _policy = policy.to_string();
     //Encrypt plaintext using derived key from secret
     return Some(Ac17CpCiphertext {
-        _policy: policy.clone(),
-        _ct: Ac17Ciphertext { _c_0, _c, _c_p, _ct },
+        _policy,
+        _ct: Ac17Ciphertext { _c_0, _c, _c_p, _ct: _aes_ct },
     });
 }
 
