@@ -6,7 +6,7 @@ use blake2_rfc::blake2b::blake2b;
 
 /// hash a String to an element of G1 using blake2b and generator g
 pub fn blake2b_hash_g1(g: bn::G1, data: &String) -> bn::G1 {
-    let hash = blake2b(64, &[], data.as_bytes());
+    let hash = blake2b(64,&[] , data.as_bytes());
     return g * Fr::interpret(array_ref![hash.as_ref(), 0, 64]);
 }
 

@@ -3,7 +3,7 @@
 //! * Developped by Georg Bramm, Fraunhofer AISEC
 //! * Date: 04/2018
 //!
-#[allow(dead_code)]
+#![allow(dead_code)]
 
 extern crate bn;
 extern crate serde;
@@ -1091,13 +1091,13 @@ fn main() {
         let mut file = match File::open(_path) {
             // The `description` method of `io::Error` returns a string that
             // describes the error
-            Err(why) => panic!("couldn't open {}: {}", display, why.description()),
+            Err(why) => panic!("couldn't open {}: {}", display, why.to_string()),
             Ok(file) => file,
         };
         // Read the file contents into a string, returns `io::Result<usize>`
         let mut s = String::new();
         match file.read_to_string(&mut s) {
-            Err(why) => panic!("couldn't read {}: {}", display, why.description()),
+            Err(why) => panic!("couldn't read {}: {}", display, why.to_string()),
             Ok(_) => print!("successfully read {}", display),
         }
         return s;
@@ -1110,12 +1110,14 @@ fn main() {
         let mut file = match File::open(_path) {
             // The `description` method of `io::Error` returns a string that
             // describes the error
-            Err(why) => panic!("couldn't open {}: {}", display, why.description()),
+            Err(why) => panic!("couldn't open {}: {}", display, why.to_string()),
             Ok(file) => file,
         };
         // read the whole file
-        file.read_to_end(&mut data);
-        return data;
+        match file.read_to_end(&mut data) {
+            Ok(_r) => data,
+            Err(e) => panic!("could not read file {:?} because {:?}", _path.to_str(), e.to_string())
+        }
     }
 
     fn write_from_vec(_path: &Path, _data: &Vec<u8>) {
@@ -1124,11 +1126,11 @@ fn main() {
         let mut file = match File::open(_path) {
             // The `description` method of `io::Error` returns a string that
             // describes the error
-            Err(why) => panic!("couldn't open {}: {}", display, why.description()),
+            Err(why) => panic!("couldn't open {}: {}", display, why.to_string()),
             Ok(file) => file,
         };
         match file.write_all(_data) {
-            Err(why) => panic!("couldn't write to {}: {}", display, why.description()),
+            Err(why) => panic!("couldn't write to {}: {}", display, why.to_string()),
             Ok(_) => println!("successfully wrote to {}", display),
         }
     }
@@ -1138,7 +1140,7 @@ fn main() {
 
         // Open a file in write-only mode, returns `io::Result<File>`
         let mut file = match File::create(_path) {
-            Err(why) => panic!("couldn't create {}: {}", display, why.description()),
+            Err(why) => panic!("couldn't create {}: {}", display, why.to_string()),
             Ok(file) => file,
         };
         let mut _ret: bool = false;
@@ -1146,7 +1148,7 @@ fn main() {
         match file.write_all(_content.as_bytes()) {
             Err(why) => {
                 _ret = false;
-                panic!("couldn't write to {}: {}", display, why.description());
+                panic!("couldn't write to {}: {}", display, why.to_string());
             }
             Ok(_) => {
                 _ret = true;

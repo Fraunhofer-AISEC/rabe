@@ -26,16 +26,18 @@
 //!assert_eq!(_match.unwrap(), _plaintext);
 //! ```
 extern crate bn;
-extern crate rand;
 extern crate serde;
 extern crate serde_json;
 
 use std::string::String;
-use bn::*;
-use utils::policy::*;
-use utils::tools::*;
-use utils::aes::*;
-use utils::hash::blake2b_hash_fr;
+use rand::Rng;
+use bn::{Group, Fr, G1, G2, Gt, pairing};
+use utils::{
+    policy::*,
+    tools::*,
+    aes::*,
+    hash::blake2b_hash_fr
+};
 
 /// A BDABE Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -124,23 +126,17 @@ pub struct BdabeCiphertext {
 /// The setup algorithm of BDABE. Generates a BdabePublicKey and a BdabeMasterKey.
 pub fn setup() -> (BdabePublicKey, BdabeMasterKey) {
     // random number generator
-    let _rng = &mut rand::thread_rng();
-    let _g1 = G1::random(_rng);
-    let _g2 = G2::random(_rng);
-    let _p1 = G1::random(_rng);
-    let _p2 = G2::random(_rng);
-    let _y = Fr::random(_rng);
+    let mut _rng = rand::thread_rng();
+    let _g1:G1 = _rng.gen();
+    let _g2:G2 = _rng.gen();
+    let _p1:G1 = _rng.gen();
+    let _p2:G2 = _rng.gen();
+    let _y:Fr = _rng.gen();
     // return pk and mk
-    return (
-        BdabePublicKey {
-            _g1: _g1,
-            _g2: _g2,
-            _p1: _p1,
-            _p2: _p2,
-            _e_gg_y: pairing(_g1, _g2).pow(_y),
-        },
-        BdabeMasterKey { _y: _y },
-    );
+    (
+        BdabePublicKey {_g1, _g2, _p1, _p2, _e_gg_y: pairing(_g1, _g2).pow(_y) },
+        BdabeMasterKey { _y }
+    )
 }
 
 /// Sets up and generates a new Authority by creating a secret authority key (SKauth).
@@ -158,16 +154,14 @@ pub fn authgen(
     _name: &String,
 ) -> BdabeSecretAuthorityKey {
     // random number generator
-    let _rng = &mut rand::thread_rng();
-    let _alpha = Fr::random(_rng);
+    let mut _rng = rand::thread_rng();
+    let _alpha: Fr = _rng.gen();
     let _beta = _mk._y - _alpha;
+    let _a1 = _pk._g1 * _alpha;
+    let _a2 = _pk._g2 * _beta;
+    let _a3:Fr = _rng.gen();
     // return secret authority key
-    return BdabeSecretAuthorityKey {
-        _a1: _pk._g1 * _alpha,
-        _a2: _pk._g2 * _beta,
-        _a3: Fr::random(_rng),
-        _a: _name.clone(),
-    };
+    BdabeSecretAuthorityKey {_a1, _a2, _a3, _a: _name.clone()}
 }
 
 /// Sets up and generates a new User by creating a secret user key (SK).
@@ -187,10 +181,10 @@ pub fn keygen(
     _name: &String,
 ) -> BdabeUserKey {
     // random number generator
-    let _rng = &mut rand::thread_rng();
-    let _r_u = Fr::random(_rng);
+    let mut _rng = rand::thread_rng();
+    let _r_u: Fr = _rng.gen();
     // return pk_u and sk_u
-    return BdabeUserKey {
+    BdabeUserKey {
         _sk: BdabeSecretUserKey {
             _u1: _ska._a1 + (_pk._p1 * _r_u),
             _u2: _ska._a2 + (_pk._p2 * _r_u),
@@ -201,7 +195,7 @@ pub fn keygen(
             _u2: _pk._g2 * _r_u,
         },
         _ska: Vec::new(),
-    };
+    }
 }
 
 /// Generates a new BdabePublicAttributeKey for a requested attribute, if it is handled by the authority _ska.
@@ -278,16 +272,18 @@ pub fn encrypt(
     // if policy is in DNF
     if dnf::DnfPolicy::is_in_dnf(&_policy) {
         // random number generator
-        let _rng = &mut rand::thread_rng();
+        let mut _rng = rand::thread_rng();
+        let _policy = _policy.to_string();
         // an DNF policy from the given String
         let dnf: dnf::DnfPolicy = dnf::DnfPolicy::from_string(&_policy, _attr_pks).unwrap();
         // random Gt msg
-        let _msg = pairing(G1::random(_rng), G2::random(_rng));
-        // CT result vectors
+        let _msg = pairing(_rng.gen(), _rng.gen());
+        // CT result vector
+        let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
         let mut _j: Vec<BdabeCiphertextTuple> = Vec::new();
         // now add randomness using _r_j
         for _term in dnf._terms {
-            let _r_j = Fr::random(_rng);
+            let _r_j: Fr = _rng.gen();
             _j.push(BdabeCiphertextTuple {
                 _str: _term.0,
                 _e1: _term.1.pow(_r_j) * _msg,
@@ -298,13 +294,9 @@ pub fn encrypt(
             });
         }
         //Encrypt plaintext using derived key from secret
-        return Some(BdabeCiphertext {
-            _policy: _policy.clone(),
-            _j: _j,
-            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
-        });
+        Some(BdabeCiphertext {_policy, _j, _ct })
     } else {
-        return None;
+        None
     }
 }
 

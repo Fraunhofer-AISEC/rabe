@@ -23,7 +23,6 @@ extern crate libc;
 extern crate serde;
 extern crate serde_json;
 extern crate bn;
-extern crate rand;
 extern crate byteorder;
 extern crate crypto;
 extern crate bincode;
@@ -33,10 +32,13 @@ extern crate blake2_rfc;
 use std::string::String;
 use bn::*;
 use std::ops::Neg;
-use utils::tools::*;
-use utils::secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
-use utils::aes::*;
-use utils::hash::{blake2b_hash_fr, blake2b_hash_g1};
+use utils::{
+    tools::*,
+    secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str},
+    aes::*,
+    hash::{blake2b_hash_fr, blake2b_hash_g1}
+};
+use rand::Rng;
 
 /// A LSW Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -78,16 +80,16 @@ pub struct KpAbeCiphertext {
 /// The setup algorithm of LSW KP-ABE. Generates a new KpAbePublicKey and a new KpAbeMasterKey.
 pub fn setup() -> (KpAbePublicKey, KpAbeMasterKey) {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // generate random alpha1, alpha2 and b
-    let _alpha1 = Fr::random(_rng);
-    let _alpha2 = Fr::random(_rng);
-    let _beta = Fr::random(_rng);
+    let _alpha1:Fr = _rng.gen();
+    let _alpha2:Fr = _rng.gen();
+    let _beta:Fr = _rng.gen();
     let _alpha = _alpha1 * _alpha2;
-    let _g_g1 = G1::random(_rng);
-    let _g_g2 = G2::random(_rng);
-    let _h_g1 = G1::random(_rng);
-    let _h_g2 = G2::random(_rng);
+    let _g_g1:G1 = _rng.gen();
+    let _g_g2:G2 = _rng.gen();
+    let _h_g1:G1 = _rng.gen();
+    let _h_g2:G2 = _rng.gen();
     let _g1_b = _g_g1 * _beta;
     // calculate the pairing between g1 and g2^alpha
     let _e_gg_alpha = pairing(_g_g1, _g_g2).pow(_alpha);
@@ -128,11 +130,11 @@ pub fn keygen(
     _policy: &String,
 ) -> Option<KpAbeSecretKey> {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     let _shares = gen_shares_str(_msk._alpha1, _policy).unwrap();
     let mut _d: Vec<(String, bn::G1, bn::G2, bn::G1, bn::G1, bn::G1)> = Vec::new();
     for (_share_str, _share_value) in _shares.into_iter() {
-        let _r = Fr::random(_rng);
+        let _r:Fr = _rng.gen();
         if is_negative(&_share_str) {
             _d.push((
                 _share_str.to_string(),
@@ -178,16 +180,16 @@ pub fn encrypt(
         return None;
     } else {
         // random number generator
-        let _rng = &mut rand::thread_rng();
+        let mut _rng = rand::thread_rng();
         // attribute vector
         let mut _ej: Vec<(String, bn::G1, bn::G1, bn::G1)> = Vec::new();
         // random secret
-        let _s = Fr::random(_rng);
+        let _s:Fr = _rng.gen();
         // sx vector
-        let mut _sx: Vec<(bn::Fr)> = Vec::new();
+        let mut _sx: Vec<bn::Fr> = Vec::new();
         _sx.push(_s);
         for (_i, _attr) in _attributes.iter().enumerate() {
-            _sx.push(Fr::random(_rng));
+            _sx.push(_rng.gen());
             _sx[0] = _sx[0] - _sx[_i];
         }
         for (_i, _attr) in _attributes.into_iter().enumerate() {
@@ -200,14 +202,12 @@ pub fn encrypt(
             ));
         }
         // random message
-        let _msg = pairing(G1::random(_rng), G2::random(_rng));
+        let _msg: Gt = _rng.gen();
+        let _e1 = _pk._e_gg_alpha.pow(_s) * _msg;
+        let _e2 = _pk._g_g2 * _s;
+        let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
         //Encrypt plaintext using derived key from secret
-        return Some(KpAbeCiphertext {
-            _e1: _pk._e_gg_alpha.pow(_s) * _msg,
-            _e2: _pk._g_g2 * _s,
-            _ej: _ej,
-            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
-        });
+        Some(KpAbeCiphertext {_e1, _e2, _ej, _ct})
 
     }
 }

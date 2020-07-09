@@ -3,7 +3,6 @@
 extern crate bn;
 extern crate serde;
 extern crate serde_json;
-extern crate rand;
 extern crate crypto;
 extern crate num_bigint;
 
@@ -32,7 +31,7 @@ pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
     }
 }
 
-pub fn contains(data: &Vec<(String)>, value: &String) -> bool {
+pub fn contains(data: &Vec<String>, value: &String) -> bool {
     let len = data.into_iter()
         .filter(|&i| i == value)
         .collect::<Vec<_>>()

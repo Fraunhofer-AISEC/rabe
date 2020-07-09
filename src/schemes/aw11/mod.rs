@@ -22,43 +22,49 @@
 //!assert_eq!(matching, plaintext);
 //! ```
 extern crate bn;
-extern crate rand;
 extern crate serde;
 extern crate serde_json;
 
 use std::string::String;
-use bn::*;
-use utils::policy::msp::AbePolicy;
-use utils::secretsharing::{gen_shares_str, calc_coefficients_str, calc_pruned_str};
-use utils::tools::*;
-use utils::aes::*;
-use utils::hash::blake2b_hash_g1;
+use rand::Rng;
+use bn::{Fr, G1, G2, Gt, pairing};
+use utils::{
+    secretsharing::{
+        calc_coefficients_str,
+        calc_pruned_str,
+        gen_shares_str
+    },
+    policy::msp::AbePolicy,
+    tools::*,
+    aes::*,
+    hash::blake2b_hash_g1
+};
 
 /// An AW11 Global Parameters Key (GK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11GlobalKey {
-    pub _g1: bn::G1,
-    pub _g2: bn::G2,
+    pub _g1: G1,
+    pub _g2: G2,
 }
 
 /// An AW11 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11PublicKey {
-    pub _attr: Vec<(String, bn::Gt, bn::G2)>,
+    pub _attr: Vec<(String, Gt, G2)>,
 }
 
 /// An AW11 Master Key (MK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11MasterKey {
-    pub _attr: Vec<(String, bn::Fr, bn::Fr)>,
+    pub _attr: Vec<(String, Fr, Fr)>,
 }
 
 /// An AW11 Ciphertext (CT)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11Ciphertext {
     pub _policy: String,
-    pub _c_0: bn::Gt,
-    pub _c: Vec<(String, bn::Gt, bn::G2, bn::G2)>,
+    pub _c_0: Gt,
+    pub _c: Vec<(String, Gt, G2, G2)>,
     pub _ct: Vec<u8>,
 }
 
@@ -66,7 +72,7 @@ pub struct Aw11Ciphertext {
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Aw11SecretKey {
     pub _gid: String,
-    pub _attr: Vec<(String, bn::G1)>,
+    pub _attr: Vec<(String, G1)>,
 }
 
 /// A global Context for an AW11 Global Parameters Key (GP)
@@ -78,11 +84,11 @@ pub struct Aw11GlobalContext {
 /// Sets up a new AW11 Scheme by creating a Global Parameters Key (GK)
 pub fn setup() -> Aw11GlobalKey {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // generator of group G1: g1 and generator of group G2: g2
     let _gk = Aw11GlobalKey {
-        _g1: G1::random(_rng),
-        _g2: G2::random(_rng),
+        _g1: _rng.gen(),
+        _g2: _rng.gen(),
     };
     // return PK and MSK
     return _gk;
@@ -109,15 +115,15 @@ pub fn authgen(
         return None;
     }
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // generator of group G1: g and generator of group G2: h
-    let mut _sk: Vec<(String, bn::Fr, bn::Fr)> = Vec::new(); //dictionary of {s: {alpha_i, y_i}}
-    let mut _pk: Vec<(String, bn::Gt, bn::G2)> = Vec::new(); // dictionary of {s: {e(g,g)^alpha_i, g1^y_i}}
+    let mut _sk: Vec<(String, Fr, Fr)> = Vec::new(); //dictionary of {s: {alpha_i, y_i}}
+    let mut _pk: Vec<(String, Gt, G2)> = Vec::new(); // dictionary of {s: {e(g,g)^alpha_i, g1^y_i}}
     // now calculate attribute values
     for _attr in _attributes {
         // calculate randomness
-        let _alpha_i = Fr::random(_rng);
-        let _y_i = Fr::random(_rng);
+        let _alpha_i:Fr = _rng.gen();
+        let _y_i:Fr = _rng.gen();
         _sk.push((_attr.clone().to_uppercase(), _alpha_i, _y_i));
         _pk.push((
             _attr.clone().to_uppercase(),
@@ -207,23 +213,23 @@ pub fn encrypt(
     _plaintext: &[u8],
 ) -> Option<Aw11Ciphertext> {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // an msp policy from the given String
     let msp: AbePolicy = AbePolicy::from_string(&_policy).unwrap();
     let _num_cols = msp._m[0].len();
     let _num_rows = msp._m.len();
     // pick randomness
-    let _s = Fr::random(_rng);
+    let _s:Fr = _rng.gen();
     // and calculate shares "s" and "zero"
     let _s_shares = gen_shares_str(_s, _policy).unwrap();
     let _w_shares = gen_shares_str(Fr::zero(), _policy).unwrap();
     // calculate c0 with a randomly selected "msg"
-    let _msg = pairing(G1::random(_rng), G2::random(_rng));
+    let _msg: Gt = _rng.gen();
     let _c_0 = _msg * pairing(_gk._g1, _gk._g2).pow(_s);
     // now calculate the C1,x C2,x and C3,x parts
-    let mut _c: Vec<(String, bn::Gt, bn::G2, bn::G2)> = Vec::new();
+    let mut _c: Vec<(String, Gt, G2, G2)> = Vec::new();
     for (_i, (_attr_name, _attr_share)) in _s_shares.into_iter().enumerate() {
-        let _r_x = Fr::random(_rng);
+        let _r_x:Fr = _rng.gen();
         let _pk_attr = find_pk_attr(_pks, &_attr_name.to_uppercase());
         match _pk_attr {
             None => return None,
@@ -319,7 +325,7 @@ pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> O
 ///	* `_pks` - A vector of Aw11PublicKeys
 ///	* `_attr` - An attribute
 ///
-fn find_pk_attr(_pks: &Vec<Aw11PublicKey>, _attr: &String) -> Option<(String, bn::Gt, bn::G2)> {
+fn find_pk_attr(_pks: &Vec<Aw11PublicKey>, _attr: &String) -> Option<(String, Gt, G2)> {
     for _pk in _pks.into_iter() {
         let _pk_attr = _pk._attr
             .clone()

@@ -3,16 +3,15 @@
 extern crate bn;
 extern crate serde;
 extern crate serde_json;
-extern crate rand;
 extern crate crypto;
 
 use crypto::{symmetriccipher, buffer, aes, blockmodes};
 use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
 use crypto::sha3::Sha3;
 use crypto::digest::Digest;
-use rand::{Rng, thread_rng};
 use bincode::serialize;
-
+use rand::prelude::*;
+use rand::thread_rng;
 /// Key Encapsulation Mechanism (Encryption Function)
 pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Option<Vec<u8>> {
     let mut _key: [u8; 32] = [0; 32];
@@ -102,8 +101,7 @@ fn encrypt_aes(
     // us that it stopped processing data due to not having any more data in the
     // input buffer.
     loop {
-        let result = try!(encryptor.encrypt(&mut read_buffer, &mut write_buffer, true));
-
+        let result = encryptor.encrypt(&mut read_buffer, &mut write_buffer, true)?;
         // "write_buffer.take_read_buffer().take_remaining()" means:
         // from the writable buffer, create a new readable buffer which
         // contains all data that has been written, and then access all
@@ -145,7 +143,7 @@ fn decrypt_aes(
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
 
     loop {
-        let result = try!(decryptor.decrypt(&mut read_buffer, &mut write_buffer, true));
+        let result = decryptor.decrypt(&mut read_buffer, &mut write_buffer, true)?;
         final_result.extend(
             write_buffer
                 .take_read_buffer()
@@ -158,6 +156,5 @@ fn decrypt_aes(
             BufferResult::BufferOverflow => {}
         }
     }
-
     Ok(final_result)
 }

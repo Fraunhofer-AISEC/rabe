@@ -28,12 +28,12 @@
 //!assert_eq!(decrypt(&_pk, &_u_key, &_ct).unwrap(), _plaintext);
 //! ```
 extern crate bn;
-extern crate rand;
 extern crate serde;
 extern crate serde_json;
 
 use std::string::String;
 use bn::*;
+use rand::Rng;
 use utils::policy::dnf::DnfPolicy;
 use utils::tools::*;
 use utils::aes::*;
@@ -42,19 +42,19 @@ use utils::hash::blake2b_hash_fr;
 /// A MKE08 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08PublicKey {
-    pub _g1: bn::G1,
-    pub _g2: bn::G2,
-    pub _p1: bn::G1,
-    pub _p2: bn::G2,
-    pub _e_gg_y1: bn::Gt,
-    pub _e_gg_y2: bn::Gt,
+    pub _g1: G1,
+    pub _g2: G2,
+    pub _p1: G1,
+    pub _p2: G2,
+    pub _e_gg_y1: Gt,
+    pub _e_gg_y2: Gt,
 }
 
 /// A MKE08 Master Key (MK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08MasterKey {
-    pub _g1_y: bn::G1,
-    pub _g2_y: bn::G2,
+    pub _g1_y: G1,
+    pub _g2_y: G2,
 }
 
 /// A MKE08 User Key (SK), consisting of a Secret User Key (SKu), a Public User Key (PKu) and a Vector of Secret Attribute Keys (SKau)
@@ -69,40 +69,40 @@ pub struct Mke08UserKey {
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08PublicUserKey {
     pub _u: String,
-    pub _pk_g1: bn::G1,
-    pub _pk_g2: bn::G2,
+    pub _pk_g1: G1,
+    pub _pk_g2: G2,
 }
 
 /// A MKE08 Secret User Key (SKu)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08SecretUserKey {
-    pub _sk_g1: bn::G1,
-    pub _sk_g2: bn::G2,
+    pub _sk_g1: G1,
+    pub _sk_g2: G2,
 }
 
 /// A MKE08 Secret Authrotiy Key (SKauth)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08SecretAuthorityKey {
     pub _a: String,
-    pub _r: bn::Fr,
+    pub _r: Fr,
 }
 
 /// A MKE08 Public Attribute Key (PKa)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08PublicAttributeKey {
     pub _str: String,
-    pub _g1: bn::G1,
-    pub _g2: bn::G2,
-    pub _gt1: bn::Gt,
-    pub _gt2: bn::Gt,
+    pub _g1: G1,
+    pub _g2: G2,
+    pub _gt1: Gt,
+    pub _gt2: Gt,
 }
 
 /// A MKE08 Secret Attribute Key (SKa)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08SecretAttributeKey {
     pub _str: String,
-    pub _g1: bn::G1,
-    pub _g2: bn::G2,
+    pub _g1: G1,
+    pub _g2: G2,
 }
 
 /// A MKE08 Ciphertext (CT) consisting of the AES encrypted data as well as a Vector of all Conjunctions of the access policy
@@ -117,39 +117,33 @@ pub struct Mke08Ciphertext {
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08CTConjunction {
     pub _str: Vec<String>,
-    pub _j1: bn::Gt,
-    pub _j2: bn::Gt,
-    pub _j3: bn::G1,
-    pub _j4: bn::G2,
-    pub _j5: bn::G1,
-    pub _j6: bn::G2,
+    pub _j1: Gt,
+    pub _j2: Gt,
+    pub _j3: G1,
+    pub _j4: G2,
+    pub _j5: G1,
+    pub _j6: G2,
 }
 
 /// The setup algorithm of MKE08. Generates a Mke08PublicKey and a Mke08PublicKey.
 pub fn setup() -> (Mke08PublicKey, Mke08MasterKey) {
     // random number generator
-    let _rng = &mut rand::thread_rng();
-    let _g1 = G1::random(_rng);
-    let _g2 = G2::random(_rng);
-    let _p1 = G1::random(_rng);
-    let _p2 = G2::random(_rng);
-    let _y1 = Fr::random(_rng);
-    let _y2 = Fr::random(_rng);
+    let mut _rng = rand::thread_rng();
+    let _g1:G1 = _rng.gen();
+    let _g2:G2 = _rng.gen();
+    let _p1:G1 = _rng.gen();
+    let _p2:G2 = _rng.gen();
+    let _y1:Fr = _rng.gen();
+    let _y2:Fr = _rng.gen();
+    let _e_gg_y1 = pairing(_g1, _g2).pow(_y1);
+    let _e_gg_y2 = pairing(_g1, _g2).pow(_y2);
+    let _g1_y = _g1 * _y1;
+    let _g2_y = _g2 * _y2;
     // return PK and MK
-    return (
-        Mke08PublicKey {
-            _g1: _g1,
-            _g2: _g2,
-            _p1: _p1,
-            _p2: _p2,
-            _e_gg_y1: pairing(_g1, _g2).pow(_y1),
-            _e_gg_y2: pairing(_g1, _g2).pow(_y2),
-        },
-        Mke08MasterKey {
-            _g1_y: _g1 * _y1,
-            _g2_y: _g2 * _y2,
-        },
-    );
+    (
+        Mke08PublicKey {_g1, _g2, _p1, _p2, _e_gg_y1, _e_gg_y2},
+        Mke08MasterKey {_g1_y, _g2_y }
+    )
 }
 
 /// The key generation algorithm of MKE08 CP-ABE. Generates a Mke08UserKey using a Mke08PublicKey, a Mke08MasterKey and a username given as String.
@@ -162,8 +156,8 @@ pub fn setup() -> (Mke08PublicKey, Mke08MasterKey) {
 ///
 pub fn keygen(_pk: &Mke08PublicKey, _mk: &Mke08MasterKey, _u: &String) -> Mke08UserKey {
     // random number generator
-    let _rng = &mut rand::thread_rng();
-    let _mk_u = Fr::random(_rng);
+    let mut _rng = rand::thread_rng();
+    let _mk_u:Fr = _rng.gen();
     // return pk_u and sk_u
     return Mke08UserKey {
         _sk_u: Mke08SecretUserKey {
@@ -188,11 +182,11 @@ pub fn keygen(_pk: &Mke08PublicKey, _mk: &Mke08MasterKey, _u: &String) -> Mke08U
 ///
 pub fn authgen(_a: &String) -> Mke08SecretAuthorityKey {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // return secret authority key
     return Mke08SecretAuthorityKey {
         _a: _a.clone(),
-        _r: Fr::random(_rng),
+        _r: _rng.gen(),
     };
 }
 
@@ -271,18 +265,18 @@ pub fn encrypt(
     // if policy is in DNF
     if DnfPolicy::is_in_dnf(&_policy) {
         // random number generator
-        let _rng = &mut rand::thread_rng();
+        let mut _rng = rand::thread_rng();
         // an DNF policy from the given String
         let dnf: DnfPolicy = DnfPolicy::from_string(&_policy, _attr_pks).unwrap();
         // random Gt msgs
-        let _msg1 = pairing(G1::random(_rng), G2::random(_rng));
-        let _msg2 = _msg1.pow(Fr::random(_rng));
+        let _msg1 = pairing(_rng.gen(), _rng.gen());
+        let _msg2 = _msg1.pow(_rng.gen());
         let _msg = _msg1 * _msg2;
         // CT result vectors
         let mut _e: Vec<Mke08CTConjunction> = Vec::new();
         // now add randomness using _r_j
         for _term in dnf._terms.into_iter() {
-            let _r_j = Fr::random(_rng);
+            let _r_j:Fr = _rng.gen();
             _e.push(Mke08CTConjunction {
                 _str: _term.0,
                 _j1: _term.1.pow(_r_j) * _msg1,
@@ -375,8 +369,8 @@ fn is_satisfiable(_conjunction: &Vec<String>, _sk: &Vec<Mke08SecretAttributeKey>
 fn calc_satisfiable(
     _conjunction: &Vec<String>,
     _sk: &Vec<Mke08SecretAttributeKey>,
-) -> (bn::G1, bn::G2) {
-    let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
+) -> (G1, G2) {
+    let mut ret: (G1, G2) = (G1::one(), G2::one());
     for _i in 0usize.._conjunction.len() {
         match _sk.into_iter().find(
             |&x| x._str == _conjunction[_i].to_string(),

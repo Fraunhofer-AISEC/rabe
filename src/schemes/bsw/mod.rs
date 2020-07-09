@@ -23,7 +23,6 @@ extern crate libc;
 extern crate serde;
 extern crate serde_json;
 extern crate bn;
-extern crate rand;
 extern crate byteorder;
 extern crate crypto;
 extern crate bincode;
@@ -32,10 +31,13 @@ extern crate blake2_rfc;
 
 use std::string::String;
 use bn::*;
-use utils::secretsharing::{gen_shares_str, calc_pruned_str, calc_coefficients_str};
-use utils::tools::*;
-use utils::aes::*;
-use utils::hash::blake2b_hash_g2;
+use rand::Rng;
+use utils::{
+    secretsharing::{gen_shares_str, calc_pruned_str, calc_coefficients_str},
+    tools::*,
+    aes::*,
+    hash::blake2b_hash_g2
+};
 
 /// A BSW Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -82,13 +84,13 @@ pub struct CpAbeAttribute {
 /// The setup algorithm of BSW CP-ABE. Generates a new CpAbePublicKey and a new CpAbeMasterKey.
 pub fn setup() -> (CpAbePublicKey, CpAbeMasterKey) {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // generator of group G1: g1 and generator of group G2: g2
-    let _g = G1::random(_rng);
-    let _gp = G2::random(_rng);
+    let _g:G1 = _rng.gen();
+    let _gp:G2 = _rng.gen();
     // random
-    let _beta = Fr::random(_rng);
-    let _alpha = Fr::random(_rng);
+    let _beta:Fr = _rng.gen();
+    let _alpha:Fr = _rng.gen();
     // vectors
     // calulate h and f
     let _h = _g * _beta;
@@ -130,15 +132,15 @@ pub fn keygen(
         return None;
     }
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // generate random r1 and r2 and sum of both
     // compute Br as well because it will be used later too
-    let _r = Fr::random(_rng);
+    let _r:Fr = _rng.gen();
     let _g_r = _pk._g2 * _r;
     let _d = (_msk._g2_alpha + _g_r) * _msk._beta.inverse().unwrap();
     let mut _d_j: Vec<CpAbeAttribute> = Vec::new();
     for _j in _attributes {
-        let _r_j = Fr::random(_rng);
+        let _r_j:Fr = _rng.gen();
         _d_j.push(CpAbeAttribute {
             _str: _j.clone(), // attribute name
             _g1: _pk._g1 * _r_j, // D_j Prime
@@ -178,14 +180,14 @@ pub fn delegate(
             return None;
         }
         // random number generator
-        let _rng = &mut rand::thread_rng();
+        let mut _rng = rand::thread_rng();
         // generate random r
-        let _r = Fr::random(_rng);
+        let _r:Fr = _rng.gen();
         // calculate derived _k_0
         let mut _d_k: Vec<CpAbeAttribute> = Vec::new();
         // calculate derived attributes
         for _attr in _subset {
-            let _r_j = Fr::random(_rng);
+            let _r_j:Fr = _rng.gen();
             let _d_j_val = _sk._d_j
                 .iter()
                 .find(|x| x._str == _attr.to_string())
@@ -220,10 +222,10 @@ pub fn encrypt(
     if _plaintext.is_empty() || _policy.is_empty() {
         return None;
     }
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // the shared root secret
-    let _s = Fr::random(_rng);
-    let _msg = pairing(G1::random(_rng), G2::random(_rng));
+    let _s:Fr = _rng.gen();
+    let _msg: Gt = _rng.gen();
     let _shares: Vec<(String, Fr)> = gen_shares_str(_s, _policy).unwrap();
     let _c = _pk._h * _s;
     let _c_p = _pk._e_gg_alpha.pow(_s) * _msg;

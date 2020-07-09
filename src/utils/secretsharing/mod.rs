@@ -1,12 +1,12 @@
 #[allow(dead_code)]
 extern crate serde;
 extern crate serde_json;
-extern crate rand;
 
 use bn::*;
 use utils::tools::{usize_to_fr, contains, string_to_json};
+use rand::Rng;
 
-pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool, Vec<(String)>)> {
+pub fn calc_pruned_str(_attr: &Vec<String>, _policy: &String) -> Option<(bool, Vec<String>)> {
     let _json = string_to_json(_policy);
     match _json {
         None => {
@@ -20,15 +20,15 @@ pub fn calc_pruned_str(_attr: &Vec<(String)>, _policy: &String) -> Option<(bool,
 }
 
 pub fn required_attributes(
-    _attr: &Vec<(String)>,
+    _attr: &Vec<String>,
     _json: &serde_json::Value,
-) -> Option<(bool, Vec<(String)>)> {
+) -> Option<(bool, Vec<String>)> {
     if *_json == serde_json::Value::Null {
         println!("Error: passed null as json!");
         return None;
     } else {
         let mut _match: bool = false;
-        let mut _emtpy_list: Vec<(String)> = Vec::new();
+        let mut _emtpy_list: Vec<String> = Vec::new();
         if _json["OR"].is_array() {
             let _num_terms = _json["OR"].as_array().unwrap().len();
             if _num_terms >= 2 {
@@ -230,14 +230,14 @@ pub fn gen_shares(_secret: Fr, _k: usize, _n: usize) -> Vec<Fr> {
     let mut _shares: Vec<Fr> = Vec::new();
     if _k <= _n {
         // random number generator
-        let _rng = &mut rand::thread_rng();
+        let mut _rng = rand::thread_rng();
         // polynomial coefficients
         let mut _a: Vec<Fr> = Vec::new();
         for _i in 0.._k {
             if _i == 0 {
                 _a.push(_secret);
             } else {
-                _a.push(Fr::random(_rng))
+                _a.push(_rng.gen())
             }
         }
         for _i in 0..(_n + 1) {
@@ -273,8 +273,8 @@ mod tests {
     #[test]
     fn test_secret_sharing_or() {
         // OR
-        let _rng = &mut rand::thread_rng();
-        let _secret = Fr::random(_rng);
+        let mut _rng = rand::thread_rng();
+        let _secret:Fr = _rng.gen();
         //println!("_random: {:?}", into_dec(_secret).unwrap());
         let _shares = gen_shares(_secret, 1, 2);
         let _k = _shares[0];
@@ -291,8 +291,8 @@ mod tests {
     #[test]
     fn test_secret_sharing_and() {
         // AND
-        let _rng = &mut rand::thread_rng();
-        let _secret = Fr::random(_rng);
+        let mut _rng = rand::thread_rng();
+        let _secret:Fr = _rng.gen();
         //println!("_random: {:?}", into_dec(_secret).unwrap());
         let _shares = gen_shares(_secret, 2, 2);
         let _k = _shares[0];
@@ -333,15 +333,15 @@ mod tests {
         );
 
         let (_match1, _list1) = _result1.unwrap();
-        assert!(_match1 == true);
+        assert_eq!(_match1, true);
         assert!(_list1 == vec!["3".to_string(), "4".to_string()]);
 
         let (_match2, _list2) = _result2.unwrap();
-        assert!(_match2 == true);
+        assert_eq!(_match2, true);
         assert!(_list2 == vec!["3".to_string()]);
 
         let (_match3, _list3) = _result3.unwrap();
-        assert!(_match3 == false);
-        assert!(_list3.is_empty() == true);
+        assert_eq!(_match3, false);
+        assert_eq!(_list3.is_empty(), true);
     }
 }

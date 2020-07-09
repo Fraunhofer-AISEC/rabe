@@ -7,11 +7,11 @@ use std::string::String;
 use utils::tools::string_to_json;
 use schemes::mke08::*;
 use schemes::bdabe::*;
-use bn::*;
+use bn::{Group, Gt, G1, G2};
 
 /// A DNF policy for the MKE08 scheme and the BDABE scheme
 pub struct DnfPolicy {
-    pub _terms: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)>,
+    pub _terms: Vec<(Vec<String>, Gt, Gt, G1, G2)>,
 }
 
 #[allow(dead_code)]
@@ -22,7 +22,7 @@ impl DnfPolicy {
     ///
     /// * `policy` - A policy in JSON format as String describing the policy
     pub fn new() -> DnfPolicy {
-        let _empty: Vec<(Vec<(String)>, bn::Gt, bn::Gt, bn::G1, bn::G2)> = Vec::new();
+        let _empty: Vec<(Vec<String>, Gt, Gt, G1, G2)> = Vec::new();
         DnfPolicy { _terms: _empty }
     }
 
@@ -64,16 +64,16 @@ pub trait PublicAttributeKey {
     fn _str(&self) -> String {
         String::from("undefined")
     }
-    fn _g1(&self) -> bn::G1 {
+    fn _g1(&self) -> G1 {
         G1::one()
     }
-    fn _g2(&self) -> bn::G2 {
+    fn _g2(&self) -> G2 {
         G2::one()
     }
-    fn _gt1(&self) -> bn::Gt {
+    fn _gt1(&self) -> Gt {
         Gt::one()
     }
-    fn _gt2(&self) -> bn::Gt {
+    fn _gt2(&self) -> Gt {
         Gt::one()
     }
 }
@@ -82,16 +82,16 @@ impl PublicAttributeKey for Mke08PublicAttributeKey {
     fn _str(&self) -> String {
         self._str.clone()
     }
-    fn _g1(&self) -> bn::G1 {
+    fn _g1(&self) -> G1 {
         self._g1
     }
-    fn _g2(&self) -> bn::G2 {
+    fn _g2(&self) -> G2 {
         self._g2
     }
-    fn _gt1(&self) -> bn::Gt {
+    fn _gt1(&self) -> Gt {
         self._gt1
     }
-    fn _gt2(&self) -> bn::Gt {
+    fn _gt2(&self) -> Gt {
         self._gt2
     }
 }
@@ -100,13 +100,13 @@ impl PublicAttributeKey for BdabePublicAttributeKey {
     fn _str(&self) -> String {
         self._str.clone()
     }
-    fn _g1(&self) -> bn::G1 {
+    fn _g1(&self) -> G1 {
         self._a1
     }
-    fn _g2(&self) -> bn::G2 {
+    fn _g2(&self) -> G2 {
         self._a2
     }
-    fn _gt1(&self) -> bn::Gt {
+    fn _gt1(&self) -> Gt {
         self._a3
     }
 }

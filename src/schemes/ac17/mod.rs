@@ -34,43 +34,45 @@
 //!assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
 //! ```
 extern crate bn;
-extern crate rand;
 extern crate serde;
 extern crate serde_json;
 
 use std::string::String;
 use std::ops::Neg;
-use bn::*;
-use utils::policy::msp::AbePolicy;
-use utils::tools::*;
-use utils::secretsharing::*;
-use utils::aes::*;
-use utils::hash::blake2b_hash_g1;
+use bn::{Group, Gt, G1, G2, Fr, pairing};
+use rand::Rng;
+use utils::{
+    policy::msp::AbePolicy,
+    tools::*,
+    secretsharing::*,
+    aes::*,
+    hash::blake2b_hash_g1
+};
 
 /// An AC17 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ac17PublicKey {
-    pub _g: bn::G1,
-    pub _h_a: Vec<bn::G2>,
-    pub _e_gh_ka: Vec<bn::Gt>,
+    pub _g: G1,
+    pub _h_a: Vec<G2>,
+    pub _e_gh_ka: Vec<Gt>,
 }
 
 /// An AC17 Public Key (MK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ac17MasterKey {
-    pub _g: bn::G1,
-    pub _h: bn::G2,
-    pub _g_k: Vec<bn::G1>,
-    pub _a: Vec<bn::Fr>,
-    pub _b: Vec<bn::Fr>,
+    pub _g: G1,
+    pub _h: G2,
+    pub _g_k: Vec<G1>,
+    pub _a: Vec<Fr>,
+    pub _b: Vec<Fr>,
 }
 
 /// An AC17 Ciphertext (CT)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ac17Ciphertext {
-    pub _c_0: Vec<bn::G2>,
-    pub _c: Vec<(String, Vec<bn::G1>)>,
-    pub _c_p: bn::Gt,
+    pub _c_0: Vec<G2>,
+    pub _c: Vec<(String, Vec<G1>)>,
+    pub _c_p: Gt,
     pub _ct: Vec<u8>,
 }
 
@@ -84,16 +86,16 @@ pub struct Ac17CpCiphertext {
 /// An AC17 KP-ABE Ciphertext (CT), composed of a set of attributes and an Ac17Ciphertext.
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ac17KpCiphertext {
-    pub _attr: Vec<(String)>,
+    pub _attr: Vec<String>,
     pub _ct: Ac17Ciphertext,
 }
 
 /// An AC17 Secret Key (SK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ac17SecretKey {
-    pub _k_0: Vec<bn::G2>,
-    pub _k: Vec<(String, Vec<(bn::G1)>)>,
-    pub _k_p: Vec<bn::G1>,
+    pub _k_0: Vec<G2>,
+    pub _k: Vec<(String, Vec<G1>)>,
+    pub _k_p: Vec<G1>,
 }
 
 /// An AC17 KP-ABE Secret Key (SK), composed of a policy and an Ac17Ciphertext.
@@ -106,7 +108,7 @@ pub struct Ac17KpSecretKey {
 /// An AC17 CP-ABE Secret Key (SK), composed of a set of attributes and an Ac17Ciphertext.
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ac17CpSecretKey {
-    pub _attr: Vec<(String)>,
+    pub _attr: Vec<String>,
     pub _sk: Ac17SecretKey,
 }
 
@@ -116,37 +118,37 @@ const ASSUMPTION_SIZE: usize = 2;
 /// The setup algorithm of both AC17CP and AC17KP. Generates an Ac17PublicKey and an Ac17MasterKey.
 pub fn setup() -> (Ac17PublicKey, Ac17MasterKey) {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // generator of group G1: g and generator of group G2: h
-    let _g = G1::random(_rng);
-    let _h = G2::random(_rng);
+    let _g:G1 = _rng.gen();
+    let _h:G2 = _rng.gen();
     //pairing
     let _e_gh = pairing(_g, _h);
     // A and B vectors
-    let mut _a: Vec<(bn::Fr)> = Vec::new();
-    let mut _b: Vec<(bn::Fr)> = Vec::new();
+    let mut _a: Vec<Fr> = Vec::new();
+    let mut _b: Vec<Fr> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
-        _a.push(Fr::random(_rng));
-        _b.push(Fr::random(_rng));
+        _a.push(_rng.gen());
+        _b.push(_rng.gen());
     }
     // k vetor
-    let mut _k: Vec<(bn::Fr)> = Vec::new();
+    let mut _k: Vec<Fr> = Vec::new();
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-        _k.push(Fr::random(_rng));
+        _k.push(_rng.gen());
     }
     // h_A vetor
-    let mut _h_a: Vec<(bn::G2)> = Vec::new();
+    let mut _h_a: Vec<G2> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
         _h_a.push(_h * _a[_i]);
     }
     _h_a.push(_h);
     // compute the e([k]_1,  [A]_2) term
-    let mut _g_k: Vec<(bn::G1)> = Vec::new();
+    let mut _g_k: Vec<G1> = Vec::new();
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
         _g_k.push(_g * _k[_i]);
     }
 
-    let mut _e_gh_ka: Vec<(bn::Gt)> = Vec::new();
+    let mut _e_gh_ka: Vec<Gt> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
         _e_gh_ka.push(_e_gh.pow(_k[_i] * _a[_i] + _k[ASSUMPTION_SIZE]));
     }
@@ -182,33 +184,33 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
         return None;
     }
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // pick randomness
-    let mut _r: Vec<(bn::Fr)> = Vec::new();
+    let mut _r: Vec<Fr> = Vec::new();
     let mut _sum = Fr::zero();
     for _i in 0usize..ASSUMPTION_SIZE {
-        let _rand = Fr::random(_rng);
+        let _rand:Fr = _rng.gen();
         _r.push(_rand);
         _sum = _sum + _rand;
     }
     // first compute Br as it will be used later
-    let mut _br: Vec<(bn::Fr)> = Vec::new();
+    let mut _br: Vec<Fr> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
         _br.push(msk._b[_i] * _r[_i])
     }
     _br.push(_sum);
     // now computer [Br]_2
-    let mut _k_0: Vec<(bn::G2)> = Vec::new();
+    let mut _k_0: Vec<G2> = Vec::new();
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
         _k_0.push(msk._h * _br[_i])
     }
     // compute [W_1 Br]_1, ...
-    let mut _k: Vec<(String, Vec<(bn::G1)>)> = Vec::new();
+    let mut _k: Vec<(String, Vec<G1>)> = Vec::new();
     let _a = msk._a.clone();
     let _g = msk._g.clone();
     for _attr in attributes {
-        let mut _key: Vec<(bn::G1)> = Vec::new();
-        let _sigma_attr = Fr::random(_rng);
+        let mut _key: Vec<G1> = Vec::new();
+        let _sigma_attr:Fr = _rng.gen();
         for _t in 0usize..ASSUMPTION_SIZE {
             let mut _prod = G1::zero();
             let _a_t = _a[_t].inverse().unwrap();
@@ -226,9 +228,9 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
         _k.push((_attr.to_string(), _key));
     }
     // compute [k + VBr]_1
-    let mut _k_p: Vec<(bn::G1)> = Vec::new();
+    let mut _k_p: Vec<G1> = Vec::new();
     let _g_k = msk._g_k.clone();
-    let _sigma = Fr::random(_rng);
+    let _sigma:Fr = _rng.gen();
     for _t in 0usize..ASSUMPTION_SIZE {
         let mut _prod = _g_k[_t];
         let _a_t = _a[_t].inverse().unwrap();
@@ -267,21 +269,21 @@ pub fn cp_encrypt(
     _plaintext: &[u8],
 ) -> Option<Ac17CpCiphertext> {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // an msp policy from the given String
     let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
     let _num_cols = msp._m[0].len();
     let _num_rows = msp._m.len();
     // pick randomness
-    let mut _s: Vec<(bn::Fr)> = Vec::new();
+    let mut _s: Vec<Fr> = Vec::new();
     let mut _sum = Fr::zero();
     for _i in 0usize..ASSUMPTION_SIZE {
-        let _rand = Fr::random(_rng);
+        let _rand:Fr = _rng.gen();
         _s.push(_rand);
         _sum = _sum + _rand;
     }
     // compute the [As]_2 term
-    let mut _c_0: Vec<(bn::G2)> = Vec::new();
+    let mut _c_0: Vec<G2> = Vec::new();
     let _h_a = pk._h_a.clone();
     for _i in 0usize..ASSUMPTION_SIZE {
         _c_0.push(_h_a[_i] * _s[_i]);
@@ -289,14 +291,14 @@ pub fn cp_encrypt(
     _c_0.push(_h_a[ASSUMPTION_SIZE] * _sum);
     // compute the [(V^T As||U^T_2 As||...) M^T_i + W^T_i As]_1 terms
     // pre-compute hashes
-    let mut _hash_table: Vec<Vec<Vec<(bn::G1)>>> = Vec::new();
+    let mut _hash_table: Vec<Vec<Vec<G1>>> = Vec::new();
     for _j in 0usize.._num_cols {
-        let mut _x: Vec<Vec<(bn::G1)>> = Vec::new();
+        let mut _x: Vec<Vec<G1>> = Vec::new();
         let mut _hash1 = String::new();
         _hash1.push_str(&String::from("0"));
         _hash1.push_str(&(_j + 1).to_string());
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-            let mut _y: Vec<(bn::G1)> = Vec::new();
+            let mut _y: Vec<G1> = Vec::new();
             let mut _hash2 = String::new();
             _hash2.push_str(&_hash1);
             _hash2.push_str(&_l.to_string());
@@ -311,9 +313,9 @@ pub fn cp_encrypt(
         }
         _hash_table.push(_x);
     }
-    let mut _c: Vec<(String, Vec<bn::G1>)> = Vec::new();
+    let mut _c: Vec<(String, Vec<G1>)> = Vec::new();
     for _i in 0usize.._num_rows {
-        let mut _ct: Vec<bn::G1> = Vec::new();
+        let mut _ct: Vec<G1> = Vec::new();
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
             let mut _prod = G1::zero();
             for _t in 0usize..ASSUMPTION_SIZE {
@@ -340,18 +342,13 @@ pub fn cp_encrypt(
         _c_p = _c_p * (pk._e_gh_ka[_i].pow(_s[_i]));
     }
     // random msg
-    let _msg = pairing(G1::random(_rng), G2::random(_rng));
+    let _msg: Gt = _rng.gen();
+    let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
     _c_p = _c_p * _msg;
-
     //Encrypt plaintext using derived key from secret
     return Some(Ac17CpCiphertext {
         _policy: policy.clone(),
-        _ct: Ac17Ciphertext {
-            _c_0: _c_0,
-            _c: _c,
-            _c_p: _c_p,
-            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
-        },
+        _ct: Ac17Ciphertext { _c_0, _c, _c_p, _ct },
     });
 
 }
@@ -420,41 +417,41 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>
 ///
 pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey> {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // an msp policy from the given String
     let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
     let _num_cols = msp._m[0].len();
     let _num_rows = msp._m.len();
     // pick randomness
-    let mut _r: Vec<(bn::Fr)> = Vec::new();
+    let mut _r: Vec<Fr> = Vec::new();
     let mut _sum = Fr::zero();
     for _i in 0usize..ASSUMPTION_SIZE {
-        let _rand = Fr::random(_rng);
+        let _rand:Fr = _rng.gen();
         _r.push(_rand);
         _sum = _sum + _rand;
     }
     // first compute Br as it will be used later
-    let mut _br: Vec<(bn::Fr)> = Vec::new();
+    let mut _br: Vec<Fr> = Vec::new();
     for _i in 0usize..ASSUMPTION_SIZE {
         _br.push(msk._b[_i] * _r[_i])
     }
     _br.push(_sum);
     // now computer [Br]_2
-    let mut _k_0: Vec<(bn::G2)> = Vec::new();
+    let mut _k_0: Vec<G2> = Vec::new();
     for _i in 0usize..(ASSUMPTION_SIZE + 1) {
         _k_0.push(msk._h * _br[_i])
     }
-    let mut _sigma_prime: Vec<(bn::Fr)> = Vec::new();
+    let mut _sigma_prime: Vec<Fr> = Vec::new();
     for _i in 0usize..(_num_cols - 1) {
-        _sigma_prime.push(Fr::random(_rng))
+        _sigma_prime.push(_rng.gen())
     }
     // compute [W_1 Br]_1, ...
-    let mut _k: Vec<(String, Vec<(bn::G1)>)> = Vec::new();
+    let mut _k: Vec<(String, Vec<G1>)> = Vec::new();
     let _a = msk._a.clone();
     let _g = msk._g.clone();
     for _i in 0usize.._num_rows {
-        let mut _key: Vec<(bn::G1)> = Vec::new();
-        let _sigma_attr = Fr::random(_rng);
+        let mut _key: Vec<G1> = Vec::new();
+        let _sigma_attr:Fr = _rng.gen();
         // calculate _sk_i1 and _sk_i2 terms
         for _t in 0usize..ASSUMPTION_SIZE {
             let mut _prod = G1::zero();
@@ -536,26 +533,26 @@ pub fn kp_encrypt(
     _plaintext: &[u8],
 ) -> Option<Ac17KpCiphertext> {
     // random number generator
-    let _rng = &mut rand::thread_rng();
+    let mut _rng = rand::thread_rng();
     // pick randomness
-    let mut _s: Vec<(bn::Fr)> = Vec::new();
+    let mut _s: Vec<Fr> = Vec::new();
     let mut _sum = Fr::zero();
     for _i in 0usize..ASSUMPTION_SIZE {
-        let _rand = Fr::random(_rng);
+        let _rand:Fr = _rng.gen();
         _s.push(_rand);
         _sum = _sum + _rand;
     }
     // compute the [As]_2 term
-    let mut _c_0: Vec<(bn::G2)> = Vec::new();
+    let mut _c_0: Vec<G2> = Vec::new();
     let _h_a = pk._h_a.clone();
     for _i in 0usize..ASSUMPTION_SIZE {
         _c_0.push(_h_a[_i] * _s[_i]);
     }
     _c_0.push(_h_a[ASSUMPTION_SIZE] * _sum);
     // compute ct_y terms
-    let mut _c: Vec<(String, Vec<bn::G1>)> = Vec::new();
+    let mut _c: Vec<(String, Vec<G1>)> = Vec::new();
     for _attr in attributes {
-        let mut _ct: Vec<bn::G1> = Vec::new();
+        let mut _ct: Vec<G1> = Vec::new();
         for _l in 0usize..(ASSUMPTION_SIZE + 1) {
             let mut _prod = G1::zero();
             for _t in 0usize..ASSUMPTION_SIZE {
@@ -576,17 +573,13 @@ pub fn kp_encrypt(
         _c_p = _c_p * (pk._e_gh_ka[_i].pow(_s[_i]));
     }
     // random msg
-    let _msg = pairing(G1::random(_rng), G2::random(_rng));
+    let _msg: Gt = _rng.gen();
+    let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
     _c_p = _c_p * _msg;
     //Encrypt plaintext using derived key from secret
     return Some(Ac17KpCiphertext {
         _attr: attributes.clone(),
-        _ct: Ac17Ciphertext {
-            _c_0: _c_0,
-            _c: _c,
-            _c_p: _c_p,
-            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
-        },
+        _ct: Ac17Ciphertext {_c_0, _c, _c_p, _ct},
     });
 }
 
