@@ -1,10 +1,15 @@
+extern crate rand;
 #[allow(dead_code)]
 extern crate serde;
 extern crate serde_json;
 
 use bn::*;
-use utils::tools::{usize_to_fr, contains, string_to_json};
+use utils::tools::{contains, string_to_json, usize_to_fr};
 use rand::Rng;
+// Policy variables
+const POLICY_OR: &'static str = "OR";
+const POLICY_AND: &'static str = "AND";
+const POLICY_ATT: &'static str = "ATT";
 
 pub fn calc_pruned_str(_attr: &Vec<String>, _policy: &String) -> Option<(bool, Vec<String>)> {
     let _json = string_to_json(_policy);
@@ -29,11 +34,12 @@ pub fn required_attributes(
     } else {
         let mut _match: bool = false;
         let mut _emtpy_list: Vec<String> = Vec::new();
-        if _json["OR"].is_array() {
-            let _num_terms = _json["OR"].as_array().unwrap().len();
+        if _json[POLICY_OR].is_array() {
+            let _num_terms = _json[POLICY_OR].as_array().unwrap().len();
             if _num_terms >= 2 {
                 for _i in 0usize.._num_terms {
-                    let (_found, mut _list) = required_attributes(_attr, &_json["OR"][_i]).unwrap();
+                    let (_found, mut _list) = required_attributes(_attr, &_json[POLICY_OR][_i])
+                        .unwrap();
                     _match = _match || _found;
                     if _match {
                         _emtpy_list.append(&mut _list);
@@ -47,32 +53,30 @@ pub fn required_attributes(
             }
         }
         // inner node
-        else if _json["AND"].is_array() {
-            let _num_terms = _json["AND"].as_array().unwrap().len();
+        else if _json[POLICY_AND].is_array() {
+            let _num_terms = _json[POLICY_AND].as_array().unwrap().len();
             _match = true;
             if _num_terms >= 2 {
                 for _i in 0usize.._num_terms {
-                    let (_found, mut _list) = required_attributes(_attr, &_json["AND"][_i])
+                    let (_found, mut _list) = required_attributes(_attr, &_json[POLICY_AND][_i])
                         .unwrap();
                     _match = _match && _found;
                     if _match {
                         _emtpy_list.append(&mut _list);
                     }
                 }
-
             } else {
-                println!("Error: Invalid policy (OR with just a single child).");
+                println!("Error: Invalid policy (AND with just a single child).");
                 return None;
             }
             if !_match {
                 _emtpy_list = Vec::new();
             }
             return Some((_match, _emtpy_list));
-
         }
         // leaf node
-        else if _json["ATT"] != serde_json::Value::Null {
-            match _json["ATT"].as_str() {
+        else if _json[POLICY_ATT] != serde_json::Value::Null {
+            match _json[POLICY_ATT].as_str() {
                 Some(_s) => {
                     if contains(_attr, &_s.to_string()) {
                         return Some((true, vec![_s.to_string()]));
@@ -92,14 +96,13 @@ pub fn required_attributes(
 }
 
 pub fn calc_coefficients_str(_policy: &String) -> Option<Vec<(String, Fr)>> {
-    let _json = string_to_json(_policy);
-    match _json {
+    match string_to_json(_policy) {
         None => {
-            println!("Error in policy (could not parse json): {:?}", _policy);
+            println!("Error in policy: {:?}", _policy);
             return None;
         }
-        Some(_j) => {
-            return calc_coefficients(&_j, Fr::one());
+        Some(_json) => {
+            return calc_coefficients(&_json, Fr::one());
         }
     }
 }
@@ -107,8 +110,8 @@ pub fn calc_coefficients_str(_policy: &String) -> Option<Vec<(String, Fr)>> {
 pub fn calc_coefficients(_json: &serde_json::Value, _coeff: Fr) -> Option<Vec<(String, Fr)>> {
     let mut _result: Vec<(String, Fr)> = Vec::new();
     // leaf node
-    if _json["ATT"] != serde_json::Value::Null {
-        match _json["ATT"].as_str() {
+    if _json[POLICY_ATT] != serde_json::Value::Null {
+        match _json[POLICY_ATT].as_str() {
             Some(_s) => {
                 _result.push((_s.to_string(), _coeff));
                 return Some(_result);
@@ -120,40 +123,40 @@ pub fn calc_coefficients(_json: &serde_json::Value, _coeff: Fr) -> Option<Vec<(S
         }
     }
     // inner node
-    else if _json["AND"].is_array() {
-        let _this_coeff = recover_coefficients(vec![Fr::one(), (Fr::one() + Fr::one())]);
-        match calc_coefficients(&_json["AND"][0], _coeff * _this_coeff[0]) {
-            None => return None,
-            Some(_left) => {
-                _result.extend(_left.iter().cloned());
-            }
+    else if _json[POLICY_AND].is_array() {
+        let _len = _json[POLICY_AND].as_array().unwrap().len();
+        let mut _vec = vec![Fr::one()];
+        for _i in 1.._len {
+            let _prev = _vec[_i - 1].clone();
+            _vec.push(_prev + Fr::one());
         }
-        match calc_coefficients(&_json["AND"][1], _coeff * _this_coeff[1]) {
-            None => return None,
-            Some(_right) => {
-                _result.extend(_right.iter().cloned());
+        let _this_coeff = recover_coefficients(_vec);
+        for _i in 0.._len {
+            match calc_coefficients(&_json[POLICY_AND][_i], _coeff * _this_coeff[_i]) {
+                None => return None,
+                Some(_res) => {
+                    _result.extend(_res.iter().cloned());
+                }
             }
         }
         return Some(_result);
     }
     // inner node
-    else if _json["OR"].is_array() {
+    else if _json[POLICY_OR].is_array() {
+        let _len = _json[POLICY_OR].as_array().unwrap().len();
         let _this_coeff = recover_coefficients(vec![Fr::one()]);
-        match calc_coefficients(&_json["OR"][0], _coeff * _this_coeff[0]) {
-            None => return None,
-            Some(_left) => {
-                _result.extend(_left.iter().cloned());
-            }
-        }
-        match calc_coefficients(&_json["OR"][1], _coeff * _this_coeff[0]) {
-            None => return None,
-            Some(_right) => {
-                _result.extend(_right.iter().cloned());
+        for _i in 0.._len {
+            match calc_coefficients(&_json[POLICY_OR][_i], _coeff * _this_coeff[0]) {
+                None => return None,
+                Some(_res) => {
+                    _result.extend(_res.iter().cloned());
+                }
             }
         }
         return Some(_result);
+    } else {
+        return None;
     }
-    return None;
 }
 
 // lagrange interpolation
@@ -172,13 +175,13 @@ pub fn recover_coefficients(_list: Vec<Fr>) -> Vec<Fr> {
 }
 
 pub fn gen_shares_str(_secret: Fr, _policy: &String) -> Option<Vec<(String, Fr)>> {
-    let _json = string_to_json(_policy);
-    match _json {
+    match string_to_json(_policy) {
         None => {
+            println!("Could not convert policy {:?} to JSON", _policy);
             return None;
         }
-        Some(_j) => {
-            return gen_shares_json(_secret, &_j);
+        Some(_json_policy) => {
+            return gen_shares_json(_secret, &_json_policy);
         }
     }
 }
@@ -186,10 +189,11 @@ pub fn gen_shares_str(_secret: Fr, _policy: &String) -> Option<Vec<(String, Fr)>
 pub fn gen_shares_json(_secret: Fr, _json: &serde_json::Value) -> Option<Vec<(String, Fr)>> {
     let mut _result: Vec<(String, Fr)> = Vec::new();
     let mut _k = 0;
+    let mut _length = 0;
     let mut _type = "";
     // leaf node
-    if _json["ATT"] != serde_json::Value::Null {
-        match _json["ATT"].as_str() {
+    if _json[POLICY_ATT] != serde_json::Value::Null {
+        match _json[POLICY_ATT].as_str() {
             Some(_s) => {
                 _result.push((_s.to_string(), _secret));
                 return Some(_result);
@@ -201,26 +205,24 @@ pub fn gen_shares_json(_secret: Fr, _json: &serde_json::Value) -> Option<Vec<(St
         }
     }
     // inner node
-    else if _json["OR"].is_array() {
+    else if _json[POLICY_OR].is_array() {
+        _type = POLICY_OR;
+        _length = _json[POLICY_OR].as_array().unwrap().len();
         _k = 1;
-        _type = "OR";
     }
     // inner node
-    else if _json["AND"].is_array() {
-        _k = 2;
-        _type = "AND";
+    else if _json[POLICY_AND].is_array() {
+        _type = POLICY_AND;
+        _length = _json[POLICY_AND].as_array().unwrap().len();
+        _k = _length;
     }
-    let shares = gen_shares(_secret, _k, 2);
-    match gen_shares_json(shares[1], &_json[_type][0]) {
-        None => return None,
-        Some(_l) => {
-            _result.extend(_l.iter().cloned());
-        }
-    }
-    match gen_shares_json(shares[2], &_json[_type][1]) {
-        None => return None,
-        Some(_r) => {
-            _result.extend(_r.iter().cloned());
+    let shares = gen_shares(_secret, _k, _length);
+    for _count in 0.._length {
+        match gen_shares_json(shares[_count + 1], &_json[_type][_count]) {
+            None => return None,
+            Some(_items) => {
+                _result.extend(_items.iter().cloned());
+            }
         }
     }
     return Some(_result);
@@ -248,6 +250,7 @@ pub fn gen_shares(_secret: Fr, _k: usize, _n: usize) -> Vec<Fr> {
     return _shares;
 }
 
+#[allow(dead_code)]
 pub fn recover_secret(_shares: Vec<Fr>, _policy: &String) -> Fr {
     let _coeff = calc_coefficients_str(_policy).unwrap();
     let mut _secret = Fr::zero();
@@ -286,6 +289,27 @@ mod tests {
             &String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#),
         );
         assert!(_k == _reconstruct);
+    }
+
+    #[test]
+    fn test_gen_shares_json() {
+        // OR
+        let _rng = &mut rand::thread_rng();
+        let _secret:Fr = _rng.gen();
+        let _policy = String::from(
+            r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}, {"ATT": "C"}, {"ATT": "D"}]}"#,
+        );
+        let _json = string_to_json(&_policy).unwrap();
+        //println!("_random: {:?}", into_dec(_secret).unwrap());
+        let _shares = gen_shares_json(_secret, &_json).unwrap();
+        let _coeff = calc_coefficients_str(&_policy).unwrap();
+        for _s in _shares {
+            println!("_shares: {:?}", _s.0);
+        }
+        for _c in _coeff {
+            println!("_coeff: {:?}", _c.0);
+        }
+        //assert!(_k == _reconstruct);
     }
 
     #[test]

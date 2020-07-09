@@ -19,18 +19,7 @@
 //!let sk: CpAbeSecretKey = keygen(&pk, &msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_cp).unwrap(), plaintext);
 //! ```
-extern crate libc;
-extern crate serde;
-extern crate serde_json;
-extern crate bn;
-extern crate byteorder;
-extern crate crypto;
-extern crate bincode;
-extern crate num_bigint;
-extern crate blake2_rfc;
-
-use std::string::String;
-use bn::*;
+use bn::{Fr, G1, G2, Gt, pairing};
 use rand::Rng;
 use utils::{
     secretsharing::{gen_shares_str, calc_pruned_str, calc_coefficients_str},
@@ -42,26 +31,26 @@ use utils::{
 /// A BSW Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbePublicKey {
-    pub _g1: bn::G1,
-    pub _g2: bn::G2,
-    pub _h: bn::G1,
-    pub _f: bn::G2,
-    pub _e_gg_alpha: bn::Gt,
+    pub _g1: G1,
+    pub _g2: G2,
+    pub _h: G1,
+    pub _f: G2,
+    pub _e_gg_alpha: Gt,
 }
 
 /// A BSW Master Key (MSK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeMasterKey {
-    pub _beta: bn::Fr,
-    pub _g2_alpha: bn::G2,
+    pub _beta: Fr,
+    pub _g2_alpha: G2,
 }
 
 /// A BSW Ciphertext (CT)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeCiphertext {
     pub _policy: String,
-    pub _c: bn::G1,
-    pub _c_p: bn::Gt,
+    pub _c: G1,
+    pub _c_p: Gt,
     pub _c_y: Vec<CpAbeAttribute>,
     pub _ct: Vec<u8>,
 }
@@ -69,7 +58,7 @@ pub struct CpAbeCiphertext {
 /// A BSW Secret User Key (SK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeSecretKey {
-    pub _d: bn::G2,
+    pub _d: G2,
     pub _d_j: Vec<CpAbeAttribute>,
 }
 
@@ -77,8 +66,8 @@ pub struct CpAbeSecretKey {
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct CpAbeAttribute {
     pub _str: String,
-    pub _g1: bn::G1,
-    pub _g2: bn::G2,
+    pub _g1: G1,
+    pub _g2: G2,
 }
 
 /// The setup algorithm of BSW CP-ABE. Generates a new CpAbePublicKey and a new CpAbeMasterKey.
@@ -86,30 +75,24 @@ pub fn setup() -> (CpAbePublicKey, CpAbeMasterKey) {
     // random number generator
     let mut _rng = rand::thread_rng();
     // generator of group G1: g1 and generator of group G2: g2
-    let _g:G1 = _rng.gen();
-    let _gp:G2 = _rng.gen();
+    let _g1:G1 = _rng.gen();
+    let _g2:G2 = _rng.gen();
     // random
     let _beta:Fr = _rng.gen();
     let _alpha:Fr = _rng.gen();
     // vectors
     // calulate h and f
-    let _h = _g * _beta;
-    let _f = _gp * _beta.inverse().unwrap();
+    let _h = _g1 * _beta;
+    let _f = _g2 * _beta.inverse().unwrap();
+    // calculate g2^alpha
+    let _g2_alpha = _g2 * _alpha;
     // calculate the pairing between g1 and g2^alpha
-    let _e_gg_alpha = pairing(_g, _gp * _alpha);
+    let _e_gg_alpha = pairing(_g1, _g2_alpha);
+
     // return PK and MSK
     return (
-        CpAbePublicKey {
-            _g1: _g,
-            _g2: _gp,
-            _h: _h,
-            _f: _f,
-            _e_gg_alpha: _e_gg_alpha,
-        },
-        CpAbeMasterKey {
-            _beta: _beta,
-            _g2_alpha: _gp * _alpha,
-        },
+        CpAbePublicKey {_g1, _g2, _h, _f, _e_gg_alpha},
+        CpAbeMasterKey {_beta, _g2_alpha},
     );
 }
 
@@ -147,7 +130,7 @@ pub fn keygen(
             _g2: _g_r + (blake2b_hash_g2(_pk._g2, &_j) * _r_j), // D_j
         });
     }
-    return Some(CpAbeSecretKey { _d: _d, _d_j: _d_j });
+    return Some(CpAbeSecretKey {_d, _d_j});
 }
 
 /// The delegate generation algorithm of BSW CP-ABE. Generates a new CpAbeSecretKey using a CpAbePublicKey, a CpAbeSecretKey and a subset of attributes (of the key _sk) given as Vec<String>.
@@ -163,15 +146,14 @@ pub fn delegate(
     _sk: &CpAbeSecretKey,
     _subset: &Vec<String>,
 ) -> Option<CpAbeSecretKey> {
-
     let _str_attr = _sk._d_j
         .iter()
         .map(|_values| _values._str.to_string())
         .collect::<Vec<_>>();
 
-    if !is_subset(&_subset, &_str_attr) {
+    return if !is_subset(&_subset, &_str_attr) {
         println!("Error: the given attribute set is not a subset of the given sk.");
-        return None;
+        None
     } else {
         // if no attibutes or an empty policy
         // maybe add empty msk also here
@@ -182,12 +164,12 @@ pub fn delegate(
         // random number generator
         let mut _rng = rand::thread_rng();
         // generate random r
-        let _r:Fr = _rng.gen();
+        let _r: Fr = _rng.gen();
         // calculate derived _k_0
         let mut _d_k: Vec<CpAbeAttribute> = Vec::new();
         // calculate derived attributes
         for _attr in _subset {
-            let _r_j:Fr = _rng.gen();
+            let _r_j: Fr = _rng.gen();
             let _d_j_val = _sk._d_j
                 .iter()
                 .find(|x| x._str == _attr.to_string())
@@ -199,10 +181,10 @@ pub fn delegate(
                 _g2: _d_j_val.1 + (blake2b_hash_g2(_pk._g2, &_attr) * _r_j) + (_pk._g2 * _r),
             });
         }
-        return Some(CpAbeSecretKey {
+        Some(CpAbeSecretKey {
             _d: _sk._d + (_pk._f * _r),
             _d_j: _d_k,
-        });
+        })
     }
 }
 
@@ -237,15 +219,10 @@ pub fn encrypt(
             _g2: blake2b_hash_g2(_pk._g2, &_j) * _j_val,
         });
     }
+    let _policy = _policy.to_string();
+    let _ct = encrypt_symmetric(&_msg, &_plaintext).unwrap();
     //Encrypt plaintext using derived key from secret
-    return Some(CpAbeCiphertext {
-        _policy: _policy.clone(),
-        _c: _c,
-        _c_p: _c_p,
-        _c_y: _c_y,
-        _ct: encrypt_symmetric(&_msg, &_plaintext).unwrap(),
-    });
-
+    return Some(CpAbeCiphertext {_policy, _c, _c_p, _c_y, _ct});
 }
 
 /// The decrypt algorithm of BSW CP-ABE. Reconstructs the original plaintext data as Vec<u8>, given a CpAbeCiphertext with a matching CpAbeSecretKey.
@@ -260,20 +237,19 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
         .iter()
         .map(|_values| _values._str.to_string())
         .collect::<Vec<_>>();
-    if traverse_str(&_str_attr, &_ct._policy) == false {
-        //println!("Error: attributes in sk do not match policy in ct.");
-        return None;
+    return if traverse_str(&_str_attr, &_ct._policy) == false {
+        None
     } else {
-        let _pruned = calc_pruned_str(&_str_attr, &_ct._policy);
-        match _pruned {
-            None => return None,
-            Some(x) => {
-                if !x.0 {
-                    return None;
+        match calc_pruned_str(&_str_attr, &_ct._policy) {
+            None => None,
+            Some(_pruned) => {
+                if !_pruned.0 {
+                    None
                 } else {
+                    println!("_pruned {:?}", _pruned.1);
                     let _z = calc_coefficients_str(&_ct._policy).unwrap();
                     let mut _a = Gt::one();
-                    for _j in x.1 {
+                    for _j in _pruned.1 {
                         match _ct._c_y.iter().find(|x| x._str == _j.to_string()) {
                             Some(_c_j) => {
                                 match _sk._d_j.iter().find(|x| x._str == _j.to_string()) {
@@ -282,7 +258,7 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
                                             if _z_tuple.0 == _j {
                                                 _a = _a *
                                                     (pairing(_c_j._g1, _d_j._g2) *
-                                                         pairing(_d_j._g1, _c_j._g2).inverse())
+                                                        pairing(_d_j._g1, _c_j._g2).inverse())
                                                         .pow(_z_tuple.1);
                                             }
                                         }
@@ -299,13 +275,12 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Option<Vec<u8>> {
                     }
                     let _msg = _ct._c_p * ((pairing(_ct._c, _sk._d)) * _a.inverse()).inverse();
                     // Decrypt plaintext using derived secret from cp-abe scheme
-                    return decrypt_symmetric(&_msg, &_ct._ct);
+                    decrypt_symmetric(&_msg, &_ct._ct)
                 }
             }
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -332,6 +307,133 @@ mod tests {
 
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
+
+        // and now decrypt again with mathcing sk
+        let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), plaintext);
+
+        let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
+        assert_eq!(_no_match.is_none(), true);
+    }
+
+    #[test]
+    fn and10() {
+        // setup scheme
+        let (pk, msk) = setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        for n in 1..11 {
+            let mut _c = String::from("attr");
+            _c.push_str(&n.to_string());
+            att_matching.push(_c);
+        }
+
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("attr201"));
+        att_not_matching.push(String::from("attr200"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        let mut _policy = String::from("{\"AND\": [");
+        for n in 1..11 {
+            let mut _current = String::from("{\"ATT\": \"attr");
+            if n < 10 {
+                _current.push_str(&n.to_string());
+                _current.push_str(&String::from("\"}, "));
+            } else {
+                _current.push_str(&n.to_string());
+                _current.push_str(&String::from("\"}]"));
+            }
+            _policy.push_str(&_current);
+        }
+        _policy.push_str(&String::from("}"));
+        println!("{:?}", _policy);
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &_policy, &plaintext).unwrap();
+
+        // and now decrypt again with mathcing sk
+        let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), plaintext);
+
+        let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
+        assert_eq!(_no_match.is_none(), true);
+    }
+
+    #[test]
+    fn nested() {
+        // setup scheme
+        let (pk, msk) = setup();
+        let _num_nested = 30; // maximum at about 50 to 60
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        for _i in 1..(_num_nested + 1) {
+            let mut _attr = String::from("a");
+            _attr.push_str(&_i.to_string());
+            att_matching.push(_attr);
+        }
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("x"));
+        att_not_matching.push(String::from("y"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        let mut _policy_mut = String::from("{\"AND\": [{\"ATT\": \"a2\"}, {\"ATT\": \"a1\"}]}");
+
+        for _i in 3.._num_nested {
+            let mut _str = String::from("{\"AND\":[");
+            _str.push_str("{\"ATT\":\"");
+            _str.push_str(&att_matching[_i - 1]);
+            _str.push_str("\"},");
+            _str.push_str(&_policy_mut);
+            _str.push_str("]}");
+            _policy_mut = _str.clone();
+        }
+
+        println!("{}", _policy_mut);
+
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &_policy_mut, &plaintext).unwrap();
+
+        // and now decrypt again with mathcing sk
+        let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), plaintext);
+
+        let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
+        assert_eq!(_no_match.is_none(), true);
+    }
+
+
+    #[test]
+    fn or3() {
+        // setup scheme
+        let (pk, msk) = setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("B"));
+        att_not_matching.push(String::from("C"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        // our policy
+        let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "Y"}, {"ATT": "A"}]}"#);
 
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
@@ -378,6 +480,39 @@ mod tests {
         assert_eq!(_no_match.is_none(), true);
     }
 
+    #[test]
+    fn and3() {
+        // setup scheme
+        let (pk, msk) = setup();
+        // a set of two attributes matching the policy
+        let mut att_matching: Vec<String> = Vec::new();
+        att_matching.push(String::from("A"));
+        att_matching.push(String::from("B"));
+        att_matching.push(String::from("C"));
+
+        // a set of two attributes NOT matching the policy
+        let mut att_not_matching: Vec<String> = Vec::new();
+        att_not_matching.push(String::from("A"));
+        att_not_matching.push(String::from("D"));
+
+        // our plaintext
+        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
+            .into_bytes();
+
+        // our policy
+        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}, {"ATT": "C"}]}"#);
+
+        // cp-abe ciphertext
+        let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
+
+        // and now decrypt again with mathcing sk
+        let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
+        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.unwrap(), plaintext);
+
+        let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
+        assert_eq!(_no_match.is_none(), true);
+    }
 
     #[test]
     fn or_and() {

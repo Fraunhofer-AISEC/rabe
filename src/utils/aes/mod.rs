@@ -1,17 +1,16 @@
 #[allow(dead_code)]
-
 extern crate bn;
+extern crate crypto;
 extern crate serde;
 extern crate serde_json;
-extern crate crypto;
 
-use crypto::{symmetriccipher, buffer, aes, blockmodes};
-use crypto::buffer::{ReadBuffer, WriteBuffer, BufferResult};
-use crypto::sha3::Sha3;
-use crypto::digest::Digest;
 use bincode::serialize;
-use rand::prelude::*;
-use rand::thread_rng;
+use crypto::buffer::{BufferResult, ReadBuffer, WriteBuffer};
+use crypto::digest::Digest;
+use crypto::sha3::Sha3;
+use crypto::{aes, blockmodes, buffer, symmetriccipher};
+use rand::{RngCore, thread_rng};
+
 /// Key Encapsulation Mechanism (Encryption Function)
 pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Option<Vec<u8>> {
     let mut _key: [u8; 32] = [0; 32];
@@ -50,7 +49,6 @@ pub fn decrypt_symmetric(_msg: &bn::Gt, _iv_ct: &Vec<u8>) -> Option<Vec<u8>> {
     }
 }
 
-
 /// Decrypts a buffer with the given key and iv using AES-256/CBC/Pkcs encryption.
 ///
 /// This function is very similar to encrypt(), so, please reference
@@ -64,7 +62,6 @@ fn encrypt_aes(
     key: &[u8],
     iv: &[u8],
 ) -> ::std::result::Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
-
     // Create an encryptor instance of the best performing
     // type available for the platform.
     let mut encryptor =
@@ -102,6 +99,7 @@ fn encrypt_aes(
     // input buffer.
     loop {
         let result = encryptor.encrypt(&mut read_buffer, &mut write_buffer, true)?;
+
         // "write_buffer.take_read_buffer().take_remaining()" means:
         // from the writable buffer, create a new readable buffer which
         // contains all data that has been written, and then access all
@@ -156,5 +154,6 @@ fn decrypt_aes(
             BufferResult::BufferOverflow => {}
         }
     }
+
     Ok(final_result)
 }

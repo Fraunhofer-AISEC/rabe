@@ -27,17 +27,15 @@
 //!let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
 //!assert_eq!(decrypt(&_pk, &_u_key, &_ct).unwrap(), _plaintext);
 //! ```
-extern crate bn;
-extern crate serde;
-extern crate serde_json;
-
-use std::string::String;
-use bn::*;
+use bn::{Group, Fr, G1, G2, Gt, pairing};
 use rand::Rng;
-use utils::policy::dnf::DnfPolicy;
-use utils::tools::*;
-use utils::aes::*;
-use utils::hash::blake2b_hash_fr;
+use std::string::String;
+use utils::{
+    aes::*,
+    hash::blake2b_hash_fr,
+    policy::dnf::DnfPolicy,
+    tools::*
+};
 
 /// A MKE08 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -204,18 +202,18 @@ pub fn request_authority_pk(
     _sk_a: &Mke08SecretAuthorityKey,
 ) -> Option<Mke08PublicAttributeKey> {
     // if attribute a is from authority sk_a
-    if from_authority(_a, &_sk_a._a) {
+    return if from_authority(_a, &_sk_a._a) {
         let exponent = blake2b_hash_fr(_a) * blake2b_hash_fr(&_sk_a._a) * _sk_a._r;
         // return PK and mke
-        return Some(Mke08PublicAttributeKey {
+        Some(Mke08PublicAttributeKey {
             _str: _a.clone(),
             _g1: _pk._g1 * exponent,
             _g2: _pk._g2 * exponent,
             _gt1: _pk._e_gg_y1.pow(exponent),
             _gt2: _pk._e_gg_y2.pow(exponent),
-        });
+        })
     } else {
-        return None;
+        None
     }
 }
 
@@ -233,16 +231,16 @@ pub fn request_authority_sk(
     _pk_u: &Mke08PublicUserKey,
 ) -> Option<Mke08SecretAttributeKey> {
     // if attribute a is from authority sk_a
-    if from_authority(_a, &_sk_a._a) && is_eligible(_a, &_pk_u._u) {
+    return if from_authority(_a, &_sk_a._a) && is_eligible(_a, &_pk_u._u) {
         let exponent = blake2b_hash_fr(_a) * blake2b_hash_fr(&_sk_a._a) * _sk_a._r;
         // return PK and mke
-        return Some(Mke08SecretAttributeKey {
+        Some(Mke08SecretAttributeKey {
             _str: _a.clone(),
             _g1: _pk_u._pk_g1 * exponent,
             _g2: _pk_u._pk_g2 * exponent,
-        });
+        })
     } else {
-        return None;
+        None
     }
 }
 
@@ -263,7 +261,7 @@ pub fn encrypt(
     _plaintext: &[u8],
 ) -> Option<Mke08Ciphertext> {
     // if policy is in DNF
-    if DnfPolicy::is_in_dnf(&_policy) {
+    return if DnfPolicy::is_in_dnf(&_policy) {
         // random number generator
         let mut _rng = rand::thread_rng();
         // an DNF policy from the given String
@@ -276,7 +274,7 @@ pub fn encrypt(
         let mut _e: Vec<Mke08CTConjunction> = Vec::new();
         // now add randomness using _r_j
         for _term in dnf._terms.into_iter() {
-            let _r_j:Fr = _rng.gen();
+            let _r_j: Fr = _rng.gen();
             _e.push(Mke08CTConjunction {
                 _str: _term.0,
                 _j1: _term.1.pow(_r_j) * _msg1,
@@ -288,13 +286,11 @@ pub fn encrypt(
             });
         }
         //Encrypt plaintext using derived key from secret
-        return Some(Mke08Ciphertext {
-            _policy: _policy.to_string(),
-            _e: _e,
-            _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
-        });
+        let _policy = _policy.to_string();
+        let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
+        Some(Mke08Ciphertext { _policy, _e, _ct})
     } else {
-        return None;
+        None
     }
 }
 
@@ -315,9 +311,9 @@ pub fn decrypt(_pk: &Mke08PublicKey, _sk: &Mke08UserKey, _ct: &Mke08Ciphertext) 
             _a._str.to_string()
         })
         .collect::<Vec<_>>();
-    if traverse_str(&_attr, &_ct._policy) == false {
+    return if traverse_str(&_attr, &_ct._policy) == false {
         //println!("Error: attributes in sk do not match policy in ct.");
-        return None;
+        None
     } else {
         let mut _msg = Gt::one();
         for (_i, _e_j) in _ct._e.iter().enumerate() {
@@ -331,7 +327,7 @@ pub fn decrypt(_pk: &Mke08PublicKey, _sk: &Mke08UserKey, _ct: &Mke08Ciphertext) 
             }
         }
         // Decrypt plaintext using derived secret from mke08 scheme
-        return decrypt_symmetric(&_msg, &_ct._ct);
+        decrypt_symmetric(&_msg, &_ct._ct)
     }
 }
 
@@ -400,6 +396,7 @@ fn calc_satisfiable(
 ///	* `_attr` - Name of the attribute given as String
 ///	* `_sk` - Name of the auhtority given as String
 ///
+#[allow(dead_code)]
 fn from_authority(_attr: &String, _authority: &String) -> bool {
     let v: Vec<_> = _attr.match_indices("::").collect();
     if v.len() == 1 {
@@ -417,6 +414,7 @@ fn from_authority(_attr: &String, _authority: &String) -> bool {
 ///	* `_attr` - Name of the attribute given as String
 ///	* `_user` - Name of the user given as String
 ///
+#[allow(dead_code)]
 fn is_eligible(_attr: &String, _user: &String) -> bool {
     return true;
 }

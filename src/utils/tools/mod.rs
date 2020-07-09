@@ -1,13 +1,13 @@
 #[allow(dead_code)]
-
 extern crate bn;
-extern crate serde;
-extern crate serde_json;
 extern crate crypto;
 extern crate num_bigint;
+extern crate rand;
+extern crate serde;
+extern crate serde_json;
 
-use num_bigint::ToBigInt;
 use bn::*;
+use num_bigint::ToBigInt;
 use std::collections::HashSet;
 
 pub fn is_negative(_attr: &String) -> bool {
@@ -22,7 +22,8 @@ pub fn usize_to_fr(_i: usize) -> Fr {
 
 pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
     match serde_json::from_str(policy) {
-        Err(_) => {
+        Err(e) => {
+            println!("string_to_json ERROR: {:?}", e);
             return None;
         }
         Ok(pol) => {

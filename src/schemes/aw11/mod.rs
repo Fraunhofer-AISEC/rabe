@@ -21,10 +21,6 @@
 //!let matching = decrypt(&gk, &bob, &ct).unwrap();
 //!assert_eq!(matching, plaintext);
 //! ```
-extern crate bn;
-extern crate serde;
-extern crate serde_json;
-
 use std::string::String;
 use rand::Rng;
 use bn::{Fr, G1, G2, Gt, pairing};
@@ -187,7 +183,8 @@ pub fn add_attribute(
         return;
     }
     let _h_g1 = blake2b_hash_g1(_gk._g1, &_sk._gid);
-    let _auth_attribute = _msk._attr
+    let _auth_attribute = _msk
+        ._attr
         .iter()
         .filter(|_attr| _attr.0 == _attribute.to_string())
         .nth(0)
@@ -236,8 +233,7 @@ pub fn encrypt(
             Some(_attr) => {
                 _c.push((
                     _attr_name.clone().to_uppercase(),
-                    pairing(_gk._g1, _gk._g2).pow(_attr_share) *
-                        _attr.1.pow(_r_x),
+                    pairing(_gk._g1, _gk._g2).pow(_attr_share) * _attr.1.pow(_r_x),
                     _gk._g2 * _r_x,
                     (_attr.2 * _r_x) + (_gk._g2 * _w_shares[_i].1),
                 ));
@@ -245,13 +241,9 @@ pub fn encrypt(
         }
     }
     //Encrypt plaintext using derived key from secret
-    return Some(Aw11Ciphertext {
-        _policy: _policy.clone(),
-        _c_0: _c_0,
-        _c: _c,
-        _ct: encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap(),
-    });
-
+    let _policy = _policy.to_string();
+    let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
+    return Some(Aw11Ciphertext { _policy, _c_0, _c, _ct });
 }
 
 /// This function decrypts a 'Aw11Ciphertext' if the attributes in SK match the policy of CT. If successfull, returns the plaintext data as a Vetor of u8's.
@@ -262,22 +254,23 @@ pub fn encrypt(
 ///	* `_sk` - A secret user key (SK), associated with a set of attributes.
 ///	* `_ct` - A Aw11Ciphertext
 pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> Option<Vec<u8>> {
-    let _str_attr = sk._attr
+    let _str_attr = sk
+        ._attr
         .iter()
         .map(|_values| {
             let (_str, _g2) = _values.clone();
             _str
         })
         .collect::<Vec<_>>();
-    if traverse_str(&_str_attr, &ct._policy) == false {
+    return if traverse_str(&_str_attr, &ct._policy) == false {
         //println!("Error: attributes in sk do not match policy in ct.");
-        return None;
+        None
     } else {
         let _pruned = calc_pruned_str(&_str_attr, &ct._policy);
         match _pruned {
             None => {
                 //println!("Error: attributes in sk do not match policy in ct.");
-                return None;
+                None
             }
             Some(_p) => {
                 let (_match, _list) = _p;
@@ -286,12 +279,14 @@ pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> O
                     let _h_g1 = blake2b_hash_g1(gk._g1, &sk._gid);
                     let mut _egg_s = Gt::one();
                     for _current in _list.iter() {
-                        let _sk_attr = sk._attr
+                        let _sk_attr = sk
+                            ._attr
                             .iter()
                             .filter(|_attr| _attr.0 == _current.to_string())
                             .nth(0)
                             .unwrap();
-                        let _ct_attr = ct._c
+                        let _ct_attr = ct
+                            ._c
                             .iter()
                             .filter(|_attr| _attr.0 == _current.to_string())
                             .nth(0)
@@ -309,10 +304,10 @@ pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> O
                     let _msg = ct._c_0 * _egg_s.inverse();
                     //println!("dec: {:?}", serde_json::to_string(&_msg).unwrap());
                     // Decrypt plaintext using derived secret from cp-abe scheme
-                    return decrypt_symmetric(&_msg, &ct._ct);
+                    decrypt_symmetric(&_msg, &ct._ct)
                 } else {
                     println!("Error: attributes in sk do not match policy in ct.");
-                    return None;
+                    None
                 }
             }
         }
@@ -327,7 +322,8 @@ pub fn decrypt(gk: &Aw11GlobalKey, sk: &Aw11SecretKey, ct: &Aw11Ciphertext) -> O
 ///
 fn find_pk_attr(_pks: &Vec<Aw11PublicKey>, _attr: &String) -> Option<(String, Gt, G2)> {
     for _pk in _pks.into_iter() {
-        let _pk_attr = _pk._attr
+        let _pk_attr = _pk
+            ._attr
             .clone()
             .into_iter()
             .filter(|_tuple| _tuple.0 == _attr.to_string())
@@ -376,8 +372,8 @@ mod tests {
         att_bob.push(String::from("I"));
         let mut _bob = keygen(&_gp, &_auth3_msk, &String::from("bob"), &att_bob).unwrap();
         // our plaintext
-        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let _plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy = String::from(r#"{"AND": [{"ATT": "H"}, {"ATT": "B"}]}"#);
 
@@ -419,11 +415,12 @@ mod tests {
             &_auth1_msk,
             &String::from("bob"),
             &vec![String::from("A")],
-        ).unwrap();
+        )
+        .unwrap();
 
         // our plaintext
-        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let _plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy = String::from(r#"{"OR": [{"ATT": "B"}, {"ATT": "C"}]}"#);
 
@@ -465,15 +462,15 @@ mod tests {
             &_auth1_msk,
             &String::from("bob"),
             &vec![String::from("A")],
-        ).unwrap();
+        )
+        .unwrap();
 
         // our plaintext
-        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let _plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let _policy = String::from(
-            r#"{"OR": [{"ATT": "B"}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#,
-        );
+        let _policy =
+            String::from(r#"{"OR": [{"ATT": "B"}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
 
         // a vector of public attribute keys
         let mut _pks: Vec<Aw11PublicKey> = Vec::new();
@@ -513,14 +510,14 @@ mod tests {
             &_auth1_msk,
             &String::from("bob"),
             &vec![String::from("A")],
-        ).unwrap();
+        )
+        .unwrap();
         // our plaintext
-        let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let _plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let _policy = String::from(
-            r#"{"OR": [{"ATT": "B"}, {"AND": [{"ATT": "C"}, {"ATT": "A"}]}]}"#,
-        );
+        let _policy =
+            String::from(r#"{"OR": [{"ATT": "B"}, {"AND": [{"ATT": "C"}, {"ATT": "A"}]}]}"#);
         // a vector of public attribute keys
         let mut _pks: Vec<Aw11PublicKey> = Vec::new();
         _pks.push(_auth2_pk);

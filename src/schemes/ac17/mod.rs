@@ -33,12 +33,10 @@
 //!let sk: Ac17CpSecretKey = cp_keygen(&msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
 //!assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
 //! ```
-extern crate bn;
-extern crate serde;
-extern crate serde_json;
-
-use std::string::String;
-use std::ops::Neg;
+use std::{
+    string::String,
+    ops::Neg
+};
 use bn::{Group, Gt, G1, G2, Fr, pairing};
 use rand::Rng;
 use utils::{
@@ -153,18 +151,8 @@ pub fn setup() -> (Ac17PublicKey, Ac17MasterKey) {
         _e_gh_ka.push(_e_gh.pow(_k[_i] * _a[_i] + _k[ASSUMPTION_SIZE]));
     }
 
-    let _pk = Ac17PublicKey {
-        _g: _g,
-        _h_a: _h_a,
-        _e_gh_ka: _e_gh_ka,
-    };
-    let _msk = Ac17MasterKey {
-        _g: _g,
-        _h: _h,
-        _g_k: _g_k,
-        _a: _a,
-        _b: _b,
-    };
+    let _pk = Ac17PublicKey { _g,_h_a,_e_gh_ka};
+    let _msk = Ac17MasterKey {_g, _h, _g_k, _a, _b};
 
     // return PK and MSK
     return (_pk, _msk);
@@ -247,11 +235,7 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
     _k_p.push(_g_k[ASSUMPTION_SIZE] + (msk._g * _sigma.neg()));
     return Some(Ac17CpSecretKey {
         _attr: attributes.clone(),
-        _sk: Ac17SecretKey {
-            _k_0: _k_0,
-            _k: _k,
-            _k_p: _k_p,
-        },
+        _sk: Ac17SecretKey {_k_0, _k, _k_p},
     });
 }
 
@@ -350,7 +334,6 @@ pub fn cp_encrypt(
         _policy: policy.clone(),
         _ct: Ac17Ciphertext { _c_0, _c, _c_p, _ct },
     });
-
 }
 
 /// The decrypt algorithm of AC17CP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17CpCiphertext with a matching Ac17CpSecretKey.
@@ -361,18 +344,16 @@ pub fn cp_encrypt(
 ///	* `ct` - An AC17CP Ciphertext
 ///
 pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>> {
-    if traverse_str(&sk._attr, &ct._policy) == false {
+    return if traverse_str(&sk._attr, &ct._policy) == false {
         //println!("Error: attributes in sk do not match policy in ct.");
-        return None;
+        None
     } else {
-        let _pruned = calc_pruned_str(&sk._attr, &ct._policy);
-        match _pruned {
+        match calc_pruned_str(&sk._attr, &ct._policy) {
             None => {
                 //println!("Error: attributes in sk do not match policy in ct.");
-                return None;
+                None
             }
-            Some(_p) => {
-                let (_match, _list) = _p;
+            Some((_match, _list)) => {
                 if _match {
                     let mut _prod1_gt = Gt::one();
                     let mut _prod2_gt = Gt::one();
@@ -396,17 +377,15 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>
                     }
                     let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
                     // Decrypt plaintext using derived secret from cp-abe scheme
-                    return decrypt_symmetric(&_msg, &ct._ct._ct);
+                    decrypt_symmetric(&_msg, &ct._ct._ct)
                 } else {
                     println!("Error: attributes in sk do not match policy in ct.");
-                    return None;
+                    None
                 }
-
             }
         }
     }
 }
-
 
 /// The key generation algorithm of AC17KP. Generates an Ac17KpSecretKey using an Ac17MasterKey and a policy given as String.
 ///
@@ -511,11 +490,7 @@ pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey
     }
     return Some(Ac17KpSecretKey {
         _policy: policy.clone(),
-        _sk: Ac17SecretKey {
-            _k_0: _k_0,
-            _k: _k,
-            _k_p: Vec::new(),
-        },
+        _sk: Ac17SecretKey { _k_0, _k, _k_p: Vec::new()},
     });
 }
 
@@ -591,16 +566,14 @@ pub fn kp_encrypt(
 ///	* `ct` - An AC17KP Ciphertext
 ///
 pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec<u8>> {
-    if traverse_str(&ct._attr, &sk._policy) == false {
+    return if traverse_str(&ct._attr, &sk._policy) == false {
         println!("Error: attributes in ct do not match policy in sk.");
-        return None;
+        None
     } else {
-        let _pruned = calc_pruned_str(&ct._attr, &sk._policy);
-        //println!("pruned attributes: {:?} ",calc_pruned_str(&ct._attr, &sk._policy).unwrap().1);
-        match _pruned {
+        match calc_pruned_str(&ct._attr, &sk._policy) {
             None => {
                 println!("Error: attributes in sk do not match policy in ct.");
-                return None;
+                None
             }
             Some(_p) => {
                 let (_match, _list) = _p;
@@ -631,10 +604,10 @@ pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec<u8>
                     }
                     let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
                     // Decrypt plaintext using derived secret from cp-abe scheme
-                    return decrypt_symmetric(&_msg, &ct._ct._ct);
+                    decrypt_symmetric(&_msg, &ct._ct._ct)
                 } else {
                     println!("Error: attributes in sk do not match policy in ct.");
-                    return None;
+                    None
                 }
             }
         }

@@ -1,12 +1,9 @@
-#[allow(dead_code)]
-extern crate serde;
-extern crate serde_json;
-extern crate bn;
-
 use std::string::String;
 use utils::tools::string_to_json;
-use schemes::mke08::*;
-use schemes::bdabe::*;
+use schemes::{
+    mke08::*,
+    bdabe::*
+};
 use bn::{Group, Gt, G1, G2};
 
 /// A DNF policy for the MKE08 scheme and the BDABE scheme
@@ -127,7 +124,6 @@ pub fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
             }
         }
         return ret;
-
     } else if p["AND"].is_array() {
         for i in 0usize..p["AND"].as_array().unwrap().len() {
             ret &= policy_in_dnf(&p["AND"][i], true)
@@ -143,7 +139,6 @@ pub fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
     }
 }
 
-
 // this calcluates the sum's of all AND terms in a Bdabe DNF policy
 pub fn dnf<K: PublicAttributeKey>(
     _dnfp: &mut DnfPolicy,
@@ -151,7 +146,6 @@ pub fn dnf<K: PublicAttributeKey>(
     _p: &serde_json::Value,
     _i: usize,
 ) -> bool {
-
     if *_p == serde_json::Value::Null {
         println!("Error passed null!");
         return false;
@@ -164,7 +158,6 @@ pub fn dnf<K: PublicAttributeKey>(
             ret = ret && dnf(_dnfp, _pks, &_p["OR"][i], i + _i)
         }
         return ret;
-
     } else if _p["AND"].is_array() {
         let len = _p["AND"].as_array().unwrap().len();
         for i in 0usize..len {
@@ -187,7 +180,6 @@ pub fn dnf<K: PublicAttributeKey>(
                                 _dnfp._terms[_i].3 + pak._g1(),
                                 _dnfp._terms[_i].4 + pak._g2(),
                             );
-
                         } else {
                             _dnfp._terms.push((
                                 vec![pak._str().to_string()],
@@ -212,7 +204,6 @@ pub fn dnf<K: PublicAttributeKey>(
     }
 }
 
-
 // this calcluates the sum's of all conjunction terms in a Bdabe DNF policy ( see fn dnf() )
 pub fn json_to_dnf<K: PublicAttributeKey>(
     _json: &serde_json::Value,
@@ -225,7 +216,6 @@ pub fn json_to_dnf<K: PublicAttributeKey>(
     }
     return None;
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -275,10 +265,9 @@ mod tests {
         let policy2: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf2, &pks).unwrap();
         let policy3: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf3, &pks).unwrap();
 
-        assert!(policy1._terms.len() == 2);
-        assert!(policy2._terms.len() == 1);
-        assert!(policy3._terms.len() == 3);
-
+        assert_eq!(policy1._terms.len(), 2);
+        assert_eq!(policy2._terms.len(), 1);
+        assert_eq!(policy3._terms.len(), 3);
     }
 
 }

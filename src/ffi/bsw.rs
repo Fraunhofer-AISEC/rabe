@@ -1,14 +1,15 @@
-use schemes::bsw::*;
-use std::ops::Deref;
 use libc::*;
-use std::ffi::CStr;
-use std::mem::transmute;
-use std::mem;
-use std::{slice, ptr};
-use std::string::String;
+use schemes::bsw::*;
 use serde_json;
+use std::ffi::CStr;
+use std::mem;
+use std::mem::transmute;
+use std::ops::Deref;
+use std::string::String;
+use std::{ptr, slice};
 
 extern crate libc;
+
 
 /// A BSW ABE Context
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -21,10 +22,7 @@ pub struct CpAbeContext {
 pub extern "C" fn rabe_bsw_context_create() -> *mut CpAbeContext {
     let (_pk, _msk) = setup();
     let _ctx = unsafe {
-        transmute(Box::new(CpAbeContext {
-            _pk: _pk,
-            _msk: _msk,
-        }))
+        transmute(Box::new(CpAbeContext {_pk, _msk}))
     };
     _ctx
 }
@@ -32,7 +30,7 @@ pub extern "C" fn rabe_bsw_context_create() -> *mut CpAbeContext {
 #[no_mangle]
 pub extern "C" fn rabe_bsw_context_destroy(ctx: *mut CpAbeContext) {
     let _ctx: Box<CpAbeContext> = unsafe { transmute(ctx) };
-    let _deref = _ctx.deref();
+    let _context = _ctx.deref();
 }
 
 #[no_mangle]
@@ -60,7 +58,7 @@ pub extern "C" fn rabe_bsw_keygen(
 #[no_mangle]
 pub extern "C" fn rabe_bsw_keygen_destroy(sk: *mut CpAbeSecretKey) {
     let _sk: Box<CpAbeSecretKey> = unsafe { transmute(sk) };
-    let _deref = _sk.deref();
+    let _sk = _sk.deref();
 }
 
 #[no_mangle]
@@ -76,7 +74,6 @@ pub extern "C" fn rabe_bsw_delegate(
     let _dsk = unsafe { transmute(Box::new(delegate(&_ctx._pk, &_sk, &attr_vec).unwrap())) };
     _dsk
 }
-
 
 #[no_mangle]
 pub extern "C" fn rabe_bsw_encrypt(
@@ -141,7 +138,7 @@ pub extern "C" fn rabe_bsw_decrypt(
     if let Err(_) = _cstr_str {
         return -1;
     }
-    assert!(_cstr_str.unwrap().len() == (ct_len - 1) as usize);
+    assert_eq!(_cstr_str.unwrap().len(), (ct_len - 1) as usize);
     let _serde_res = serde_json::from_str(_cstr_str.unwrap());
     if let Err(_) = _serde_res {
         return -1;
@@ -159,5 +156,4 @@ pub extern "C" fn rabe_bsw_decrypt(
             return 0;
         }
     }
-
 }

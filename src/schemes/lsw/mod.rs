@@ -19,18 +19,7 @@
 //!let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_kp).unwrap(), plaintext);
 //! ```
-extern crate libc;
-extern crate serde;
-extern crate serde_json;
-extern crate bn;
-extern crate byteorder;
-extern crate crypto;
-extern crate bincode;
-extern crate num_bigint;
-extern crate blake2_rfc;
-
-use std::string::String;
-use bn::*;
+use bn::{Group, Fr, G1, G2, Gt, pairing};
 use std::ops::Neg;
 use utils::{
     tools::*,
@@ -43,37 +32,37 @@ use rand::Rng;
 /// A LSW Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbePublicKey {
-    _g_g1: bn::G1,
-    _g_g2: bn::G2,
-    _g_g1_b: bn::G1,
-    _g_g1_b2: bn::G1,
-    _h_g1_b: bn::G1,
-    _e_gg_alpha: bn::Gt,
+    _g_g1: G1,
+    _g_g2: G2,
+    _g_g1_b: G1,
+    _g_g1_b2: G1,
+    _h_g1_b: G1,
+    _e_gg_alpha: Gt,
 }
 
 /// A LSW Master Key (MSK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbeMasterKey {
-    _alpha1: bn::Fr,
-    _alpha2: bn::Fr,
-    _b: bn::Fr,
-    _h_g1: bn::G1,
-    _h_g2: bn::G2,
+    _alpha1: Fr,
+    _alpha2: Fr,
+    _beta: Fr,
+    _h_g1: G1,
+    _h_g2: G2,
 }
 
 /// A LSW Secret User Key (SK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbeSecretKey {
     _policy: String,
-    _dj: Vec<(String, bn::G1, bn::G2, bn::G1, bn::G1, bn::G1)>,
+    _dj: Vec<(String, G1, G2, G1, G1, G1)>,
 }
 
 /// A LSW Ciphertext (CT)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KpAbeCiphertext {
-    _e1: bn::Gt,
-    _e2: bn::G2,
-    _ej: Vec<(String, bn::G1, bn::G1, bn::G1)>,
+    _e1: Gt,
+    _e2: G2,
+    _ej: Vec<(String, G1, G1, G1)>,
     _ct: Vec<u8>,
 }
 
@@ -90,29 +79,16 @@ pub fn setup() -> (KpAbePublicKey, KpAbeMasterKey) {
     let _g_g2:G2 = _rng.gen();
     let _h_g1:G1 = _rng.gen();
     let _h_g2:G2 = _rng.gen();
-    let _g1_b = _g_g1 * _beta;
+    let _g_g1_b = _g_g1 * _beta;
+    let _g_g1_b2 = _g_g1_b * _beta;
+    let _h_g1_b = _h_g1 * _beta;
     // calculate the pairing between g1 and g2^alpha
     let _e_gg_alpha = pairing(_g_g1, _g_g2).pow(_alpha);
-
-    // set values of PK
-    let _pk = KpAbePublicKey {
-        _g_g1: _g_g1,
-        _g_g2: _g_g2,
-        _g_g1_b: _g1_b,
-        _g_g1_b2: _g1_b * _beta,
-        _h_g1_b: _h_g1 * _beta,
-        _e_gg_alpha: _e_gg_alpha,
-    };
-    // set values of MSK
-    let _msk = KpAbeMasterKey {
-        _alpha1: _alpha1,
-        _alpha2: _alpha2,
-        _b: _beta,
-        _h_g1: _h_g1,
-        _h_g2: _h_g2,
-    };
     // return PK and MSK
-    return (_pk, _msk);
+    return (
+        KpAbePublicKey { _g_g1, _g_g2, _g_g1_b, _g_g1_b2, _h_g1_b, _e_gg_alpha},
+        KpAbeMasterKey {_alpha1, _alpha2, _beta, _h_g1, _h_g2}
+    );
 }
 
 /// The key generation algorithm of LSW KP-ABE.
@@ -132,7 +108,7 @@ pub fn keygen(
     // random number generator
     let mut _rng = rand::thread_rng();
     let _shares = gen_shares_str(_msk._alpha1, _policy).unwrap();
-    let mut _d: Vec<(String, bn::G1, bn::G2, bn::G1, bn::G1, bn::G1)> = Vec::new();
+    let mut _d: Vec<(String, G1, G2, G1, G1, G1)> = Vec::new();
     for (_share_str, _share_value) in _shares.into_iter() {
         let _r:Fr = _rng.gen();
         if is_negative(&_share_str) {
@@ -141,15 +117,14 @@ pub fn keygen(
                 G1::zero(),
                 G2::zero(),
                 (_pk._g_g1 * _share_value) + (_pk._g_g1_b2 * _r),
-                _pk._g_g1_b * (blake2b_hash_fr(&_share_str) * _r) +
-                    (_msk._h_g1 * _r),
+                _pk._g_g1_b * (blake2b_hash_fr(&_share_str) * _r) + (_msk._h_g1 * _r),
                 _pk._g_g1 * _r.neg(),
             ));
         } else {
             _d.push((
                 _share_str.to_string(),
-                (_pk._g_g1 * (_msk._alpha2 * _share_value)) +
-                    (blake2b_hash_g1(_pk._g_g1, &_share_str) * _r),
+                (_pk._g_g1 * (_msk._alpha2 * _share_value))
+                    + (blake2b_hash_g1(_pk._g_g1, &_share_str) * _r),
                 _pk._g_g2 * _r,
                 G1::zero(),
                 G1::zero(),
@@ -182,11 +157,11 @@ pub fn encrypt(
         // random number generator
         let mut _rng = rand::thread_rng();
         // attribute vector
-        let mut _ej: Vec<(String, bn::G1, bn::G1, bn::G1)> = Vec::new();
+        let mut _ej: Vec<(String, G1, G1, G1)> = Vec::new();
         // random secret
         let _s:Fr = _rng.gen();
         // sx vector
-        let mut _sx: Vec<bn::Fr> = Vec::new();
+        let mut _sx: Vec<Fr> = Vec::new();
         _sx.push(_s);
         for (_i, _attr) in _attributes.iter().enumerate() {
             _sx.push(_rng.gen());
@@ -197,8 +172,7 @@ pub fn encrypt(
                 _attr.to_string(),
                 blake2b_hash_g1(_pk._g_g1, &_attr) * _s,
                 _pk._g_g1_b * _sx[_i],
-                (_pk._g_g1_b2 * (_sx[_i] * blake2b_hash_fr(&_attr))) +
-                    (_pk._h_g1_b * _sx[_i]),
+                (_pk._g_g1_b2 * (_sx[_i] * blake2b_hash_fr(&_attr))) + (_pk._h_g1_b * _sx[_i]),
             ));
         }
         // random message
@@ -208,7 +182,6 @@ pub fn encrypt(
         let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
         //Encrypt plaintext using derived key from secret
         Some(KpAbeCiphertext {_e1, _e2, _ej, _ct})
-
     }
 }
 
@@ -220,28 +193,31 @@ pub fn encrypt(
 ///	* `_ct` - A LSW KP-ABE Ciphertext
 ///
 pub fn decrypt(_sk: &KpAbeSecretKey, _ct: &KpAbeCiphertext) -> Option<Vec<u8>> {
-    let _attrs_str = _ct._ej
+    let _attrs_str = _ct
+        ._ej
         .iter()
         .map(|values| values.clone().0.to_string())
         .collect::<Vec<_>>();
     let _pruned = calc_pruned_str(&_attrs_str, &_sk._policy);
-    match _pruned {
+    return match _pruned {
         None => {
-            return None;
+            None
         }
         Some(_p) => {
             let (_match, _list) = _p;
             if _match {
                 let mut _prod_t = Gt::one();
                 let mut _z_y = Gt::one();
-                let _coeffs: Vec<(String, bn::Fr)> = calc_coefficients_str(&_sk._policy).unwrap();
+                let _coeffs: Vec<(String, Fr)> = calc_coefficients_str(&_sk._policy).unwrap();
                 for _attr_str in _list.iter() {
-                    let _sk_attr = _sk._dj
+                    let _sk_attr = _sk
+                        ._dj
                         .iter()
                         .filter(|_attr| _attr.0 == _attr_str.to_string())
                         .nth(0)
                         .unwrap();
-                    let _ct_attr = _ct._ej
+                    let _ct_attr = _ct
+                        ._ej
                         .iter()
                         .filter(|_attr| _attr.0 == _attr_str.to_string())
                         .nth(0)
@@ -253,24 +229,24 @@ pub fn decrypt(_sk: &KpAbeSecretKey, _ct: &KpAbeCiphertext) -> Option<Vec<u8>> {
                         .unwrap();
                     if is_negative(&_attr_str) {
                         // TODO !!
-		                /*let _sum_e4 = G2::zero();
-		                let _sum_e5 = G2::zero();
-		                _prod_t = _prod_t *
-		                    (pairing(sk._d_i[_i].3, ct._e2) *
-		                         (pairing(sk._d_i[_i].4, _sum_e4) * pairing(sk._d_i[_i].5, _sum_e5))
-		                             .inverse());
-		                */
+                        /*let _sum_e4 = G2::zero();
+                        let _sum_e5 = G2::zero();
+                        _prod_t = _prod_t *
+                            (pairing(sk._d_i[_i].3, ct._e2) *
+                                 (pairing(sk._d_i[_i].4, _sum_e4) * pairing(sk._d_i[_i].5, _sum_e5))
+                                     .inverse());
+                        */
                     } else {
-                        _z_y = pairing(_sk_attr.1, _ct._e2) *
-                            pairing(_ct_attr.1, _sk_attr.2).inverse();
+                        _z_y = pairing(_sk_attr.1, _ct._e2)
+                            * pairing(_ct_attr.1, _sk_attr.2).inverse();
                     }
                     _prod_t = _prod_t * _z_y.pow(_coeff_attr.1);
                 }
                 let _msg = _ct._e1 * _prod_t.inverse();
                 // Decrypt plaintext using derived secret from cp-abe scheme
-                return decrypt_symmetric(&_msg, &_ct._ct);
+                decrypt_symmetric(&_msg, &_ct._ct)
             } else {
-                return None;
+                None
             }
         }
     }
@@ -291,8 +267,8 @@ mod tests {
         att_matching.push(String::from("B"));
         att_matching.push(String::from("C"));
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
@@ -313,8 +289,8 @@ mod tests {
         att_matching.push(String::from("B"));
         att_matching.push(String::from("C"));
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "B"}]}"#);
         // kp-abe ciphertext
@@ -335,12 +311,11 @@ mod tests {
         att_matching.push(String::from("Y"));
         att_matching.push(String::from("Z"));
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let policy = String::from(
-            r#"{"OR": [{"ATT": "X"}, {"AND": [{"ATT": "Y"}, {"ATT": "Z"}]}]}"#,
-        );
+        let policy =
+            String::from(r#"{"OR": [{"ATT": "X"}, {"AND": [{"ATT": "Y"}, {"ATT": "Z"}]}]}"#);
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
@@ -358,8 +333,8 @@ mod tests {
         att_matching.push(String::from("A"));
         att_matching.push(String::from("B"));
         // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
+        let plaintext =
+            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "Y"}]}"#);
         // kp-abe ciphertext
