@@ -46,6 +46,8 @@ use utils::{
     aes::*,
     hash::blake2b_hash_g1
 };
+use utils::policy::pest::{PolicyValue, PolicyLanguage, parse, PolicyType};
+use RabeError;
 
 /// An AC17 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -77,7 +79,7 @@ pub struct Ac17Ciphertext {
 /// An AC17 CP-ABE Ciphertext (CT), composed of a policy and an Ac17Ciphertext.
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ac17CpCiphertext {
-    pub _policy: String,
+    pub _policy: (String, PolicyLanguage),
     pub _ct: Ac17Ciphertext,
 }
 
@@ -99,7 +101,7 @@ pub struct Ac17SecretKey {
 /// An AC17 KP-ABE Secret Key (SK), composed of a policy and an Ac17Ciphertext.
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ac17KpSecretKey {
-    pub _policy: String,
+    pub _policy: (String, PolicyLanguage),
     pub _sk: Ac17SecretKey,
 }
 
@@ -248,91 +250,96 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
 pub fn cp_encrypt(
     pk: &Ac17PublicKey,
     policy: &String,
-    _plaintext: &[u8],
-) -> Option<Ac17CpCiphertext> {
+    plaintext: &[u8],
+    language: PolicyLanguage,
+) -> Result<Ac17CpCiphertext, RabeError> {
     // random number generator
     let mut _rng = rand::thread_rng();
-    // an msp policy from the given String
-    let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
-    let _num_cols = msp._m[0].len();
-    let _num_rows = msp._m.len();
-    // pick randomness
-    let mut _s: Vec<Fr> = Vec::new();
-    let mut _sum = Fr::zero();
-    for _i in 0usize..ASSUMPTION_SIZE {
-        let _rand:Fr = _rng.gen();
-        _s.push(_rand);
-        _sum = _sum + _rand;
-    }
-    // compute the [As]_2 term
-    let mut _c_0: Vec<G2> = Vec::new();
-    let _h_a = pk._h_a.clone();
-    for _i in 0usize..ASSUMPTION_SIZE {
-        _c_0.push(_h_a[_i] * _s[_i]);
-    }
-    _c_0.push(_h_a[ASSUMPTION_SIZE] * _sum);
-    // compute the [(V^T As||U^T_2 As||...) M^T_i + W^T_i As]_1 terms
-    // pre-compute hashes
-    let mut _hash_table: Vec<Vec<Vec<G1>>> = Vec::new();
-    for _j in 0usize.._num_cols {
-        let mut _x: Vec<Vec<G1>> = Vec::new();
-        let mut _hash1 = String::new();
-        _hash1.push_str(&String::from("0"));
-        _hash1.push_str(&(_j + 1).to_string());
-        for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-            let mut _y: Vec<G1> = Vec::new();
-            let mut _hash2 = String::new();
-            _hash2.push_str(&_hash1);
-            _hash2.push_str(&_l.to_string());
-            for _t in 0usize..ASSUMPTION_SIZE {
-                let mut _hash3 = String::new();
-                _hash3.push_str(&_hash2);
-                _hash3.push_str(&_t.to_string());
-                let _hashed_value = blake2b_hash_g1(pk._g, &_hash3);
-                _y.push(_hashed_value);
+    match parse(policy, language) {
+        Ok(_policy) => {
+            // an msp policy from the given String
+            let msp: AbePolicy = AbePolicy::from_policy(&_policy).unwrap();
+            let _num_cols = msp._m[0].len();
+            let _num_rows = msp._m.len();
+            // pick randomness
+            let mut _s: Vec<Fr> = Vec::new();
+            let mut _sum = Fr::zero();
+            for _i in 0usize..ASSUMPTION_SIZE {
+                let _rand:Fr = _rng.gen();
+                _s.push(_rand);
+                _sum = _sum + _rand;
             }
-            _x.push(_y)
-        }
-        _hash_table.push(_x);
-    }
-    let mut _c: Vec<(String, Vec<G1>)> = Vec::new();
-    for _i in 0usize.._num_rows {
-        let mut _ct: Vec<G1> = Vec::new();
-        for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-            let mut _prod = G1::zero();
-            for _t in 0usize..ASSUMPTION_SIZE {
-                let mut _hash = String::new();
-                _hash.push_str(&msp._pi[_i]);
-                _hash.push_str(&_l.to_string());
-                _hash.push_str(&_t.to_string());
-                let mut _prod1 = blake2b_hash_g1(pk._g, &_hash);
-                for _j in 0usize.._num_cols {
-                    if msp._m[_i][_j] == 1 {
-                        _prod1 = _prod1 + _hash_table[_j][_l][_t];
-                    } else if msp._m[_i][_j] == -1 {
-                        _prod1 = _prod1 - _hash_table[_j][_l][_t];
+            // compute the [As]_2 term
+            let mut _c_0: Vec<G2> = Vec::new();
+            let _h_a = pk._h_a.clone();
+            for _i in 0usize..ASSUMPTION_SIZE {
+                _c_0.push(_h_a[_i] * _s[_i]);
+            }
+            _c_0.push(_h_a[ASSUMPTION_SIZE] * _sum);
+            // compute the [(V^T As||U^T_2 As||...) M^T_i + W^T_i As]_1 terms
+            // pre-compute hashes
+            let mut _hash_table: Vec<Vec<Vec<G1>>> = Vec::new();
+            for _j in 0usize.._num_cols {
+                let mut _x: Vec<Vec<G1>> = Vec::new();
+                let mut _hash1 = String::new();
+                _hash1.push_str(&String::from("0"));
+                _hash1.push_str(&(_j + 1).to_string());
+                for _l in 0usize..(ASSUMPTION_SIZE + 1) {
+                    let mut _y: Vec<G1> = Vec::new();
+                    let mut _hash2 = String::new();
+                    _hash2.push_str(&_hash1);
+                    _hash2.push_str(&_l.to_string());
+                    for _t in 0usize..ASSUMPTION_SIZE {
+                        let mut _hash3 = String::new();
+                        _hash3.push_str(&_hash2);
+                        _hash3.push_str(&_t.to_string());
+                        let _hashed_value = blake2b_hash_g1(pk._g, &_hash3);
+                        _y.push(_hashed_value);
                     }
+                    _x.push(_y)
                 }
-                _prod = _prod + (_prod1 * _s[_t]);
+                _hash_table.push(_x);
             }
-            _ct.push(_prod);
-        }
-        _c.push((msp._pi[_i].to_string(), _ct));
+            let mut _c: Vec<(String, Vec<G1>)> = Vec::new();
+            for _i in 0usize.._num_rows {
+                let mut _ct: Vec<G1> = Vec::new();
+                for _l in 0usize..(ASSUMPTION_SIZE + 1) {
+                    let mut _prod = G1::zero();
+                    for _t in 0usize..ASSUMPTION_SIZE {
+                        let mut _hash = String::new();
+                        _hash.push_str(&msp._pi[_i]);
+                        _hash.push_str(&_l.to_string());
+                        _hash.push_str(&_t.to_string());
+                        let mut _prod1 = blake2b_hash_g1(pk._g, &_hash);
+                        for _j in 0usize.._num_cols {
+                            if msp._m[_i][_j] == 1 {
+                                _prod1 = _prod1 + _hash_table[_j][_l][_t];
+                            } else if msp._m[_i][_j] == -1 {
+                                _prod1 = _prod1 - _hash_table[_j][_l][_t];
+                            }
+                        }
+                        _prod = _prod + (_prod1 * _s[_t]);
+                    }
+                    _ct.push(_prod);
+                }
+                _c.push((msp._pi[_i].to_string(), _ct));
+            }
+            let mut _c_p = Gt::one();
+            for _i in 0usize..ASSUMPTION_SIZE {
+                _c_p = _c_p * (pk._e_gh_ka[_i].pow(_s[_i]));
+            }
+            // random msg
+            let _msg: Gt = _rng.gen();
+            let _ct = encrypt_symmetric(&_msg, &plaintext.to_vec()).unwrap();
+            _c_p = _c_p * _msg;
+            //Encrypt plaintext using derived key from secret
+            Ok(Ac17CpCiphertext {
+                _policy: (policy.to_string(), language),
+                _ct: Ac17Ciphertext { _c_0, _c, _c_p, _ct},
+            })
+        },
+        Err(e) => Err(e)
     }
-    let mut _c_p = Gt::one();
-    for _i in 0usize..ASSUMPTION_SIZE {
-        _c_p = _c_p * (pk._e_gh_ka[_i].pow(_s[_i]));
-    }
-    // random msg
-    let _msg: Gt = _rng.gen();
-    let _aes_ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
-    _c_p = _c_p * _msg;
-    let _policy = policy.to_string();
-    //Encrypt plaintext using derived key from secret
-    return Some(Ac17CpCiphertext {
-        _policy,
-        _ct: Ac17Ciphertext { _c_0, _c, _c_p, _ct: _aes_ct },
-    });
 }
 
 /// The decrypt algorithm of AC17CP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17CpCiphertext with a matching Ac17CpSecretKey.
@@ -342,47 +349,47 @@ pub fn cp_encrypt(
 ///	* `sk` - A Secret Key (SK), generated by the function cp_keygen()
 ///	* `ct` - An AC17CP Ciphertext
 ///
-pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>> {
-    return if traverse_str(&sk._attr, &ct._policy) == false {
-        //println!("Error: attributes in sk do not match policy in ct.");
-        None
-    } else {
-        match calc_pruned_str(&sk._attr, &ct._policy) {
-            None => {
-                //println!("Error: attributes in sk do not match policy in ct.");
-                None
-            }
-            Some((_match, _list)) => {
-                if _match {
-                    let mut _prod1_gt = Gt::one();
-                    let mut _prod2_gt = Gt::one();
-                    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-                        let mut _prod_h = G1::zero();
-                        let mut _prod_g = G1::zero();
-                        for _current in _list.iter() {
-                            for _attr in ct._ct._c.iter() {
-                                if _attr.0 == _current.to_string() {
-                                    _prod_g = _prod_g + _attr.1[_i];
+pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Result<Vec<u8>, RabeError> {
+    match parse(ct._policy.0.as_ref(), ct._policy.1) {
+        Ok(pol) => {
+            return if traverse_policy(&sk._attr, &pol, PolicyType::Leaf) == false {
+                panic!("Error in cp_decrypt: attributes in SK do not match policy in CT.")
+            } else {
+                match calc_pruned(&sk._attr, &pol, None) {
+                    Err(e) => Err(e),
+                    Ok((_match, _list)) => {
+                        if _match {
+                            let mut _prod1_gt = Gt::one();
+                            let mut _prod2_gt = Gt::one();
+                            for _i in 0usize..(ASSUMPTION_SIZE + 1) {
+                                let mut _prod_h = G1::zero();
+                                let mut _prod_g = G1::zero();
+                                for _current in _list.iter() {
+                                    for _attr in ct._ct._c.iter() {
+                                        if _attr.0 == _current.to_string() {
+                                            _prod_g = _prod_g + _attr.1[_i];
+                                        }
+                                    }
+                                    for _attr in sk._sk._k.iter() {
+                                        if _attr.0 == _current.to_string() {
+                                            _prod_h = _prod_h + _attr.1[_i];
+                                        }
+                                    }
                                 }
+                                _prod1_gt = _prod1_gt * pairing(sk._sk._k_p[_i] + _prod_h, ct._ct._c_0[_i]);
+                                _prod2_gt = _prod2_gt * pairing(_prod_g, sk._sk._k_0[_i]);
                             }
-                            for _attr in sk._sk._k.iter() {
-                                if _attr.0 == _current.to_string() {
-                                    _prod_h = _prod_h + _attr.1[_i];
-                                }
-                            }
+                            let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
+                            // Decrypt plaintext using derived secret from cp-abe scheme
+                            decrypt_symmetric(&_msg, &ct._ct._ct)
+                        } else {
+                            panic!("Error: attributes in sk do not match policy in ct.")
                         }
-                        _prod1_gt = _prod1_gt * pairing(sk._sk._k_p[_i] + _prod_h, ct._ct._c_0[_i]);
-                        _prod2_gt = _prod2_gt * pairing(_prod_g, sk._sk._k_0[_i]);
                     }
-                    let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
-                    // Decrypt plaintext using derived secret from cp-abe scheme
-                    decrypt_symmetric(&_msg, &ct._ct._ct)
-                } else {
-                    println!("Error: attributes in sk do not match policy in ct.");
-                    None
                 }
-            }
-        }
+            };
+        },
+        Err(e) => Err(e)
     }
 }
 
@@ -393,104 +400,112 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Option<Vec<u8>
 ///	* `msk` - A Master Key (MSK), generated by the function setup()
 ///	* `policy` - An access policy given as JSON String
 ///
-pub fn kp_keygen(msk: &Ac17MasterKey, policy: &String) -> Option<Ac17KpSecretKey> {
+pub fn kp_keygen(
+    msk: &Ac17MasterKey,
+    policy: &String,
+    lang: PolicyLanguage) -> Result<Ac17KpSecretKey, RabeError> {
     // random number generator
     let mut _rng = rand::thread_rng();
-    // an msp policy from the given String
-    let msp: AbePolicy = AbePolicy::from_string(&policy).unwrap();
-    let _num_cols = msp._m[0].len();
-    let _num_rows = msp._m.len();
-    // pick randomness
-    let mut _r: Vec<Fr> = Vec::new();
-    let mut _sum = Fr::zero();
-    for _i in 0usize..ASSUMPTION_SIZE {
-        let _rand:Fr = _rng.gen();
-        _r.push(_rand);
-        _sum = _sum + _rand;
-    }
-    // first compute Br as it will be used later
-    let mut _br: Vec<Fr> = Vec::new();
-    for _i in 0usize..ASSUMPTION_SIZE {
-        _br.push(msk._b[_i] * _r[_i])
-    }
-    _br.push(_sum);
-    // now computer [Br]_2
-    let mut _k_0: Vec<G2> = Vec::new();
-    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-        _k_0.push(msk._h * _br[_i])
-    }
-    let mut _sigma_prime: Vec<Fr> = Vec::new();
-    for _i in 0usize..(_num_cols - 1) {
-        _sigma_prime.push(_rng.gen())
-    }
-    // compute [W_1 Br]_1, ...
-    let mut _k: Vec<(String, Vec<G1>)> = Vec::new();
-    let _a = msk._a.clone();
-    let _g = msk._g.clone();
-    for _i in 0usize.._num_rows {
-        let mut _key: Vec<G1> = Vec::new();
-        let _sigma_attr:Fr = _rng.gen();
-        // calculate _sk_i1 and _sk_i2 terms
-        for _t in 0usize..ASSUMPTION_SIZE {
-            let mut _prod = G1::zero();
-            let _a_t = _a[_t].inverse().unwrap();
-            for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-                let mut _hash = String::new();
-                _hash.push_str(&msp._pi[_i]);
-                _hash.push_str(&_l.to_string());
-                _hash.push_str(&_t.to_string());
-                _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
+    match parse(policy, lang) {
+        Ok(pol) => {
+            // an msp policy from the given String
+            let msp: AbePolicy = AbePolicy::from_policy(&pol).unwrap();
+            let _num_cols = msp._m[0].len();
+            let _num_rows = msp._m.len();
+            // pick randomness
+            let mut _r: Vec<Fr> = Vec::new();
+            let mut _sum = Fr::zero();
+            for _i in 0usize..ASSUMPTION_SIZE {
+                let _rand:Fr = _rng.gen();
+                _r.push(_rand);
+                _sum = _sum + _rand;
             }
-            _prod = _prod + (msk._g * (_sigma_attr * _a_t));
-            if msp._m[_i][0] == 1 {
-                _prod = _prod + (msk._g_k[_t]);
-            } else if msp._m[_i][0] == -1 {
-                _prod = _prod - (msk._g_k[_t]);
+            // first compute Br as it will be used later
+            let mut _br: Vec<Fr> = Vec::new();
+            for _i in 0usize..ASSUMPTION_SIZE {
+                _br.push(msk._b[_i] * _r[_i])
             }
-            let mut _temp = G1::zero();
-            for _j in 1usize.._num_cols {
-                // sum term of _sk_it
-                let mut _hash0 = String::new();
-                _hash0.push_str(&String::from("0"));
-                _hash0.push_str(&_j.to_string());
-                for _l in 0usize..(ASSUMPTION_SIZE + 1) {
-                    let mut _hash1 = String::new();
-                    _hash1.push_str(&_hash0);
-                    _hash1.push_str(&_l.to_string());
-                    _hash1.push_str(&_t.to_string());
-                    _temp = _temp + (blake2b_hash_g1(msk._g, &_hash1) * (_br[_l] * _a_t));
+            _br.push(_sum);
+            // now computer [Br]_2
+            let mut _k_0: Vec<G2> = Vec::new();
+            for _i in 0usize..(ASSUMPTION_SIZE + 1) {
+                _k_0.push(msk._h * _br[_i])
+            }
+            let mut _sigma_prime: Vec<Fr> = Vec::new();
+            for _i in 0usize..(_num_cols - 1) {
+                _sigma_prime.push(_rng.gen())
+            }
+            // compute [W_1 Br]_1, ...
+            let mut _k: Vec<(String, Vec<G1>)> = Vec::new();
+            let _a = msk._a.clone();
+            let _g = msk._g.clone();
+            for _i in 0usize.._num_rows {
+                let mut _key: Vec<G1> = Vec::new();
+                let _sigma_attr:Fr = _rng.gen();
+                // calculate _sk_i1 and _sk_i2 terms
+                for _t in 0usize..ASSUMPTION_SIZE {
+                    let mut _prod = G1::zero();
+                    let _a_t = _a[_t].inverse().unwrap();
+                    for _l in 0usize..(ASSUMPTION_SIZE + 1) {
+                        let mut _hash = String::new();
+                        _hash.push_str(&msp._pi[_i]);
+                        _hash.push_str(&_l.to_string());
+                        _hash.push_str(&_t.to_string());
+                        _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
+                    }
+                    _prod = _prod + (msk._g * (_sigma_attr * _a_t));
+                    if msp._m[_i][0] == 1 {
+                        _prod = _prod + (msk._g_k[_t]);
+                    } else if msp._m[_i][0] == -1 {
+                        _prod = _prod - (msk._g_k[_t]);
+                    }
+                    let mut _temp = G1::zero();
+                    for _j in 1usize.._num_cols {
+                        // sum term of _sk_it
+                        let mut _hash0 = String::new();
+                        _hash0.push_str(&String::from("0"));
+                        _hash0.push_str(&_j.to_string());
+                        for _l in 0usize..(ASSUMPTION_SIZE + 1) {
+                            let mut _hash1 = String::new();
+                            _hash1.push_str(&_hash0);
+                            _hash1.push_str(&_l.to_string());
+                            _hash1.push_str(&_t.to_string());
+                            _temp = _temp + (blake2b_hash_g1(msk._g, &_hash1) * (_br[_l] * _a_t));
+                        }
+                        _temp = _temp + (msk._g * _sigma_prime[_j - 1].neg());
+                        if msp._m[_i][_j] == 1 {
+                            _prod = _prod + _temp;
+                        } else if msp._m[_i][_j] == -1 {
+                            _prod = _prod - _temp;
+                        }
+                    }
+                    _key.push(_prod);
                 }
-                _temp = _temp + (msk._g * _sigma_prime[_j - 1].neg());
-                if msp._m[_i][_j] == 1 {
-                    _prod = _prod + _temp;
-                } else if msp._m[_i][_j] == -1 {
-                    _prod = _prod - _temp;
+                // calculate _sk_i3 term
+                let mut _sk_i3 = msk._g * _sigma_attr.neg();
+                if msp._m[_i][0] == 1 {
+                    _sk_i3 = _sk_i3 + (msk._g_k[ASSUMPTION_SIZE]);
+                } else if msp._m[_i][0] == -1 {
+                    _sk_i3 = _sk_i3 - (msk._g_k[ASSUMPTION_SIZE]);
                 }
+                // sum term of _sk_i3
+                for _j in 1usize.._num_cols {
+                    if msp._m[_i][_j] == 1 {
+                        _sk_i3 = _sk_i3 + (msk._g * _sigma_prime[_j - 1].neg());
+                    } else if msp._m[_i][_j] == -1 {
+                        _sk_i3 = _sk_i3 - (msk._g * _sigma_prime[_j - 1].neg());
+                    }
+                }
+                _key.push(_sk_i3);
+                _k.push((msp._pi[_i].to_string(), _key));
             }
-            _key.push(_prod);
-        }
-        // calculate _sk_i3 term
-        let mut _sk_i3 = msk._g * _sigma_attr.neg();
-        if msp._m[_i][0] == 1 {
-            _sk_i3 = _sk_i3 + (msk._g_k[ASSUMPTION_SIZE]);
-        } else if msp._m[_i][0] == -1 {
-            _sk_i3 = _sk_i3 - (msk._g_k[ASSUMPTION_SIZE]);
-        }
-        // sum term of _sk_i3
-        for _j in 1usize.._num_cols {
-            if msp._m[_i][_j] == 1 {
-                _sk_i3 = _sk_i3 + (msk._g * _sigma_prime[_j - 1].neg());
-            } else if msp._m[_i][_j] == -1 {
-                _sk_i3 = _sk_i3 - (msk._g * _sigma_prime[_j - 1].neg());
-            }
-        }
-        _key.push(_sk_i3);
-        _k.push((msp._pi[_i].to_string(), _key));
+            Ok(Ac17KpSecretKey {
+                _policy: (policy.to_string(), lang),
+                _sk: Ac17SecretKey { _k_0, _k, _k_p: Vec::new()},
+            })
+        },
+        Err(e) => Err(e)
     }
-    return Some(Ac17KpSecretKey {
-        _policy: policy.clone(),
-        _sk: Ac17SecretKey { _k_0, _k, _k_p: Vec::new()},
-    });
 }
 
 /// The encrypt algorithm of AC17KP. Generates an Ac17KpCiphertext using an Ac17PublicKey, a set of attributes given as Vec<String> and some plaintext data given as [u8].
@@ -564,52 +579,52 @@ pub fn kp_encrypt(
 ///	* `sk` - A Secret Key (SK), generated by the function kp_keygen()
 ///	* `ct` - An AC17KP Ciphertext
 ///
-pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Option<Vec<u8>> {
-    return if traverse_str(&ct._attr, &sk._policy) == false {
-        println!("Error: attributes in ct do not match policy in sk.");
-        None
-    } else {
-        match calc_pruned_str(&ct._attr, &sk._policy) {
-            None => {
-                println!("Error: attributes in sk do not match policy in ct.");
-                None
-            }
-            Some(_p) => {
-                let (_match, _list) = _p;
-                if _match {
-                    let mut _prod1_gt = Gt::one();
-                    let mut _prod2_gt = Gt::one();
-                    for _i in 0usize..(ASSUMPTION_SIZE + 1) {
-                        let mut _prod_h = G1::zero();
-                        let mut _prod_g = G1::zero();
-                        for _current in _list.iter() {
-                            for _attr in ct._ct._c.iter() {
-                                if _attr.0 == _current.to_string() {
-                                    _prod_g = _prod_g + _attr.1[_i];
+pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext, lang: PolicyLanguage) -> Result<Vec<u8>, RabeError> {
+    match parse(sk._policy.0.as_ref(), sk._policy.1) {
+        Ok(pol) => {
+            return if traverse_policy(&ct._attr, &pol, PolicyType::Leaf) == false {
+                panic!("Error in kp_decrypt: attributes in ct do not match policy in sk.")
+            } else {
+                match calc_pruned(&ct._attr, &pol, None) {
+                    Err(e) => Err(e),
+                    Ok(_p) => {
+                        let (_match, _list) = _p;
+                        if _match {
+                            let mut _prod1_gt = Gt::one();
+                            let mut _prod2_gt = Gt::one();
+                            for _i in 0usize..(ASSUMPTION_SIZE + 1) {
+                                let mut _prod_h = G1::zero();
+                                let mut _prod_g = G1::zero();
+                                for _current in _list.iter() {
+                                    for _attr in ct._ct._c.iter() {
+                                        if _attr.0 == _current.to_string() {
+                                            _prod_g = _prod_g + _attr.1[_i];
+                                        }
+                                    }
+                                    for _attr in sk._sk._k.iter() {
+                                        if _attr.0 == _current.to_string() {
+                                            _prod_h = _prod_h + _attr.1[_i];
+                                        }
+                                    }
                                 }
+                                // for _j in 0usize..ct._ct._c.len() {
+                                //     _prod_h = _prod_h + sk._sk._k[_j].1[_i];
+                                //     _prod_g = _prod_g + ct._ct._c[_j].1[_i];
+                                // }
+                                _prod1_gt = _prod1_gt * pairing(_prod_h, ct._ct._c_0[_i]);
+                                _prod2_gt = _prod2_gt * pairing(_prod_g, sk._sk._k_0[_i]);
                             }
-                            for _attr in sk._sk._k.iter() {
-                                if _attr.0 == _current.to_string() {
-                                    _prod_h = _prod_h + _attr.1[_i];
-                                }
-                            }
+                            let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
+                            // Decrypt plaintext using derived secret from cp-abe scheme
+                            decrypt_symmetric(&_msg, &ct._ct._ct)
+                        } else {
+                            panic!("Error in kp_decrypt: pruned attributes in sk do not match policy in ct.")
                         }
-                        // for _j in 0usize..ct._ct._c.len() {
-                        //     _prod_h = _prod_h + sk._sk._k[_j].1[_i];
-                        //     _prod_g = _prod_g + ct._ct._c[_j].1[_i];
-                        // }
-                        _prod1_gt = _prod1_gt * pairing(_prod_h, ct._ct._c_0[_i]);
-                        _prod2_gt = _prod2_gt * pairing(_prod_g, sk._sk._k_0[_i]);
                     }
-                    let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
-                    // Decrypt plaintext using derived secret from cp-abe scheme
-                    decrypt_symmetric(&_msg, &ct._ct._ct)
-                } else {
-                    println!("Error: attributes in sk do not match policy in ct.");
-                    None
                 }
             }
-        }
+        },
+        Err(e) => Err(e)
     }
 }
 

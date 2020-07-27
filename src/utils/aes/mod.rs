@@ -10,16 +10,17 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use crypto::{aes, blockmodes, buffer, symmetriccipher};
 use rand::{RngCore, thread_rng};
+use RabeError;
 
 /// Key Encapsulation Mechanism (Encryption Function)
-pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Option<Vec<u8>> {
+pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut _key: [u8; 32] = [0; 32];
     let mut _iv: Vec<u8> = vec![0; 16];
     let mut _ret: Vec<u8> = Vec::new();
     let mut _sha = Sha3::sha3_256();
     let mut _rng = thread_rng();
     match serialize(&_msg) {
-        Err(_) => return None,
+        Err(e) => Err(RabeError::new(e.to_string().as_ref())),
         Ok(_serialized_msg) => {
             _sha.input(&_serialized_msg);
             _sha.result(&mut _key);
@@ -27,24 +28,24 @@ pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Option<Vec<u8>>
             _ret.append(&mut _iv.clone());
             let mut encrypted_data = encrypt_aes(&_plaintext, &_key, &_iv).ok().unwrap();
             _ret.append(&mut encrypted_data);
-            return Some(_ret);
+            return Ok(_ret);
         }
     }
 }
 /// Key Encapsulation Mechanism (Decryption Function)
-pub fn decrypt_symmetric(_msg: &bn::Gt, _iv_ct: &Vec<u8>) -> Option<Vec<u8>> {
+pub fn decrypt_symmetric(_msg: &bn::Gt, _iv_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut _key: [u8; 32] = [0; 32];
     let mut _iv = _iv_ct.clone();
     let _data = _iv.split_off(16);
     let mut _sha = Sha3::sha3_256();
     let mut _rng = thread_rng();
     match serialize(&_msg) {
-        Err(_) => return None,
+        Err(e) => Err(RabeError::new(e.to_string().as_ref())),
         Ok(_serialized_msg) => {
             _sha.input(&_serialized_msg);
             _sha.result(&mut _key);
             let decrypted_data = decrypt_aes(&_data, &_key, &_iv).ok().unwrap();
-            return Some(decrypted_data);
+            return Ok(decrypted_data);
         }
     }
 }

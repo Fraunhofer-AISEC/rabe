@@ -4,158 +4,64 @@ extern crate serde;
 extern crate serde_json;
 
 use bn::*;
-use utils::tools::{contains, string_to_json, usize_to_fr};
+use utils::tools::{contains, usize_to_fr};
 use rand::Rng;
-// Policy variables
-const POLICY_OR: &'static str = "OR";
-const POLICY_AND: &'static str = "AND";
-const POLICY_ATT: &'static str = "ATT";
+use utils::policy::pest::{PolicyValue, PolicyLanguage, parse, PolicyType};
+use RabeError;
 
-pub fn calc_pruned_str(_attr: &Vec<String>, _policy: &String) -> Option<(bool, Vec<String>)> {
-    let _json = string_to_json(_policy);
-    match _json {
-        None => {
-            println!("Error in policy (could not parse json): {:?}", _policy);
-            return None;
-        }
-        Some(_json) => {
-            return required_attributes(_attr, &_json);
-        }
-    }
-}
-
-pub fn required_attributes(
-    _attr: &Vec<String>,
-    _json: &serde_json::Value,
-) -> Option<(bool, Vec<String>)> {
-    if *_json == serde_json::Value::Null {
-        println!("Error: passed null as json!");
-        return None;
-    } else {
-        let mut _match: bool = false;
-        let mut _emtpy_list: Vec<String> = Vec::new();
-        if _json[POLICY_OR].is_array() {
-            let _num_terms = _json[POLICY_OR].as_array().unwrap().len();
-            if _num_terms >= 2 {
-                for _i in 0usize.._num_terms {
-                    let (_found, mut _list) = required_attributes(_attr, &_json[POLICY_OR][_i])
-                        .unwrap();
-                    _match = _match || _found;
-                    if _match {
-                        _emtpy_list.append(&mut _list);
-                        break;
-                    }
-                }
-                return Some((_match, _emtpy_list));
-            } else {
-                println!("Error: Invalid policy (OR with just a single child).");
-                return None;
-            }
-        }
-        // inner node
-        else if _json[POLICY_AND].is_array() {
-            let _num_terms = _json[POLICY_AND].as_array().unwrap().len();
-            _match = true;
-            if _num_terms >= 2 {
-                for _i in 0usize.._num_terms {
-                    let (_found, mut _list) = required_attributes(_attr, &_json[POLICY_AND][_i])
-                        .unwrap();
-                    _match = _match && _found;
-                    if _match {
-                        _emtpy_list.append(&mut _list);
-                    }
-                }
-            } else {
-                println!("Error: Invalid policy (AND with just a single child).");
-                return None;
-            }
-            if !_match {
-                _emtpy_list = Vec::new();
-            }
-            return Some((_match, _emtpy_list));
-        }
-        // leaf node
-        else if _json[POLICY_ATT] != serde_json::Value::Null {
-            match _json[POLICY_ATT].as_str() {
-                Some(_s) => {
-                    if contains(_attr, &_s.to_string()) {
-                        return Some((true, vec![_s.to_string()]));
-                    } else {
-                        return Some((false, _emtpy_list));
-                    }
-                }
-                None => {
-                    println!("ERROR attribute value");
-                    return None;
-                }
-            }
-        } else {
-            return None;
-        }
-    }
-}
-
-pub fn calc_coefficients_str(_policy: &String) -> Option<Vec<(String, Fr)>> {
-    match string_to_json(_policy) {
-        None => {
-            println!("Error in policy: {:?}", _policy);
-            return None;
-        }
-        Some(_json) => {
-            return calc_coefficients(&_json, Fr::one());
-        }
-    }
-}
-
-pub fn calc_coefficients(_json: &serde_json::Value, _coeff: Fr) -> Option<Vec<(String, Fr)>> {
+pub fn calc_coefficients(_json: &PolicyValue, _fr: Option<Fr>, _type: Option<PolicyType>) -> Option<Vec<(String, Fr)>> {
+    let _coeff = _fr.unwrap_or(Fr::one());
     let mut _result: Vec<(String, Fr)> = Vec::new();
-    // leaf node
-    if _json[POLICY_ATT] != serde_json::Value::Null {
-        match _json[POLICY_ATT].as_str() {
-            Some(_s) => {
-                _result.push((_s.to_string(), _coeff));
-                return Some(_result);
-            }
-            None => {
-                println!("ERROR attribute value");
-                return None;
-            }
-        }
-    }
-    // inner node
-    else if _json[POLICY_AND].is_array() {
-        let _len = _json[POLICY_AND].as_array().unwrap().len();
-        let mut _vec = vec![Fr::one()];
-        for _i in 1.._len {
-            let _prev = _vec[_i - 1].clone();
-            _vec.push(_prev + Fr::one());
-        }
-        let _this_coeff = recover_coefficients(_vec);
-        for _i in 0.._len {
-            match calc_coefficients(&_json[POLICY_AND][_i], _coeff * _this_coeff[_i]) {
-                None => return None,
-                Some(_res) => {
-                    _result.extend(_res.iter().cloned());
+    match _json {
+        PolicyValue::Object(obj) => {
+            match obj.0.to_lowercase().as_str() {
+                "and" => calc_coefficients(&obj.1.as_ref().unwrap(), _fr, Some(PolicyType::And)),
+                "or" => calc_coefficients(&obj.1.as_ref().unwrap(), _fr, Some(PolicyType::Or)),
+                _ => {
+                    _result.push((obj.0.to_string(), _coeff));
+                    return Some(_result);
                 }
             }
         }
-        return Some(_result);
-    }
-    // inner node
-    else if _json[POLICY_OR].is_array() {
-        let _len = _json[POLICY_OR].as_array().unwrap().len();
-        let _this_coeff = recover_coefficients(vec![Fr::one()]);
-        for _i in 0.._len {
-            match calc_coefficients(&_json[POLICY_OR][_i], _coeff * _this_coeff[0]) {
-                None => return None,
-                Some(_res) => {
-                    _result.extend(_res.iter().cloned());
+        PolicyValue::Array(children) => {
+            match _type.unwrap() {
+                PolicyType::And => {
+                    let mut _vec = vec![Fr::one()];
+                    for _i in 1..children.len() {
+                        let _prev = _vec[_i - 1].clone();
+                        _vec.push(_prev + Fr::one());
+                    }
+                    let _this_coeff = recover_coefficients(_vec);
+                    for (i, child) in children.iter().enumerate() {
+                        match calc_coefficients(&child, Some(_coeff * _this_coeff[i]), None) {
+                            None => return None,
+                            Some(_res) => {
+                                _result.extend(_res.iter().cloned());
+                            }
+                        }
+                    }
+                    Some(_result)
+                },
+                PolicyType::Or => {
+                    let _this_coeff = recover_coefficients(vec![Fr::one()]);
+                    for (i, child) in children.iter().enumerate() {
+                        match calc_coefficients(&child, Some(_coeff * _this_coeff[0]), None) {
+                            None => return None,
+                            Some(_res) => {
+                                _result.extend(_res.iter().cloned());
+                            }
+                        }
+                    }
+                    Some(_result)
                 }
+                _ => None
             }
         }
-        return Some(_result);
-    } else {
-        return None;
+        PolicyValue::String(str) => {
+            _result.push((str.to_string(), _coeff));
+            return Some(_result);
+        }
+        _ => None
     }
 }
 
@@ -174,58 +80,56 @@ pub fn recover_coefficients(_list: Vec<Fr>) -> Vec<Fr> {
     return _coeff;
 }
 
-pub fn gen_shares_str(_secret: Fr, _policy: &String) -> Option<Vec<(String, Fr)>> {
-    match string_to_json(_policy) {
-        None => {
-            println!("Could not convert policy {:?} to JSON", _policy);
-            return None;
-        }
-        Some(_json_policy) => {
-            return gen_shares_json(_secret, &_json_policy);
-        }
-    }
-}
-
-pub fn gen_shares_json(_secret: Fr, _json: &serde_json::Value) -> Option<Vec<(String, Fr)>> {
+pub fn gen_shares_policy(_secret: Fr, _json: &PolicyValue, _type: Option<PolicyType>) -> Option<Vec<(String, Fr)>> {
     let mut _result: Vec<(String, Fr)> = Vec::new();
     let mut _k = 0;
-    let mut _length = 0;
-    let mut _type = "";
-    // leaf node
-    if _json[POLICY_ATT] != serde_json::Value::Null {
-        match _json[POLICY_ATT].as_str() {
-            Some(_s) => {
-                _result.push((_s.to_string(), _secret));
-                return Some(_result);
+    let mut _n = 0;
+    match _json {
+        PolicyValue::Null => None,
+        PolicyValue::Number(num) => {
+            _result.push((num.to_string(), _secret));
+            Some(_result)
+        },
+        PolicyValue::Boolean(bol) => {
+            _result.push((bol.to_string(), _secret));
+            Some(_result)
+        },
+        PolicyValue::String(str) => {
+            _result.push((str.to_string(), _secret));
+            Some(_result)
+        },
+        PolicyValue::Object(obj) => {
+            match obj.0.to_lowercase().as_str() {
+                "and" => gen_shares_policy(_secret, &obj.1.as_ref().unwrap(), Some(PolicyType::And)),
+                "or" => gen_shares_policy(_secret, &obj.1.as_ref().unwrap(), Some(PolicyType::Or)),
+                _ => gen_shares_policy(_secret, &obj.1.as_ref().unwrap(), Some(PolicyType::Leaf)),
             }
-            None => {
-                println!("Error (gen_shares_json): unkown attribute value");
-                return None;
+        },
+        PolicyValue::Array(children) => {
+            _n = children.len();
+            match _type {
+                Some(PolicyType::And) => {
+                    _k = _n;
+                },
+                Some(PolicyType::Or) => {
+                    _k = 1;
+                }
+                None => panic!("this should not happen =( Array is always AND or OR."),
+                _ => panic!("this should not happen =( Array is always AND or OR.")
             }
-        }
-    }
-    // inner node
-    else if _json[POLICY_OR].is_array() {
-        _type = POLICY_OR;
-        _length = _json[POLICY_OR].as_array().unwrap().len();
-        _k = 1;
-    }
-    // inner node
-    else if _json[POLICY_AND].is_array() {
-        _type = POLICY_AND;
-        _length = _json[POLICY_AND].as_array().unwrap().len();
-        _k = _length;
-    }
-    let shares = gen_shares(_secret, _k, _length);
-    for _count in 0.._length {
-        match gen_shares_json(shares[_count + 1], &_json[_type][_count]) {
-            None => return None,
-            Some(_items) => {
-                _result.extend(_items.iter().cloned());
+            let shares = gen_shares(_secret, _k, _n);
+            for _i in 0.._n {
+                match gen_shares_policy(shares[_i + 1], &children[_i], None) {
+                    None => panic!("Error in gen_shares_policy: Returned None."),
+                    Some(_items) => {
+                        _result.extend(_items.iter().cloned());
+                    }
+                }
             }
-        }
+            Some(_result)
+        },
+        _ => panic!("this should not happen =( input must be a parsed Policy.")
     }
-    return Some(_result);
 }
 
 pub fn gen_shares(_secret: Fr, _k: usize, _n: usize) -> Vec<Fr> {
@@ -250,9 +154,82 @@ pub fn gen_shares(_secret: Fr, _k: usize, _n: usize) -> Vec<Fr> {
     return _shares;
 }
 
+pub fn calc_pruned(_attr: &Vec<String>, _json: &PolicyValue, _type: Option<PolicyType>) -> Result<(bool, Vec<String>), RabeError> {
+    let mut result: Result<(bool, Vec<String>), RabeError> = Ok((false, Vec::new()));
+    let mut _emtpy_list: Vec<String> = Vec::new();
+    match _json {
+        PolicyValue::Object(obj) => {
+            match obj.0.to_lowercase().as_str() {
+                "and" => calc_pruned(_attr, &obj.1.as_ref().unwrap(), Some(PolicyType::And)),
+                "or" => calc_pruned(_attr, &obj.1.as_ref().unwrap(), Some(PolicyType::Or)),
+                _ => calc_pruned(_attr, &obj.1.as_ref().unwrap(), Some(PolicyType::Leaf)),
+            }
+        },
+        PolicyValue::Array(children) => {
+            let len = children.len();
+            match _type {
+                Some(PolicyType::And) => {
+                    let mut _match: bool = true;
+                    if len >= 2 {
+                        for _i in 0usize..len {
+                            let (_found, mut _list) = calc_pruned(_attr, &children[_i], None).unwrap();
+                            _match = _match && _found;
+                            if _match {
+                                _emtpy_list.append(&mut _list);
+                            }
+                        }
+                    } else {
+                        panic!("Error: Invalid policy (AND with just a single child).");
+                    }
+                    if !_match {
+                        _emtpy_list = Vec::new();
+                    }
+                    return Ok((_match, _emtpy_list));
+                },
+                Some(PolicyType::Or) => {
+                    let mut _match: bool = false;
+                    if len >= 2 {
+                        for _i in 0usize..len {
+                            let (_found, mut _list) = calc_pruned(_attr, &children[_i], None).unwrap();
+                            _match = _match || _found;
+                            if _match {
+                                _emtpy_list.append(&mut _list);
+                                break;
+                            }
+                        }
+                        return Ok((_match, _emtpy_list));
+                    } else {
+                        panic!("Error: Invalid policy (OR with just a single child).")
+                    }
+                },
+                None => panic!("Error in calc_pruned: unknown array type!"),
+                _ => panic!("Error in calc_pruned: unknown array type!"),
+
+            }
+        },
+        PolicyValue::String(str) => {
+            if contains(_attr, &str.to_string()) {
+                Ok((true, vec![str.to_string()]))
+            } else {
+                Ok((false, _emtpy_list))
+            }
+        },
+        PolicyValue::Number(num) => {
+            if contains(_attr, &num.to_string()) {
+                Ok((true, vec![num.to_string()]))
+            } else {
+                Ok((false, _emtpy_list))
+            }
+        },
+        PolicyValue::Null=> panic!("Error in calc_pruned: passed null as PolicyValue!"),
+        _ => panic!("Error in calc_pruned: passed unknown as PolicyValue!"),
+    }
+}
+
 #[allow(dead_code)]
 pub fn recover_secret(_shares: Vec<Fr>, _policy: &String) -> Fr {
-    let _coeff = calc_coefficients_str(_policy).unwrap();
+    let policy = parse(_policy, PolicyLanguage::JsonPolicy).unwrap();
+    let _coeff = calc_coefficients(&policy, None, None).unwrap();
     let mut _secret = Fr::zero();
     for _i in 0usize.._shares.len() {
         _secret = _secret + (_coeff[_i].1 * _shares[_i]);
@@ -301,7 +278,7 @@ mod tests {
         );
         let _json = string_to_json(&_policy).unwrap();
         //println!("_random: {:?}", into_dec(_secret).unwrap());
-        let _shares = gen_shares_json(_secret, &_json).unwrap();
+        let _shares = gen_shares_policy(_secret, &_json).unwrap();
         let _coeff = calc_coefficients_str(&_policy).unwrap();
         for _s in _shares {
             println!("_shares: {:?}", _s.0);

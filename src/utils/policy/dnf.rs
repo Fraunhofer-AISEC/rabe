@@ -1,11 +1,13 @@
 use std::string::String;
-use utils::tools::string_to_json;
-use schemes::{
-    mke08::*,
-    bdabe::*
-};
 use bn::{Group, Gt, G1, G2};
-
+use crate::{
+    RabeError,
+    schemes::{
+        mke08::*,
+        bdabe::*
+    },
+};
+use utils::policy::pest::{PolicyLanguage, PolicyValue, parse, PolicyType};
 /// A DNF policy for the MKE08 scheme and the BDABE scheme
 pub struct DnfPolicy {
     pub _terms: Vec<(Vec<String>, Gt, Gt, G1, G2)>,
@@ -19,39 +21,27 @@ impl DnfPolicy {
     ///
     /// * `policy` - A policy in JSON format as String describing the policy
     pub fn new() -> DnfPolicy {
-        let _empty: Vec<(Vec<String>, Gt, Gt, G1, G2)> = Vec::new();
-        DnfPolicy { _terms: _empty }
+        DnfPolicy { _terms: Vec::new() }
     }
 
     pub fn from_string<K: PublicAttributeKey>(
         _policy: &String,
         _pks: &Vec<K>,
-    ) -> Option<DnfPolicy> {
-        match string_to_json(_policy) {
-            None => {
-                println!("Error parsing policy");
-                return None;
-            }
-            Some(_j) => {
-                return json_to_dnf(&_j, _pks);
+        _language: PolicyLanguage
+    ) -> Result<DnfPolicy, RabeError> {
+        return match parse(_policy, _language) {
+            Err(e) => Err(e),
+            Ok(_pol) => {
+                json_to_dnf(&_pol, _pks)
             }
         }
     }
+
     pub fn from_json(
-        _json: &serde_json::Value,
+        _json: &PolicyValue,
         _pks: &Vec<Mke08PublicAttributeKey>,
-    ) -> Option<DnfPolicy> {
+    ) -> Result<DnfPolicy, RabeError> {
         json_to_dnf(_json, _pks)
-    }
-    pub fn is_in_dnf(_policy: &String) -> bool {
-        match string_to_json(_policy) {
-            None => {
-                return false;
-            }
-            Some(json) => {
-                return policy_in_dnf(&json, false);
-            }
-        }
     }
 }
 
@@ -108,113 +98,110 @@ impl PublicAttributeKey for BdabePublicAttributeKey {
     }
 }
 
-pub fn policy_in_dnf(p: &serde_json::Value, conjunction: bool) -> bool {
-    if *p == serde_json::Value::Null {
-        println!("Error passed null!");
-        return false;
-    }
-    let mut ret = true;
-    // inner node
-    if p["OR"].is_array() {
-        if conjunction {
-            return false;
-        } else {
-            for i in 0usize..p["OR"].as_array().unwrap().len() {
-                ret &= policy_in_dnf(&p["OR"][i], conjunction)
-            }
-        }
-        return ret;
-    } else if p["AND"].is_array() {
-        for i in 0usize..p["AND"].as_array().unwrap().len() {
-            ret &= policy_in_dnf(&p["AND"][i], true)
-        }
-        return ret;
-    }
-    //Leaf
-    else if p["ATT"] != serde_json::Value::Null {
-        return true;
-    } else {
-        println!("Policy invalid. No AND or OR found");
-        return false;
-    }
-}
-
 // this calcluates the sum's of all AND terms in a Bdabe DNF policy
 pub fn dnf<K: PublicAttributeKey>(
     _dnfp: &mut DnfPolicy,
     _pks: &Vec<K>,
-    _p: &serde_json::Value,
+    _p: &PolicyValue,
     _i: usize,
 ) -> bool {
-    if *_p == serde_json::Value::Null {
-        println!("Error passed null!");
-        return false;
+    if *_p == PolicyValue::Null {
     }
     let mut ret = true;
     // inner node
-    if _p["OR"].is_array() {
-        let len = _p["OR"].as_array().unwrap().len();
-        for i in 0usize..len {
-            ret = ret && dnf(_dnfp, _pks, &_p["OR"][i], i + _i)
-        }
-        return ret;
-    } else if _p["AND"].is_array() {
-        let len = _p["AND"].as_array().unwrap().len();
-        for i in 0usize..len {
-            ret = ret && dnf(_dnfp, _pks, &_p["AND"][i], _i)
-        }
-        return ret;
-    }
-    //Leaf
-    else if _p["ATT"] != serde_json::Value::Null {
-        match _p["ATT"].as_str() {
-            Some(_s) => {
-                for pak in _pks.iter() {
-                    if pak._str() == _s {
-                        if _dnfp._terms.len() > _i {
-                            _dnfp._terms[_i].0.push(pak._str().to_string());
-                            _dnfp._terms[_i] = (
-                                _dnfp._terms[_i].0.clone(),
-                                _dnfp._terms[_i].1 * pak._gt1(),
-                                _dnfp._terms[_i].2 * pak._gt2(),
-                                _dnfp._terms[_i].3 + pak._g1(),
-                                _dnfp._terms[_i].4 + pak._g2(),
-                            );
-                        } else {
-                            _dnfp._terms.push((
-                                vec![pak._str().to_string()],
-                                pak._gt1(),
-                                pak._gt2(),
-                                pak._g1(),
-                                pak._g2(),
-                            ));
-                        }
+    return match _p {
+        PolicyValue::Null => {
+            false
+        },
+        PolicyValue::Array(nodes) => {
+            for (i, value) in nodes.iter().enumerate() {
+                ret = ret && dnf(_dnfp, _pks, &value, i + _i)
+            }
+            ret
+        },
+        PolicyValue::Object(obj) => {
+            for pak in _pks.iter() {
+                if pak._str() == obj.0 {
+                    if _dnfp._terms.len() > _i {
+                        _dnfp._terms[_i].0.push(pak._str().to_string());
+                        _dnfp._terms[_i] = (
+                            _dnfp._terms[_i].0.clone(),
+                            _dnfp._terms[_i].1 * pak._gt1(),
+                            _dnfp._terms[_i].2 * pak._gt2(),
+                            _dnfp._terms[_i].3 + pak._g1(),
+                            _dnfp._terms[_i].4 + pak._g2(),
+                        );
+                    } else {
+                        _dnfp._terms.push((
+                            vec![pak._str().to_string()],
+                            pak._gt1(),
+                            pak._gt2(),
+                            pak._g1(),
+                            pak._g2(),
+                        ));
                     }
                 }
             }
-            None => {
-                println!("ERROR attribute value");
-                return false;
-            }
+            true
         }
-        return true;
-    } else {
-        println!("Policy invalid. No AND or OR found");
-        return false;
+        _ => false
     }
 }
 
 // this calcluates the sum's of all conjunction terms in a Bdabe DNF policy ( see fn dnf() )
 pub fn json_to_dnf<K: PublicAttributeKey>(
-    _json: &serde_json::Value,
+    _p: &PolicyValue,
     _pks: &Vec<K>,
-) -> Option<DnfPolicy> {
+) -> Result<DnfPolicy, RabeError> {
     let mut dnfp = DnfPolicy::new();
-    if dnf(&mut dnfp, _pks, _json, 0) {
+    if dnf(&mut dnfp, _pks, _p, 0) {
         dnfp._terms.sort_by(|a, b| a.0.len().cmp(&b.0.len()));
-        return Some(dnfp);
+        Ok(dnfp)
     }
-    return None;
+    else {
+        panic!("Error in json_to_dnf: could not parse policy as DNF")
+    }
+}
+
+pub fn policy_in_dnf(p: &PolicyValue, conjunction: bool, policy: Option<PolicyType>) -> bool {
+
+    return match p {
+        PolicyValue::Null => panic!("Error in policy_in_dnf: passed null!"),
+        PolicyValue::Number(num) => true,
+        PolicyValue::Object(obj) => {
+            match obj.0.to_lowercase().as_str() {
+                "and" => policy_in_dnf(&obj.1.as_ref().unwrap(), conjunction, Some(PolicyType::And)),
+                "or" => policy_in_dnf(&obj.1.as_ref().unwrap(), conjunction, Some(PolicyType::Or)),
+                _ => policy_in_dnf(&obj.1.as_ref().unwrap(), conjunction, Some(PolicyType::Leaf)),
+            }
+        },
+        PolicyValue::String(str) => true,
+        PolicyValue::Array(children) => {
+            let mut ret = true;
+            let len = children.len();
+            match policy {
+                Some(PolicyType::And) => {
+                    for i in 0usize..len {
+                        ret &= policy_in_dnf(&children[i], true, None)
+                    }
+                    ret
+                },
+                Some(PolicyType::Or) => {
+                    if conjunction {
+                        ret = false;
+                    } else {
+                        for i in 0usize..len {
+                            ret &= policy_in_dnf(&children[i], conjunction, None)
+                        }
+                    }
+                    ret
+                },
+                _ => panic!("Error in policy_in_dnf: Array without parent AND or OR should not happen!"),
+            }
+        },
+        PolicyValue::Boolean(bol) => true,
+        _ => panic!("Error in policy_in_dnf: Unkown PolicyValue."),
+    }
 }
 
 #[cfg(test)]

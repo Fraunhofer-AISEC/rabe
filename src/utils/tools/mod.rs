@@ -9,6 +9,7 @@ extern crate serde_json;
 use bn::*;
 use num_bigint::ToBigInt;
 use std::collections::HashSet;
+use utils::policy::pest::{PolicyLanguage, PolicyValue, parse, PolicyType};
 
 pub fn is_negative(_attr: &String) -> bool {
     let first_char = &_attr[..1];
@@ -18,18 +19,6 @@ pub fn is_negative(_attr: &String) -> bool {
 pub fn usize_to_fr(_i: usize) -> Fr {
     let _i = _i.to_bigint().unwrap();
     return Fr::from_str(&_i.to_str_radix(10)).unwrap();
-}
-
-pub fn string_to_json(policy: &String) -> Option<serde_json::Value> {
-    match serde_json::from_str(policy) {
-        Err(e) => {
-            println!("string_to_json ERROR: {:?}", e);
-            return None;
-        }
-        Ok(pol) => {
-            return Some(pol);
-        }
-    }
 }
 
 pub fn contains(data: &Vec<String>, value: &String) -> bool {
@@ -47,69 +36,41 @@ pub fn is_subset(_subset: &Vec<String>, _attr: &Vec<String>) -> bool {
     return sub_set.is_subset(&super_set);
 }
 
-pub fn traverse_str(_attr: &Vec<String>, _policy: &String) -> bool {
-    match string_to_json(_policy) {
-        None => return false,
-        Some(_value) => return traverse_json(_attr, &_value),
-    }
-}
-
 // used to traverse / check policy tree
-pub fn traverse_json(_attr: &Vec<String>, _json: &serde_json::Value) -> bool {
-    if *_json == serde_json::Value::Null {
-        println!("Error: passed null as json!");
-        return false;
-    }
-    if _attr.len() == 0 {
-        println!("Error: No attributes in List!");
-        return false;
-    }
-    // inner node or
-    if _json["OR"].is_array() {
-        let _num_terms = _json["OR"].as_array().unwrap().len();
-        if _num_terms >= 2 {
-            let mut ret = false;
-            for _i in 0usize.._num_terms {
-                ret = ret || traverse_json(_attr, &_json["OR"][_i]);
+pub fn traverse_policy(_attr: &Vec<String>, _json: &PolicyValue, _type: PolicyType) -> bool {
+    return (_attr.len() > 0) && match _json {
+        PolicyValue::Null => false,
+        PolicyValue::String(val) => (&_attr).into_iter().any(|x| x == val),
+        PolicyValue::Boolean(b) => true,
+        PolicyValue::Object(obj) => {
+            return match obj.0.to_lowercase().as_str() {
+                "and" => traverse_policy(_attr, &obj.1.as_ref().unwrap(), PolicyType::And),
+                "or" => traverse_policy(_attr, &obj.1.as_ref().unwrap(), PolicyType::Or),
+                _ => true,
             }
-            return ret;
-        } else {
-            println!("Error: Invalid policy (OR with just a single child).");
-            return false;
-        }
-    }
-    // inner node and
-    else if _json["AND"].is_array() {
-        let _num_terms = _json["AND"].as_array().unwrap().len();
-        if _num_terms >= 2 {
-            let mut ret = true;
-            for _i in 0usize.._num_terms {
-                ret = ret && traverse_json(_attr, &_json["AND"][_i]);
-            }
-            return ret;
-        } else {
-            println!("Error: Invalid policy (AND with just a single child).");
-            return false;
-        }
-    }
-    // leaf node
-    else if _json["ATT"] != serde_json::Value::Null {
-        match _json["ATT"].as_str() {
-            Some(s) => {
-                // check if ATT in _attr list
-                return (&_attr).into_iter().any(|x| x == s);
-            }
-            None => {
-                println!("Error: in attribute String");
-                return false;
-            }
-        }
-    }
-    // error
-    else {
-        println!("Error: Policy invalid. No AND or OR found");
-        return false;
-    }
+        },
+        PolicyValue::Array(arrayref) => {
+            return match _type {
+                PolicyType::And => {
+                    let mut ret = true;
+                    for (i, obj) in arrayref.iter().enumerate() {
+                        ret &= traverse_policy(_attr, obj, PolicyType::Leaf)
+                    }
+                    ret
+                },
+                PolicyType::Or => {
+                    let mut ret = false;
+                    for (i, obj) in arrayref.iter().enumerate() {
+                        ret |= traverse_policy(_attr, obj, PolicyType::Leaf)
+                    }
+                    ret
+                },
+                _ => false,
+            };
+        },
+        PolicyValue::Number(n) => true,
+        _ => false
+    };
 }
 
 #[cfg(test)]
@@ -119,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_traverse() {
-        let policyfalse = String::from(r#"joking-around?"#);
+        let policy_false = String::from(r#"joking-around?"#);
         let policy1 = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         let policy2 = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
         let policy3 = String::from(

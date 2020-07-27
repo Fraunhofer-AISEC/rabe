@@ -1,0 +1,54 @@
+//
+// Example Json Policy:
+// --------------------
+//
+// {
+//   name: "or", children: [
+//     { name: "idsc:BASE_CONNECTOR_SECURITY_PROFILE" },
+//     { name: "idsc:USAGE_CONTROL_POLICY_ENFORCEMENT"}
+//   ]
+// }
+
+// Constants
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+NAME = _{ "name" | "NAME" }
+CHILDREN = _{ "children" | "CHILDREN" }
+NODES = _{ "and" | "AND" | "or" | "OR" }
+
+// Nodes
+node = {
+    "{" ~ "}" |
+    "{" ~ nodepair ~ ("," ~ childpair)? ~ "}"
+}
+nodepair = {
+    NAME ~ ":" ~ value
+}
+
+childpair = {
+    CHILDREN ~ ":" ~ array
+}
+
+value = _{ string | number | boolean | number | null }
+
+// value types
+array = {
+    "[" ~ "]" |
+    "[" ~ node ~ ("," ~ node)* ~ "]"
+}
+boolean = { "true" | "false" }
+null = { "null" }
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+number = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ~ ("." ~ ASCII_DIGIT*)?
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+// complete input
+content = _{ SOI ~ node ~ EOI }

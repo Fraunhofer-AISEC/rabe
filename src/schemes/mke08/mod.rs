@@ -36,6 +36,9 @@ use utils::{
     policy::dnf::DnfPolicy,
     tools::*
 };
+use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
+use utils::policy::dnf::policy_in_dnf;
+use RabeError;
 
 /// A MKE08 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -106,7 +109,7 @@ pub struct Mke08SecretAttributeKey {
 /// A MKE08 Ciphertext (CT) consisting of the AES encrypted data as well as a Vector of all Conjunctions of the access policy
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Mke08Ciphertext {
-    pub _policy: String,
+    pub _policy: (String, PolicyLanguage),
     pub _e: Vec<Mke08CTConjunction>,
     pub _ct: Vec<u8>,
 }
@@ -258,39 +261,45 @@ pub fn encrypt(
     _pk: &Mke08PublicKey,
     _attr_pks: &Vec<Mke08PublicAttributeKey>,
     _policy: &String,
+    _language: PolicyLanguage,
     _plaintext: &[u8],
-) -> Option<Mke08Ciphertext> {
-    // if policy is in DNF
-    return if DnfPolicy::is_in_dnf(&_policy) {
-        // random number generator
-        let mut _rng = rand::thread_rng();
-        // an DNF policy from the given String
-        let dnf: DnfPolicy = DnfPolicy::from_string(&_policy, _attr_pks).unwrap();
-        // random Gt msgs
-        let _msg1 = pairing(_rng.gen(), _rng.gen());
-        let _msg2 = _msg1.pow(_rng.gen());
-        let _msg = _msg1 * _msg2;
-        // CT result vectors
-        let mut _e: Vec<Mke08CTConjunction> = Vec::new();
-        // now add randomness using _r_j
-        for _term in dnf._terms.into_iter() {
-            let _r_j: Fr = _rng.gen();
-            _e.push(Mke08CTConjunction {
-                _str: _term.0,
-                _j1: _term.1.pow(_r_j) * _msg1,
-                _j2: _term.2.pow(_r_j) * _msg2,
-                _j3: _pk._p1 * _r_j,
-                _j4: _pk._p2 * _r_j,
-                _j5: _term.3 * _r_j,
-                _j6: _term.4 * _r_j,
-            });
-        }
-        //Encrypt plaintext using derived key from secret
-        let _policy = _policy.to_string();
-        let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
-        Some(Mke08Ciphertext { _policy, _e, _ct})
-    } else {
-        None
+) -> Result<Mke08Ciphertext, RabeError> {
+    match parse(_policy, _language) {
+        Ok(pol) => {
+            // if policy is in DNF
+            return if policy_in_dnf(&pol, false, None) {
+                // random number generator
+                let mut _rng = rand::thread_rng();
+                // an DNF policy from the given String
+                let policy = DnfPolicy::from_string(&_policy, _attr_pks, _language).unwrap();
+                // random Gt msgs
+                let _msg1 = pairing(_rng.gen(), _rng.gen());
+                let _msg2 = _msg1.pow(_rng.gen());
+                let _msg = _msg1 * _msg2;
+                // CT result vectors
+                let mut _e: Vec<Mke08CTConjunction> = Vec::new();
+                // now add randomness using _r_j
+                for _term in policy._terms.into_iter() {
+                    let _r_j: Fr = _rng.gen();
+                    _e.push(Mke08CTConjunction {
+                        _str: _term.0,
+                        _j1: _term.1.pow(_r_j) * _msg1,
+                        _j2: _term.2.pow(_r_j) * _msg2,
+                        _j3: _pk._p1 * _r_j,
+                        _j4: _pk._p2 * _r_j,
+                        _j5: _term.3 * _r_j,
+                        _j6: _term.4 * _r_j,
+                    });
+                }
+                //Encrypt plaintext using derived key from secret
+                let _policy = _policy.to_string();
+                let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
+                Ok(Mke08Ciphertext { _policy: (_policy, _language), _e, _ct})
+            } else {
+                panic!("Error in mke08/encrypt: policy is not in dnf")
+            }
+        },
+        Err(e) => panic!("Error in mke08/encrypt: could not parse policy")
     }
 }
 
@@ -303,7 +312,11 @@ pub fn encrypt(
 ///	* `_ct` - A Mke08Ciphertext
 ///	* `_policy` - An access policy given as JSON String
 ///
-pub fn decrypt(_pk: &Mke08PublicKey, _sk: &Mke08UserKey, _ct: &Mke08Ciphertext) -> Option<Vec<u8>> {
+pub fn decrypt(
+    _pk: &Mke08PublicKey,
+    _sk: &Mke08UserKey,
+    _ct: &Mke08Ciphertext,
+    lang: PolicyLanguage) -> Result<Vec<u8>, RabeError> {
     let _attr = _sk._sk_a
         .iter()
         .map(|triple| {
@@ -311,23 +324,27 @@ pub fn decrypt(_pk: &Mke08PublicKey, _sk: &Mke08UserKey, _ct: &Mke08Ciphertext) 
             _a._str.to_string()
         })
         .collect::<Vec<_>>();
-    return if traverse_str(&_attr, &_ct._policy) == false {
-        //println!("Error: attributes in sk do not match policy in ct.");
-        None
-    } else {
-        let mut _msg = Gt::one();
-        for (_i, _e_j) in _ct._e.iter().enumerate() {
-            if is_satisfiable(&_e_j._str, &_sk._sk_a) {
-                let _sk_sum = calc_satisfiable(&_e_j._str, &_sk._sk_a);
-                _msg = _e_j._j1 * _e_j._j2 * pairing(_e_j._j3, _sk_sum.1) *
-                    pairing(_sk_sum.0, _e_j._j4) *
-                    (pairing(_e_j._j5, _sk._sk_u._sk_g2) * pairing(_sk._sk_u._sk_g1, _e_j._j6))
-                        .inverse();
-                break;
+    match parse(_ct._policy.0.as_ref(), _ct._policy.1) {
+        Ok(pol) => {
+            return if traverse_policy(&_attr, &pol, PolicyType::Leaf) == false {
+                panic!("Error in mke08/decrypt: attributes in sk do not match policy in ct.");
+            } else {
+                let mut _msg = Gt::one();
+                for (_i, _e_j) in _ct._e.iter().enumerate() {
+                    if is_satisfiable(&_e_j._str, &_sk._sk_a) {
+                        let _sk_sum = calc_satisfiable(&_e_j._str, &_sk._sk_a);
+                        _msg = _e_j._j1 * _e_j._j2 * pairing(_e_j._j3, _sk_sum.1) *
+                            pairing(_sk_sum.0, _e_j._j4) *
+                            (pairing(_e_j._j5, _sk._sk_u._sk_g2) * pairing(_sk._sk_u._sk_g1, _e_j._j6))
+                                .inverse();
+                        break;
+                    }
+                }
+                // Decrypt plaintext using derived secret from mke08 scheme
+                decrypt_symmetric(&_msg, &_ct._ct)
             }
-        }
-        // Decrypt plaintext using derived secret from mke08 scheme
-        decrypt_symmetric(&_msg, &_ct._ct)
+        },
+        Err(e) => panic!("Error in mke08/encrypt: could not parse policy")
     }
 }
 
