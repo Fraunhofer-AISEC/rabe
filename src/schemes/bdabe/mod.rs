@@ -266,8 +266,8 @@ pub fn encrypt(
     _pk: &BdabePublicKey,
     _attr_pks: &Vec<BdabePublicAttributeKey>,
     _policy: &String,
-    _language: PolicyLanguage,
     _plaintext: &[u8],
+    _language: PolicyLanguage,
 ) -> Result<BdabeCiphertext, RabeError> {
     match parse(_policy, _language) {
         Ok(pol) => {
@@ -316,14 +316,13 @@ pub fn encrypt(
 pub fn decrypt(
     _pk: &BdabePublicKey,
     _sk: &BdabeUserKey,
-    _ct: &BdabeCiphertext,
-    lang: PolicyLanguage) -> Result<Vec<u8>, RabeError> {
+    _ct: &BdabeCiphertext) -> Result<Vec<u8>, RabeError> {
     let _str_attr = _sk
         ._ska
         .iter()
         .map(|_values| _values._str.to_string())
         .collect::<Vec<_>>();
-    match parse(_ct._policy.0.as_ref(), lang) {
+    match parse(_ct._policy.0.as_ref(), _ct._policy.1) {
         Ok(pol) => {
             return if traverse_policy(&_str_attr, &pol, PolicyType::Leaf) == false {
                 panic!("Error in bdabe/decrypt: attributes in sk do not match policy in ct.");
@@ -472,10 +471,10 @@ mod tests {
         let _policy = String::from(r#"{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
         // cp-abe ciphertext
         let _ct: BdabeCiphertext =
-            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
-        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.is_ok(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
 
@@ -510,10 +509,10 @@ mod tests {
         let _policy = String::from(r#"{"OR": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
         // cp-abe ciphertext
         let _ct: BdabeCiphertext =
-            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
-        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.is_ok(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
 
@@ -558,10 +557,10 @@ mod tests {
         );
         // cp-abe ciphertext
         let _ct: BdabeCiphertext =
-            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
-        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.is_ok(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
 
@@ -596,10 +595,10 @@ mod tests {
         let _policy = String::from(r#"{"OR": [{"ATT": "aa1::B"}, {"ATT": "aa2::A"}]}"#);
         // cp-abe ciphertext
         let _ct: BdabeCiphertext =
-            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+            encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
-        assert_eq!(_match.is_none(), true);
+        assert_eq!(_match.is_ok(), false);
     }
 
 }

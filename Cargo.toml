@@ -14,19 +14,19 @@ crate-type=["rlib", "cdylib"]
 
 [dependencies]
 arrayref = "0.3.4"
-libc = "0.2.0"
-rand = "0.7.3"
-bn = { git = "https://github.com/georgbramm/bn" }
-blake2-rfc = "0.2.17"
-rust-crypto = "0.2.36"
-byteorder = "1.2.2"
+base64 = "0.10.1"
 bincode = "1.0.0"
+blake2-rfc = "0.2.17"
+bn = { git = "https://github.com/georgbramm/bn" }
+byteorder = "1.2.2"
+clap = "2.27.1"
+libc = "0.2.0"
 num-bigint = "0.1.40"
+rand = "0.7.3"
+rust-crypto = "0.2.36"
 serde = "1.0.16"
 serde_json = "1.0.4"
 serde_cbor = "0.9"
 serde_derive = "1.0.16"
-clap = "2.27.1"
-base64 = "0.10.1"
 pest = "2.0"
 pest_derive = "2.0"

@@ -263,7 +263,7 @@ mod tests {
         _input.push(_shares[1]);
         let _reconstruct = recover_secret(
             _input,
-            &String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#),
+            &String::from(r#"{"OR": [{"name": "A"}, {"name": "B"}]}"#),
         );
         assert!(_k == _reconstruct);
     }
@@ -273,20 +273,21 @@ mod tests {
         // OR
         let _rng = &mut rand::thread_rng();
         let _secret:Fr = _rng.gen();
-        let _policy = String::from(
-            r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}, {"ATT": "C"}, {"ATT": "D"}]}"#,
-        );
-        let _json = string_to_json(&_policy).unwrap();
-        //println!("_random: {:?}", into_dec(_secret).unwrap());
-        let _shares = gen_shares_policy(_secret, &_json).unwrap();
-        let _coeff = calc_coefficients_str(&_policy).unwrap();
-        for _s in _shares {
-            println!("_shares: {:?}", _s.0);
+        let _policy = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}, {"name": "C"}, {"name": "D"}]}"#);
+        match parse(&_policy, PolicyLanguage::JsonPolicy) {
+            Ok(pol) => {
+                let _shares = gen_shares_policy(_secret, &pol, None).unwrap();
+                let _coeff = calc_coefficients(&pol, Some(Fr::one()), None).unwrap();
+                for _s in _shares {
+                    println!("_shares: {:?}", _s.0);
+                }
+                for _c in _coeff {
+                    println!("_coeff: {:?}", _c.0);
+                }
+                //assert!(_k == _reconstruct);
+            },
+            Err(e) => panic!("test_gen_shares_json: could not parse policy")
         }
-        for _c in _coeff {
-            println!("_coeff: {:?}", _c.0);
-        }
-        //assert!(_k == _reconstruct);
     }
 
     #[test]
@@ -305,7 +306,7 @@ mod tests {
         //println!("_share2: {:?}", into_dec(_shares[2]).unwrap());
         let _reconstruct = recover_secret(
             _input,
-            &String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#),
+            &String::from(r#"{"AND": [{"name": "A"}, {"name": "B"}]}"#),
         );
         //println!("_reconstructed: {:?}", into_dec(_reconstruct).unwrap());
         assert!(_k == _reconstruct);
@@ -318,19 +319,24 @@ mod tests {
         _attributes.push(String::from("3"));
         _attributes.push(String::from("4"));
 
-        let _result1 = calc_pruned_str(
+        let pol1 = String::from(r#"{"OR": [{"AND": [{"name": "1"}, {"name": "2"}]}, {"AND": [{"name": "3"}, {"name": "4"}]}]}"#);
+        let pol2 = String::from(r#"{"OR": [{"name": "3"}, {"AND": [{"name": "4"}, {"name": "5"}]}]}"#);
+        let pol3 = String::from(r#"{"AND": [{"AND": [{"name": "1"}, {"name": "2"}]}, {"AND": [{"name": "3"}, {"name": "4"}]}]}"#);
+
+        let _result1 = calc_pruned(
             &_attributes,
-            &String::from(r#"{"OR": [{"AND": [{"ATT": "1"}, {"ATT": "2"}]}, {"AND": [{"ATT": "3"}, {"ATT": "4"}]}]}"#),
+            &parse(pol1.as_ref(), PolicyLanguage::JsonPolicy).unwrap(),
+            None
         );
-        let _result2 = calc_pruned_str(
+        let _result2 = calc_pruned(
             &_attributes,
-            &String::from(
-                r#"{"OR": [{"ATT": "3"}, {"AND": [{"ATT": "4"}, {"ATT": "5"}]}]}"#,
-            ),
+            &parse(pol2.as_ref(), PolicyLanguage::JsonPolicy).unwrap(),
+            None
         );
-        let _result3 = calc_pruned_str(
+        let _result3 = calc_pruned(
             &_attributes,
-            &String::from(r#"{"AND": [{"AND": [{"ATT": "1"}, {"ATT": "2"}]}, {"AND": [{"ATT": "3"}, {"ATT": "4"}]}]}"#),
+            &parse(pol3.as_ref(), PolicyLanguage::JsonPolicy).unwrap(),
+            None
         );
 
         let (_match1, _list1) = _result1.unwrap();

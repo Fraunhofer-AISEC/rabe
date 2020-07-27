@@ -286,7 +286,7 @@ mod tests {
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
+        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy, PolicyLanguage::JsonPolicy).unwrap();
         // and now decrypt again with matching sk
         assert_eq!(decrypt(&sk, &ct_kp_matching).unwrap(), plaintext);
     }
@@ -308,7 +308,7 @@ mod tests {
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
+        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy, PolicyLanguage::JsonPolicy).unwrap();
         // and now decrypt again with matching sk
         assert_eq!(decrypt(&sk, &ct_kp_matching).unwrap(), plaintext);
     }
@@ -331,7 +331,7 @@ mod tests {
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
+        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy, PolicyLanguage::JsonPolicy).unwrap();
         // and now decrypt again with matching sk
         assert_eq!(decrypt(&sk, &ct_kp_matching).unwrap(), plaintext);
     }
@@ -352,8 +352,9 @@ mod tests {
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
-        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
+        let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy, PolicyLanguage::JsonPolicy).unwrap();
         // and now decrypt again with matching sk
-        assert_eq!(decrypt(&sk, &ct_kp_matching), None);
+        let res = decrypt(&sk, &ct_kp_matching);
+        assert_eq!(res.is_ok(), false);
     }
 }

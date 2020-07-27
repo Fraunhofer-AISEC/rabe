@@ -315,8 +315,7 @@ pub fn encrypt(
 pub fn decrypt(
     _pk: &Mke08PublicKey,
     _sk: &Mke08UserKey,
-    _ct: &Mke08Ciphertext,
-    lang: PolicyLanguage) -> Result<Vec<u8>, RabeError> {
+    _ct: &Mke08Ciphertext) -> Result<Vec<u8>, RabeError> {
     let _attr = _sk._sk_a
         .iter()
         .map(|triple| {
@@ -471,11 +470,11 @@ mod tests {
         // our policy
         let _policy = String::from(r#"{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
         // cp-abe ciphertext
-        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy,PolicyLanguage::JsonPolicy, &_plaintext)
             .unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
-        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.is_ok(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
 
@@ -509,11 +508,11 @@ mod tests {
         // our policy
         let _policy = String::from(r#"{"OR": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
         // cp-abe ciphertext
-        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, PolicyLanguage::JsonPolicy, &_plaintext)
             .unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
-        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.is_ok(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
 
@@ -555,11 +554,12 @@ mod tests {
             &_pk,
             &vec![_att1_pk, _att2_pk, _att3_pk],
             &_policy,
+            PolicyLanguage::JsonPolicy,
             &_plaintext,
         ).unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
-        assert_eq!(_match.is_some(), true);
+        assert_eq!(_match.is_ok(), true);
         assert_eq!(_match.unwrap(), _plaintext);
     }
 
@@ -622,10 +622,10 @@ mod tests {
         // our policy
         let _policy = String::from(r#"{"OR": [{"ATT": "aa2::A"}, {"ATT": "aa1::B"}]}"#);
         // cp-abe ciphertext
-        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext)
+        let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, PolicyLanguage::JsonPolicy, &_plaintext)
             .unwrap();
         // and now decrypt again with mathcing sk
         let _match = decrypt(&_pk, &_u_key, &_ct);
-        assert_eq!(_match.is_none(), true);
+        assert_eq!(_match.is_ok(), false);
     }
 }

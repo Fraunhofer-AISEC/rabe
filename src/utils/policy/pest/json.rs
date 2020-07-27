@@ -31,8 +31,15 @@ pub(crate) fn parse(pair: Pair<Rule>) -> PolicyValue {
                         .next()
                         .unwrap()
                         .as_str();
-                    let value: PolicyValue = parse(inner_rules.next().unwrap());
-                    Box::new((name, Some(value)))
+                    match inner_rules.next() {
+                        Some(next) => {
+                            let value: PolicyValue = parse(inner_rules.next().unwrap());
+                            Box::new((name, Some(value)))
+                        },
+                        None => {
+                            Box::new((name, None))
+                        }
+                    }
                 })
                 .next().unwrap(),
         ),

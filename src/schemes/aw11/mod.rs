@@ -265,8 +265,7 @@ pub fn encrypt(
 pub fn decrypt(
     gk: &Aw11GlobalKey,
     sk: &Aw11SecretKey,
-    ct: &Aw11Ciphertext,
-    lang: PolicyLanguage) -> Result<Vec<u8>, RabeError> {
+    ct: &Aw11Ciphertext) -> Result<Vec<u8>, RabeError> {
     let _str_attr = sk
         ._attr
         .iter()
@@ -399,7 +398,7 @@ mod tests {
         _pks.push(_auth1_pk);
 
         // cp-abe ciphertext
-        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
+        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, PolicyLanguage::JsonPolicy, &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
         let _matching = decrypt(&_gp, &_bob, &ct_cp).unwrap();
         assert_eq!(_matching, _plaintext);
@@ -446,7 +445,7 @@ mod tests {
         add_attribute(&_gp, &_auth2_msk, &String::from("C"), &mut _bob);
 
         // cp-abe ciphertext
-        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
+        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy,PolicyLanguage::JsonPolicy,  &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
         let _matching = decrypt(&_gp, &_bob, &ct_cp).unwrap();
         assert_eq!(_matching, _plaintext);
@@ -495,7 +494,7 @@ mod tests {
         add_attribute(&_gp, &_auth2_msk, &String::from("D"), &mut _bob);
 
         // cp-abe ciphertext
-        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
+        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, PolicyLanguage::JsonPolicy, &_plaintext).unwrap();
         // and now decrypt again with mathcing sk
         let _matching = decrypt(&_gp, &_bob, &ct_cp).unwrap();
         assert_eq!(_matching, _plaintext);
@@ -538,8 +537,9 @@ mod tests {
         // add attribute "C" and "D" of auth2 to bobs key
         add_attribute(&_gp, &_auth2_msk, &String::from("D"), &mut _bob);
         // cp-abe ciphertext
-        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, &_plaintext).unwrap();
+        let ct_cp: Aw11Ciphertext = encrypt(&_gp, &_pks, &_policy, PolicyLanguage::JsonPolicy, &_plaintext).unwrap();
         // and now decrypt again
-        assert_eq!(decrypt(&_gp, &_bob, &ct_cp), None);
+        let pt = decrypt(&_gp, &_bob, &ct_cp);
+        assert_eq!(pt.is_ok(), false);
     }
 }

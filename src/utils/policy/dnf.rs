@@ -164,7 +164,6 @@ pub fn json_to_dnf<K: PublicAttributeKey>(
 }
 
 pub fn policy_in_dnf(p: &PolicyValue, conjunction: bool, policy: Option<PolicyType>) -> bool {
-
     return match p {
         PolicyValue::Null => panic!("Error in policy_in_dnf: passed null!"),
         PolicyValue::Number(num) => true,
@@ -211,16 +210,32 @@ mod tests {
 
     #[test]
     fn test_dnf_from() {
-        let policy_in_dnf1 = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}]}"#);
-        let policy_in_dnf2 = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "D"}]}"#);
-        let policy_in_dnf3 = String::from(r#"{"OR": [{"ATT": "C"}, {"AND": [{"ATT": "A"}, {"ATT": "C"}]}, {"AND": [{"ATT": "A"}, {"ATT": "D"}]}]}"#);
-        let policy_not_dnf1 = String::from(r#"{"AND": [{"OR": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
-        let policy_not_dnf2 = String::from(r#"{"OR": [{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
-        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf1));
-        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf2));
-        assert!(DnfPolicy::is_in_dnf(&policy_in_dnf3));
-        assert!(!DnfPolicy::is_in_dnf(&policy_not_dnf1));
-        assert!(!DnfPolicy::is_in_dnf(&policy_not_dnf2));
+        let policy_in_dnf1 = String::from(r#"{"name": "or", "children": [{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}, {"name": "and", "children":  [{"name": "A"}, {"name": "C"}]}]}"#);
+        let policy_in_dnf2 = String::from(r#"{"name": "and", "children": [{"name": "C"}, {"name": "D"}]}"#);
+        let policy_in_dnf3 = String::from(r#"{"name": "or", "children": [{"name": "C"}, {"name": "and",  "children": [{"name": "A"}, {"name": "C"}]}, {"name" :"and",  "children": [{"name": "A"}, {"name": "D"}]}]}"#);
+        let policy_not_dnf1 = String::from(r#"{"name": "and", "children": [{"name": "or",  "children":: [{"name": "A"}, {"name": "B"}]}, {"name": "and",  "children": [{"name": "C"}, {"name": "D"}]}]}"#);
+        let policy_not_dnf2 = String::from(r#"{"name": "or", "children":  [{"name": "and",  "children": [{"name": "or",  "children": [{"name": "C"}, {"name": "D"}]}, {"name": "B"}]}, {"name": "and",  "children": [{"name": "C"}, {"name": "D"}]}]}"#);
+        match parse(policy_in_dnf1.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
+            Err(e) => panic!("could not parse policy_in_dnf1")
+        }
+        match parse(policy_in_dnf2.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
+            Err(e) => panic!("could not parse policy_in_dnf2")
+        }
+        match parse(policy_in_dnf3.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
+            Err(e) => panic!("could not parse policy_in_dnf3")
+        }
+
+        match parse(policy_not_dnf1.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => assert!(!policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
+            Err(e) => panic!("could not parse policy_not_dnf1")
+        }
+        match parse(policy_not_dnf2.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => assert!(!policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
+            Err(e) => panic!("could not parse policy_not_dnf2")
+        }
 
         let pk_a = BdabePublicAttributeKey {
             _str: String::from("A"),
@@ -248,9 +263,9 @@ mod tests {
         pks.push(pk_b);
         pks.push(pk_c);
 
-        let policy1: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf1, &pks).unwrap();
-        let policy2: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf2, &pks).unwrap();
-        let policy3: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf3, &pks).unwrap();
+        let policy1: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf1, &pks, PolicyLanguage::JsonPolicy).unwrap();
+        let policy2: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf2, &pks, PolicyLanguage::JsonPolicy).unwrap();
+        let policy3: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf3, &pks, PolicyLanguage::JsonPolicy).unwrap();
 
         assert_eq!(policy1._terms.len(), 2);
         assert_eq!(policy2._terms.len(), 1);

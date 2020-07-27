@@ -126,32 +126,38 @@ mod tests {
         let p2 = vec![_plus, _zero, _plus];
         let p3 = vec![_zero, _minus, _zero];
         let p4 = vec![_plus, _plus, _zero];
-        let mut _msp_static = AbePolicy {
-            _m: vec![p1, p2, p3, p4],
-            _pi: vec![
-                String::from("A"),
-                String::from("B"),
-                String::from("C"),
-                String::from("D"),
-            ],
-            _deg: 3,
-        };
-        match AbePolicy::from_string(&policy, PolicyLanguage::JsonPolicy).ok() {
-            None => assert!(false),
-            Some(_msp) => {
-                for i in 0..4 {
-                    let p = &_msp._m[i];
-                    let p_test = &_msp_static._m[i];
-                    for j in 0..3 {
-                        //println!("_mspg[{:?}][{:?}]: {:?}", i, j, p[j]);
-                        //println!("_msps[{:?}][{:?}]: {:?}", i, j, p_test[j]);
-                        assert_eq!(p[j], p_test[j]);
+        match parse(policy.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => {
+                let mut _msp_static = AbePolicy {
+                    _m: vec![p1, p2, p3, p4],
+                    _pi: vec![
+                        String::from("A"),
+                        String::from("B"),
+                        String::from("C"),
+                        String::from("D"),
+                    ],
+                    _deg: 3,
+                };
+                match AbePolicy::from_policy(&pol).ok() {
+                    None => assert!(false),
+                    Some(_msp) => {
+                        for i in 0..4 {
+                            let p = &_msp._m[i];
+                            let p_test = &_msp_static._m[i];
+                            for j in 0..3 {
+                                //println!("_mspg[{:?}][{:?}]: {:?}", i, j, p[j]);
+                                //println!("_msps[{:?}][{:?}]: {:?}", i, j, p_test[j]);
+                                assert_eq!(p[j], p_test[j]);
+                            }
+                            //println!("_pi[{:?}]{:?} _pi[{:?}]{:?}",i,_msp_static._pi[i],i,_msp._pi[i]);
+                            assert_eq!(_msp_static._pi[i], _msp._pi[i]);
+                        }
+                        assert_eq!(_msp_static._deg, _msp._deg);
                     }
-                    //println!("_pi[{:?}]{:?} _pi[{:?}]{:?}",i,_msp_static._pi[i],i,_msp._pi[i]);
-                    assert_eq!(_msp_static._pi[i], _msp._pi[i]);
                 }
-                assert_eq!(_msp_static._deg, _msp._deg);
-            }
+            },
+            Err(e) => panic!("could not parse policy")
         }
+
     }
 }

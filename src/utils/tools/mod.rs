@@ -81,10 +81,10 @@ mod tests {
     #[test]
     fn test_traverse() {
         let policy_false = String::from(r#"joking-around?"#);
-        let policy1 = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-        let policy2 = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy1 = String::from(r#"{"name": "and": [{"name": "A"}, {"name": "B"}]}"#);
+        let policy2 = String::from(r#"{"name": "or": [{"name": "A"}, {"name": "B"}]}"#);
         let policy3 = String::from(
-            r#"{"AND": [{"OR": [{"ATT": "C"}, {"ATT": "D"}]}, {"ATT": "B"}]}"#,
+            r#"{"name": "and": [{"or": [{"name": "C"}, {"name": "D"}]}, {"name": "B"}]}"#,
         );
         let mut _set0: Vec<String> = Vec::new();
         _set0.push(String::from("X"));
@@ -104,19 +104,34 @@ mod tests {
         _set3.push(String::from("C"));
         _set3.push(String::from("D"));
 
-        assert_eq!(traverse_str(&_set1, &policyfalse), false);
+        assert_eq!(parse(policy_false.as_ref(), PolicyLanguage::JsonPolicy).is_ok() , false);
 
-        assert_eq!(traverse_str(&_set0, &policy1), false);
-        assert_eq!(traverse_str(&_set1, &policy1), true);
-        assert_eq!(traverse_str(&_set2, &policy1), false);
-        assert_eq!(traverse_str(&_set3, &policy1), true);
+        match parse(policy1.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => {
+                assert_eq!(traverse_policy(&_set0, &pol, PolicyType::Leaf), false);
+                assert_eq!(traverse_policy(&_set1, &pol, PolicyType::Leaf), true);
+                assert_eq!(traverse_policy(&_set2, &pol, PolicyType::Leaf), false);
+                assert_eq!(traverse_policy(&_set3, &pol, PolicyType::Leaf), true);
+            },
+            Err(e) => panic!("test_traverse: could not parse policy1")
+        }
 
-        assert_eq!(traverse_str(&_set1, &policy2), true);
-        assert_eq!(traverse_str(&_set2, &policy2), false);
-        assert_eq!(traverse_str(&_set3, &policy2), true);
+        match parse(policy2.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => {
+                assert_eq!(traverse_policy(&_set1, &pol, PolicyType::Leaf), true);
+                assert_eq!(traverse_policy(&_set2, &pol, PolicyType::Leaf), false);
+                assert_eq!(traverse_policy(&_set3, &pol, PolicyType::Leaf), true);
+            },
+            Err(e) => panic!("test_traverse: could not parse policy2")
+        }
 
-        assert_eq!(traverse_str(&_set1, &policy3), false);
-        assert_eq!(traverse_str(&_set2, &policy3), false);
-        assert_eq!(traverse_str(&_set3, &policy3), true);
+        match parse(policy3.as_ref(), PolicyLanguage::JsonPolicy) {
+            Ok(pol) => {
+                assert_eq!(traverse_policy(&_set1, &pol, PolicyType::Leaf), false);
+                assert_eq!(traverse_policy(&_set2, &pol, PolicyType::Leaf), false);
+                assert_eq!(traverse_policy(&_set3, &pol, PolicyType::Leaf), true);
+            },
+            Err(e) => panic!("test_traverse: could not parse policy3")
+        }
     }
 }
