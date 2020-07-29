@@ -44,19 +44,16 @@ fn lw(msp: &mut AbePolicy, p: &PolicyValue, v: &Vec<i32>, _type: PolicyType) -> 
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();
     return match p {
-        PolicyValue::Null => false,
-        PolicyValue::Number(n) => true,
-        PolicyValue::Boolean(b) => true,
         PolicyValue::String(attr) => {
             msp._m.insert(0, v_tmp_right);
             msp._pi.insert(0, attr.to_string());
             true
         },
         PolicyValue::Object(obj) => {
-            match obj.0.to_lowercase().as_str() {
-                "and" => lw(msp, &obj.1.as_ref().unwrap(), v, PolicyType::And),
-                "or" => lw(msp, &obj.1.as_ref().unwrap(), v, PolicyType::Or),
-                _ => lw(msp, &obj.1.as_ref().unwrap(), v, PolicyType::Leaf),
+            match obj.0 {
+                PolicyType::And => lw(msp, &obj.1.as_ref(), v, PolicyType::And),
+                PolicyType::Or => lw(msp, &obj.1.as_ref(), v, PolicyType::Or),
+                _ => lw(msp, &obj.1.as_ref(), v, PolicyType::Leaf),
             }
         },
         PolicyValue::Array(policies) => {
@@ -81,8 +78,7 @@ fn lw(msp: &mut AbePolicy, p: &PolicyValue, v: &Vec<i32>, _type: PolicyType) -> 
                 },
                 PolicyType::Leaf => false
             }
-        },
-        _ => false
+        }
     };
 }
 
@@ -156,7 +152,7 @@ mod tests {
                     }
                 }
             },
-            Err(e) => panic!("could not parse policy")
+            Err(e) => println!("test_msp_from: could not parse policy {}", e)
         }
 
     }

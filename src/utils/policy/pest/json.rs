@@ -1,17 +1,4 @@
-use std::fmt;
-use pest::error::Error;
-use utils::policy::pest::{
-    PolicyValue,
-    PolicyLanguage,
-    PolicyValue::{
-        Object,
-        Array,
-        String,
-        Number,
-        Boolean,
-        Null
-    }
-};
+use utils::policy::pest::{PolicyValue, PolicyType};
 use pest::iterators::Pair;
 
 #[derive(Parser)]
@@ -20,44 +7,36 @@ pub(crate) struct JSONPolicyParser;
 
 pub(crate) fn parse(pair: Pair<Rule>) -> PolicyValue {
     match pair.as_rule() {
-        Rule::node => PolicyValue::Object(
-            pair.into_inner()
-                .map(|pair| {
-                    let mut inner_rules = pair.into_inner();
-                    let name = inner_rules
-                        .next()
-                        .unwrap()
-                        .into_inner()
-                        .next()
-                        .unwrap()
-                        .as_str();
-                    match inner_rules.next() {
-                        Some(next) => {
-                            let value: PolicyValue = parse(inner_rules.next().unwrap());
-                            Box::new((name, Some(value)))
-                        },
-                        None => {
-                            Box::new((name, None))
-                        }
-                    }
-                })
-                .next().unwrap(),
-        ),
-        Rule::array => PolicyValue::Array(pair.into_inner().map(parse).collect()),
         Rule::string => PolicyValue::String(pair.into_inner().next().unwrap().as_str()),
-        Rule::number => PolicyValue::Number(pair.as_str().parse().unwrap()),
-        Rule::boolean => PolicyValue::Boolean(pair.as_str().parse().unwrap()),
-        Rule::null => PolicyValue::Null,
+        Rule::number => PolicyValue::String(pair.into_inner().next().unwrap().as_str()),
+        Rule::and => {
+            let mut vec = Vec::new();
+            for child in pair.into_inner() {
+                vec.push(parse(child));
+            }
+            PolicyValue::Object((PolicyType::And, Box::new(PolicyValue::Array(vec))))
+        },
+        Rule::or => {
+            let mut vec = Vec::new();
+            for child in pair.into_inner() {
+                vec.push(parse(child));
+            }
+            PolicyValue::Object((PolicyType::Or, Box::new(PolicyValue::Array(vec))))
+        },
         Rule::content
         | Rule::EOI
-        | Rule::nodepair
-        | Rule::childpair
         | Rule::inner
-        | Rule::char
+        | Rule::orinner
+        | Rule::andinner
+        | Rule::node
         | Rule::value
+        | Rule::andvalue
+        | Rule::orvalue
+        | Rule::char
         | Rule::NAME
         | Rule::CHILDREN
-        | Rule::NODES
+        | Rule::COMMENT
+        | Rule::QUOTE
         | Rule::WHITESPACE => unreachable!(),
     }
 }

@@ -39,8 +39,6 @@ use std::{fmt::{
 }, error::Error, cmp};
 use pest::error::{Error as PestError, LineColLocation};
 use utils::policy::pest::json::Rule as jsonRule;
-use utils::policy::pest::human::Rule as humanRule;
-use std::borrow::Borrow;
 
 #[derive(Debug)]
 pub struct RabeError {
@@ -62,18 +60,6 @@ impl Display for RabeError {
 impl Error for RabeError {
     fn description(&self) -> &str {
         &self.details
-    }
-}
-
-impl From<PestError<humanRule>> for RabeError {
-    fn from(error: PestError<humanRule>) -> Self {
-        let line = match error.line_col.to_owned() {
-            LineColLocation::Pos((line, _)) => line,
-            LineColLocation::Span((start_line, _), (end_line, _)) => cmp::max(start_line, end_line),
-        };
-        RabeError::new(
-            format!("Human Policy Error in line {}\n", line).as_ref()
-        )
     }
 }
 

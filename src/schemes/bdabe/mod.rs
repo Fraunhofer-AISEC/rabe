@@ -12,6 +12,7 @@
 //!
 //! ```
 //!use rabe::schemes::bdabe::*;
+//! use rabe::utils::policy::pest::PolicyLanguage;
 //!let (_pk, _msk) = setup();
 //!let _a1_key = authgen(&_pk, &_msk, &String::from("aa1"));
 //!let mut _u_key = keygen(&_pk, &_a1_key, &String::from("u1"));
@@ -19,8 +20,8 @@
 //!let _att1_pk = request_attribute_pk(&_pk, &_a1_key, &_att1).unwrap();
 //!_u_key._ska.push(request_attribute_sk(&_u_key._pk, &_a1_key, &_att1).unwrap());
 //!let _plaintext = String::from("our plaintext!").into_bytes();
-//!let _policy = String::from(r#"{"ATT": "aa1::A"}"#);
-//!let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk], &_policy, &_plaintext).unwrap();
+//!let _policy = String::from(r#"{"name": "aa1::A"}"#);
+//!let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
 //!let _match = decrypt(&_pk, &_u_key, &_ct);
 //!assert_eq!(_match.is_some(), true);
 //!assert_eq!(_match.unwrap(), _plaintext);
@@ -468,7 +469,7 @@ mod tests {
         let _plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let _policy = String::from(r#"{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
+        let _policy = String::from(r#"{"name": "and", "children": [{"name": "aa1::A"}, {"name": "aa2::B"}]}"#);
         // cp-abe ciphertext
         let _ct: BdabeCiphertext =
             encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
@@ -506,7 +507,7 @@ mod tests {
         let _plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let _policy = String::from(r#"{"OR": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
+        let _policy = String::from(r#"{"name": "or", "children": [{"name": "aa1::A"}, {"name": "aa2::B"}]}"#);
         // cp-abe ciphertext
         let _ct: BdabeCiphertext =
             encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
@@ -553,7 +554,7 @@ mod tests {
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy = String::from(
-            r#"{"OR": [{"AND": [{"ATT": "aa3::C"}, {"ATT": "aa2::B"}]}, {"ATT": "aa1::X"}]}"#,
+            r#"{"name": "or", "children": [{"name": "and", "children": [{"name": "aa3::C"}, {"name": "aa2::B"}]}, {"name": "aa1::X"}]}"#,
         );
         // cp-abe ciphertext
         let _ct: BdabeCiphertext =
@@ -592,7 +593,7 @@ mod tests {
         let _plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let _policy = String::from(r#"{"OR": [{"ATT": "aa1::B"}, {"ATT": "aa2::A"}]}"#);
+        let _policy = String::from(r#"{"name": "or", "children": [{"name": "aa1::B"}, {"name": "aa2::A"}]}"#);
         // cp-abe ciphertext
         let _ct: BdabeCiphertext =
             encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();

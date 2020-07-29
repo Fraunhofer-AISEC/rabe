@@ -13,25 +13,27 @@
 //! An AC17 KP-ABE Example:
 //!
 //! ```
-//!use rabe::schemes::ac17::*;
-//!let (pk, msk) = setup();
-//!let plaintext = String::from("our plaintext!").into_bytes();
-//!let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-//!let ct: Ac17KpCiphertext =  kp_encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
-//!let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy).unwrap();
-//!assert_eq!(kp_decrypt(&sk, &ct).unwrap(), plaintext);
+//! use rabe::schemes::ac17::*;
+//! use rabe::utils::policy::pest::PolicyLanguage;
+//! let (pk, msk) = setup();
+//! let plaintext = String::from("our plaintext!").into_bytes();
+//! let policy = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#);
+//! let ct: Ac17KpCiphertext =  kp_encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
+//! let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy, PolicyLanguage::JsonPolicy).unwrap();
+//! assert_eq!(kp_decrypt(&sk, &ct).unwrap(), plaintext);
 //! ```
 //!
 //! An AC17 CP-ABE Example:
 //!
 //! ```
-//!use rabe::schemes::ac17::*;
-//!let (pk, msk) = setup();
-//!let plaintext = String::from("our plaintext!").into_bytes();
-//!let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-//!let ct: Ac17CpCiphertext =  cp_encrypt(&pk, &policy, &plaintext).unwrap();
-//!let sk: Ac17CpSecretKey = cp_keygen(&msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
-//!assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
+//! use rabe::schemes::ac17::*;
+//! use rabe::utils::policy::pest::PolicyLanguage;
+//! let (pk, msk) = setup();
+//! let plaintext = String::from("our plaintext!").into_bytes();
+//! let policy = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#);
+//! let ct: Ac17CpCiphertext =  cp_encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
+//! let sk: Ac17CpSecretKey = cp_keygen(&msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
+//! assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
 //! ```
 use std::{
     string::String,
@@ -46,7 +48,7 @@ use utils::{
     aes::*,
     hash::blake2b_hash_g1
 };
-use utils::policy::pest::{PolicyValue, PolicyLanguage, parse, PolicyType};
+use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use RabeError;
 
 /// An AC17 Public Key (PK)
@@ -583,7 +585,7 @@ pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Result<Vec<u8>
     match parse(sk._policy.0.as_ref(), sk._policy.1) {
         Ok(pol) => {
             return if traverse_policy(&ct._attr, &pol, PolicyType::Leaf) == false {
-                panic!("Error in kp_decrypt: attributes in ct do not match policy in sk.")
+                Err(RabeError::new("Error in kp_decrypt: attributes in ct do not match policy in sk."))
             } else {
                 match calc_pruned(&ct._attr, &pol, None) {
                     Err(e) => Err(e),
@@ -641,7 +643,7 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#);
         // kp-abe ciphertext
         let ct: Ac17KpCiphertext =
             kp_encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
@@ -659,7 +661,7 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let policy = String::from(r#"{"name":"or", "children": [{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}, {"name": "and", "children": [{"name": "C"}, {"name": "D"}]}]}"#);
         // kp-abe ciphertext
         let ct: Ac17KpCiphertext =
             kp_encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
@@ -684,7 +686,7 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "A"}, {"name": "B"}]}"#);
         // kp-abe ciphertext
         let ct: Ac17KpCiphertext = kp_encrypt(&pk, &vec!["B".to_string()], &plaintext).unwrap();
         // a kp-abe SK key
@@ -701,7 +703,7 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "A"}, {"name": "B"}]}"#);
         // kp-abe ciphertext
         let ct: Ac17KpCiphertext = kp_encrypt(&pk, &vec!["C".to_string()], &plaintext).unwrap();
         // a kp-abe SK key
@@ -718,7 +720,7 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#);
         // kp-abe ciphertext
         let ct: Ac17CpCiphertext = cp_encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
         // a kp-abe SK key
@@ -735,15 +737,11 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}, {"ATT": "C"}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "A"}, {"name": "B"}, {"name": "C"}]}"#);
         // kp-abe ciphertext
         let ct: Ac17CpCiphertext = cp_encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
         // a matching kp-abe SK key
         let sk_m1: Ac17CpSecretKey = cp_keygen(&msk, &vec!["A".to_string()]).unwrap();
-        // a matching kp-abe SK key
-        let sk_m2: Ac17CpSecretKey = cp_keygen(&msk, &vec!["B".to_string()]).unwrap();
-        // a matching kp-abe SK key
-        let sk_nm: Ac17CpSecretKey = cp_keygen(&msk, &vec!["D".to_string()]).unwrap();
         let pt = cp_decrypt(&sk_m1, &ct);
         assert_eq!(pt.is_ok(), true);
         assert_eq!(pt.unwrap(), plaintext);
@@ -757,7 +755,7 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}, {"name": "and", "children": [{"name": "C"}, {"name": "D"}]}]}"#);
         // kp-abe ciphertext
         let ct: Ac17CpCiphertext = cp_encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
         // a kp-abe SK key
@@ -772,23 +770,5 @@ mod tests {
         ).unwrap();
         // and now decrypt again
         assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
-    }
-
-    #[test]
-    fn cp_not() {
-        // setup scheme
-        let (pk, msk) = setup();
-        // our plaintext
-        let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
-            .into_bytes();
-        // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-        // kp-abe ciphertext
-        let ct: Ac17CpCiphertext = cp_encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
-        // a kp-abe SK key
-        let sk: Ac17CpSecretKey = cp_keygen(&msk, &vec!["C".to_string()]).unwrap();
-        // and now decrypt again
-        let pt = cp_decrypt(&sk, &ct);
-        assert_eq!(pt.is_ok(), false);
     }
 }

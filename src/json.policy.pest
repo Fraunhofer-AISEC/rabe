@@ -8,38 +8,38 @@
 //     { name: "idsc:USAGE_CONTROL_POLICY_ENFORCEMENT"}
 //   ]
 // }
-
+//
+// Constants
 // Constants
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-NAME = _{ "name" | "NAME" }
-CHILDREN = _{ "children" | "CHILDREN" }
-NODES = _{ "and" | "AND" | "or" | "OR" }
-
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+NAME = _{ "name" | "NAME" | QUOTE ~ "name" ~ QUOTE | QUOTE ~ "NAME" ~ QUOTE }
+QUOTE = _{ "\"" }
+CHILDREN = _{ "children" | "CHILDREN" | QUOTE ~ "children" ~ QUOTE | QUOTE ~ "CHILDREN" ~ QUOTE }
+andvalue = _{ "and" | "AND" | "&&"  }
+orvalue  = _{ "or" | "OR" | "||" }
+andinner = _{ andvalue | QUOTE ~ andvalue ~ QUOTE }
+orinner  = _{ orvalue | QUOTE ~ orvalue ~ QUOTE }
 // Nodes
-node = {
-    "{" ~ "}" |
-    "{" ~ nodepair ~ ("," ~ childpair)? ~ "}"
+node = _{
+    "{" ~ NAME ~ ":" ~ value ~ "}" |
+    "{" ~ NAME ~ ":" ~ and ~ "}" |
+    "{" ~ NAME ~ ":" ~ or ~ "}"
 }
-nodepair = {
-    NAME ~ ":" ~ value
+// Values
+value = _{ string | number }
+// Value types
+and = {
+    andinner ~ "," ~ CHILDREN ~ ":" ~ "[" ~ "]" |
+    andinner ~ "," ~ CHILDREN ~ ":" ~ "[" ~ node ~ ("," ~ node)* ~ "]"
 }
-
-childpair = {
-    CHILDREN ~ ":" ~ array
+or = {
+    orinner ~ "," ~ CHILDREN ~ ":" ~ "[" ~ "]" |
+    orinner ~ "," ~ CHILDREN ~ ":" ~ "[" ~ node ~ ("," ~ node)* ~ "]"
 }
-
-value = _{ string | number | boolean | number | null }
-
-// value types
-array = {
-    "[" ~ "]" |
-    "[" ~ node ~ ("," ~ node)* ~ "]"
-}
-boolean = { "true" | "false" }
-null = { "null" }
-string = ${ "\"" ~ inner ~ "\"" }
+string = ${QUOTE ~ inner ~ QUOTE}
 inner = @{ char* }
-char = {
+char = _{
     !("\"" | "\\") ~ ANY
     | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})

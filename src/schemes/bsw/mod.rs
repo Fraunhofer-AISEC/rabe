@@ -12,10 +12,11 @@
 //!
 //! ```
 //!use rabe::schemes::bsw::*;
+//! use rabe::utils::policy::pest::PolicyLanguage;
 //!let (pk, msk) = setup();
 //!let plaintext = String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
-//!let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
-//!let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext).unwrap();
+//!let policy = String::from(r#"{"name": "and", "children":  [{"name": "A"}, {"name": "B"}]}"#);
+//!let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
 //!let sk: CpAbeSecretKey = keygen(&pk, &msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_cp).unwrap(), plaintext);
 //! ```
@@ -205,7 +206,7 @@ pub fn encrypt(
     _language: PolicyLanguage,
 ) -> Result<CpAbeCiphertext, RabeError> {
     if _plaintext.is_empty() || _policy.is_empty() {
-        panic!("Error in bsw/encrypt: Plaintext or policy is empty.")
+        RabeError::new("Error in bsw/encrypt: Plaintext or policy is empty.");
     }
     let mut _rng = rand::thread_rng();
     // the shared root secret
@@ -229,7 +230,7 @@ pub fn encrypt(
             //Encrypt plaintext using derived key from secret
             return Ok(CpAbeCiphertext {_policy: (_policy, _language), _c, _c_p, _c_y, _ct});
         },
-        Err(e) => panic!("Error in bsw/encrypt: could not parse policy.")
+        Err(e) => Err(e)
     }
 
 }
@@ -255,7 +256,7 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Result<Vec<u8>, R
                     Err(e) => Err(e),
                     Ok(_pruned) => {
                         if !_pruned.0 {
-                            panic!("Error in bsw/encrypt: attributes do not match policy.")
+                            Err(RabeError::new("Error in bsw/encrypt: attributes do not match policy."))
                         } else {
                             let _z = calc_coefficients(&pol, Some(Fr::one()), None).unwrap();
                             let mut _a = Gt::one();
@@ -288,11 +289,10 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Result<Vec<u8>, R
                             decrypt_symmetric(&_msg, &_ct._ct)
                         }
                     }
-                    _ => panic!("Error in bsw/encrypt: unreachable condition."),
                 }
             }
         },
-        Err(e) => panic!("Error in bsw/encrypt: could not parse policy.")
+        Err(e) => Err(e)
     }
 }
 
@@ -320,7 +320,7 @@ mod tests {
             .into_bytes();
 
         // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "A"}, {"name": "B"}]}"#);
 
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
@@ -447,7 +447,7 @@ mod tests {
             .into_bytes();
 
         // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "Y"}, {"ATT": "A"}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "X"}, {"name": "Y"}, {"name": "A"}]}"#);
 
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
@@ -481,7 +481,7 @@ mod tests {
             .into_bytes();
 
         // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "and", "children":  [{"name": "A"}, {"name": "B"}]}"#);
 
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
@@ -514,7 +514,7 @@ mod tests {
             .into_bytes();
 
         // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}, {"ATT": "C"}]}"#);
+        let policy = String::from(r#"{"name": "and", "children":  [{"name": "A"}, {"name": "B"}, {"name": "C"}]}"#);
 
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
@@ -549,7 +549,7 @@ mod tests {
             .into_bytes();
 
         // our policy
-        let policy = String::from(r#"{"OR": [{"AND": [{"ATT": "A"}, {"ATT": "B"}]}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "and", "children":  [{"name": "A"}, {"name": "B"}]}, {"name": "and", "children":  [{"name": "C"}, {"name": "D"}]}]}"#);
 
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
@@ -579,7 +579,7 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "and", "children":  [{"name": "A"}, {"name": "B"}]}"#);
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
         // a cp-abe SK key matching

@@ -4,21 +4,23 @@ extern crate serde;
 extern crate serde_json;
 
 use bn::*;
-use utils::tools::{contains, usize_to_fr};
 use rand::Rng;
-use utils::policy::pest::{PolicyValue, PolicyLanguage, parse, PolicyType};
+use utils::{
+    tools::{contains, usize_to_fr, get_value},
+    policy::pest::{PolicyValue, PolicyLanguage, parse, PolicyType}
+};
 use RabeError;
 
 pub fn calc_coefficients(_json: &PolicyValue, _fr: Option<Fr>, _type: Option<PolicyType>) -> Option<Vec<(String, Fr)>> {
     let _coeff = _fr.unwrap_or(Fr::one());
     let mut _result: Vec<(String, Fr)> = Vec::new();
-    match _json {
+    return match _json {
         PolicyValue::Object(obj) => {
-            match obj.0.to_lowercase().as_str() {
-                "and" => calc_coefficients(&obj.1.as_ref().unwrap(), _fr, Some(PolicyType::And)),
-                "or" => calc_coefficients(&obj.1.as_ref().unwrap(), _fr, Some(PolicyType::Or)),
+            match obj.0 {
+                PolicyType::And => calc_coefficients(&obj.1.as_ref(), _fr, Some(PolicyType::And)),
+                PolicyType::Or => calc_coefficients(&obj.1.as_ref(), _fr, Some(PolicyType::Or)),
                 _ => {
-                    _result.push((obj.0.to_string(), _coeff));
+                    _result.push((get_value(&obj.1), _coeff));
                     return Some(_result);
                 }
             }
@@ -44,7 +46,7 @@ pub fn calc_coefficients(_json: &PolicyValue, _fr: Option<Fr>, _type: Option<Pol
                 },
                 PolicyType::Or => {
                     let _this_coeff = recover_coefficients(vec![Fr::one()]);
-                    for (i, child) in children.iter().enumerate() {
+                    for child in children.iter() {
                         match calc_coefficients(&child, Some(_coeff * _this_coeff[0]), None) {
                             None => return None,
                             Some(_res) => {
@@ -61,8 +63,7 @@ pub fn calc_coefficients(_json: &PolicyValue, _fr: Option<Fr>, _type: Option<Pol
             _result.push((str.to_string(), _coeff));
             return Some(_result);
         }
-        _ => None
-    }
+    };
 }
 
 // lagrange interpolation
@@ -85,24 +86,15 @@ pub fn gen_shares_policy(_secret: Fr, _json: &PolicyValue, _type: Option<PolicyT
     let mut _k = 0;
     let mut _n = 0;
     match _json {
-        PolicyValue::Null => None,
-        PolicyValue::Number(num) => {
-            _result.push((num.to_string(), _secret));
-            Some(_result)
-        },
-        PolicyValue::Boolean(bol) => {
-            _result.push((bol.to_string(), _secret));
-            Some(_result)
-        },
         PolicyValue::String(str) => {
             _result.push((str.to_string(), _secret));
             Some(_result)
         },
         PolicyValue::Object(obj) => {
-            match obj.0.to_lowercase().as_str() {
-                "and" => gen_shares_policy(_secret, &obj.1.as_ref().unwrap(), Some(PolicyType::And)),
-                "or" => gen_shares_policy(_secret, &obj.1.as_ref().unwrap(), Some(PolicyType::Or)),
-                _ => gen_shares_policy(_secret, &obj.1.as_ref().unwrap(), Some(PolicyType::Leaf)),
+            match obj.0 {
+                PolicyType::And => gen_shares_policy(_secret, &obj.1.as_ref(), Some(PolicyType::And)),
+                PolicyType::Or => gen_shares_policy(_secret, &obj.1.as_ref(), Some(PolicyType::Or)),
+                _ => gen_shares_policy(_secret, &obj.1.as_ref(), Some(PolicyType::Leaf)),
             }
         },
         PolicyValue::Array(children) => {
@@ -127,8 +119,7 @@ pub fn gen_shares_policy(_secret: Fr, _json: &PolicyValue, _type: Option<PolicyT
                 }
             }
             Some(_result)
-        },
-        _ => panic!("this should not happen =( input must be a parsed Policy.")
+        }
     }
 }
 
@@ -155,14 +146,13 @@ pub fn gen_shares(_secret: Fr, _k: usize, _n: usize) -> Vec<Fr> {
 }
 
 pub fn calc_pruned(_attr: &Vec<String>, _json: &PolicyValue, _type: Option<PolicyType>) -> Result<(bool, Vec<String>), RabeError> {
-    let mut result: Result<(bool, Vec<String>), RabeError> = Ok((false, Vec::new()));
     let mut _emtpy_list: Vec<String> = Vec::new();
     match _json {
         PolicyValue::Object(obj) => {
-            match obj.0.to_lowercase().as_str() {
-                "and" => calc_pruned(_attr, &obj.1.as_ref().unwrap(), Some(PolicyType::And)),
-                "or" => calc_pruned(_attr, &obj.1.as_ref().unwrap(), Some(PolicyType::Or)),
-                _ => calc_pruned(_attr, &obj.1.as_ref().unwrap(), Some(PolicyType::Leaf)),
+            match obj.0 {
+                PolicyType::And => calc_pruned(_attr, &obj.1.as_ref(), Some(PolicyType::And)),
+                PolicyType::Or => calc_pruned(_attr, &obj.1.as_ref(), Some(PolicyType::Or)),
+                _ => calc_pruned(_attr, &obj.1.as_ref(), Some(PolicyType::Leaf)),
             }
         },
         PolicyValue::Array(children) => {
@@ -202,8 +192,7 @@ pub fn calc_pruned(_attr: &Vec<String>, _json: &PolicyValue, _type: Option<Polic
                         panic!("Error: Invalid policy (OR with just a single child).")
                     }
                 },
-                None => panic!("Error in calc_pruned: unknown array type!"),
-                _ => panic!("Error in calc_pruned: unknown array type!"),
+                _ => Err(RabeError::new("Error in calc_pruned: unknown array type!")),
 
             }
         },
@@ -213,16 +202,7 @@ pub fn calc_pruned(_attr: &Vec<String>, _json: &PolicyValue, _type: Option<Polic
             } else {
                 Ok((false, _emtpy_list))
             }
-        },
-        PolicyValue::Number(num) => {
-            if contains(_attr, &num.to_string()) {
-                Ok((true, vec![num.to_string()]))
-            } else {
-                Ok((false, _emtpy_list))
-            }
-        },
-        PolicyValue::Null=> panic!("Error in calc_pruned: passed null as PolicyValue!"),
-        _ => panic!("Error in calc_pruned: passed unknown as PolicyValue!"),
+        }
     }
 }
 
@@ -286,7 +266,7 @@ mod tests {
                 }
                 //assert!(_k == _reconstruct);
             },
-            Err(e) => panic!("test_gen_shares_json: could not parse policy")
+            Err(e) => println!("test_gen_shares_json: could not parse policy {}", e)
         }
     }
 

@@ -8,6 +8,8 @@ use crate::{
     },
 };
 use utils::policy::pest::{PolicyLanguage, PolicyValue, parse, PolicyType};
+use utils::tools::get_value;
+
 /// A DNF policy for the MKE08 scheme and the BDABE scheme
 pub struct DnfPolicy {
     pub _terms: Vec<(Vec<String>, Gt, Gt, G1, G2)>,
@@ -105,14 +107,10 @@ pub fn dnf<K: PublicAttributeKey>(
     _p: &PolicyValue,
     _i: usize,
 ) -> bool {
-    if *_p == PolicyValue::Null {
-    }
     let mut ret = true;
     // inner node
     return match _p {
-        PolicyValue::Null => {
-            false
-        },
+        PolicyValue::String(_s) => true,
         PolicyValue::Array(nodes) => {
             for (i, value) in nodes.iter().enumerate() {
                 ret = ret && dnf(_dnfp, _pks, &value, i + _i)
@@ -120,31 +118,36 @@ pub fn dnf<K: PublicAttributeKey>(
             ret
         },
         PolicyValue::Object(obj) => {
-            for pak in _pks.iter() {
-                if pak._str() == obj.0 {
-                    if _dnfp._terms.len() > _i {
-                        _dnfp._terms[_i].0.push(pak._str().to_string());
-                        _dnfp._terms[_i] = (
-                            _dnfp._terms[_i].0.clone(),
-                            _dnfp._terms[_i].1 * pak._gt1(),
-                            _dnfp._terms[_i].2 * pak._gt2(),
-                            _dnfp._terms[_i].3 + pak._g1(),
-                            _dnfp._terms[_i].4 + pak._g2(),
-                        );
-                    } else {
-                        _dnfp._terms.push((
-                            vec![pak._str().to_string()],
-                            pak._gt1(),
-                            pak._gt2(),
-                            pak._g1(),
-                            pak._g2(),
-                        ));
+            match obj.0 {
+                PolicyType::And => dnf(_dnfp, _pks, &obj.1,  _i),
+                PolicyType::Or => dnf(_dnfp, _pks, &obj.1, _i),
+                _ => {
+                    for pak in _pks.iter() {
+                        if pak._str() == get_value(&obj.1) {
+                            if _dnfp._terms.len() > _i {
+                                _dnfp._terms[_i].0.push(pak._str().to_string());
+                                _dnfp._terms[_i] = (
+                                    _dnfp._terms[_i].0.clone(),
+                                    _dnfp._terms[_i].1 * pak._gt1(),
+                                    _dnfp._terms[_i].2 * pak._gt2(),
+                                    _dnfp._terms[_i].3 + pak._g1(),
+                                    _dnfp._terms[_i].4 + pak._g2(),
+                                );
+                            } else {
+                                _dnfp._terms.push((
+                                    vec![pak._str().to_string()],
+                                    pak._gt1(),
+                                    pak._gt2(),
+                                    pak._g1(),
+                                    pak._g2(),
+                                ));
+                            }
+                        }
                     }
-                }
+                    true
+                },
             }
-            true
         }
-        _ => false
     }
 }
 
@@ -159,22 +162,20 @@ pub fn json_to_dnf<K: PublicAttributeKey>(
         Ok(dnfp)
     }
     else {
-        panic!("Error in json_to_dnf: could not parse policy as DNF")
+        Err(RabeError::new("Error in json_to_dnf: could not parse policy as DNF"))
     }
 }
 
 pub fn policy_in_dnf(p: &PolicyValue, conjunction: bool, policy: Option<PolicyType>) -> bool {
     return match p {
-        PolicyValue::Null => panic!("Error in policy_in_dnf: passed null!"),
-        PolicyValue::Number(num) => true,
         PolicyValue::Object(obj) => {
-            match obj.0.to_lowercase().as_str() {
-                "and" => policy_in_dnf(&obj.1.as_ref().unwrap(), conjunction, Some(PolicyType::And)),
-                "or" => policy_in_dnf(&obj.1.as_ref().unwrap(), conjunction, Some(PolicyType::Or)),
-                _ => policy_in_dnf(&obj.1.as_ref().unwrap(), conjunction, Some(PolicyType::Leaf)),
+            match obj.0 {
+                PolicyType::And=> policy_in_dnf(&obj.1.as_ref(), conjunction, Some(PolicyType::And)),
+                PolicyType::Or => policy_in_dnf(&obj.1.as_ref(), conjunction, Some(PolicyType::Or)),
+                _ => policy_in_dnf(&obj.1.as_ref(), conjunction, Some(PolicyType::Leaf)),
             }
         },
-        PolicyValue::String(str) => true,
+        PolicyValue::String(_str) => true,
         PolicyValue::Array(children) => {
             let mut ret = true;
             let len = children.len();
@@ -195,11 +196,12 @@ pub fn policy_in_dnf(p: &PolicyValue, conjunction: bool, policy: Option<PolicyTy
                     }
                     ret
                 },
-                _ => panic!("Error in policy_in_dnf: Array without parent AND or OR should not happen!"),
+                _ => {
+                    println!("Error in policy_in_dnf: Array without parent AND or OR should not happen!");
+                    false
+                },
             }
-        },
-        PolicyValue::Boolean(bol) => true,
-        _ => panic!("Error in policy_in_dnf: Unkown PolicyValue."),
+        }
     }
 }
 
@@ -217,24 +219,24 @@ mod tests {
         let policy_not_dnf2 = String::from(r#"{"name": "or", "children":  [{"name": "and",  "children": [{"name": "or",  "children": [{"name": "C"}, {"name": "D"}]}, {"name": "B"}]}, {"name": "and",  "children": [{"name": "C"}, {"name": "D"}]}]}"#);
         match parse(policy_in_dnf1.as_ref(), PolicyLanguage::JsonPolicy) {
             Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
-            Err(e) => panic!("could not parse policy_in_dnf1")
+            Err(e) => println!("could not parse policy_in_dnf1 {}", e)
         }
         match parse(policy_in_dnf2.as_ref(), PolicyLanguage::JsonPolicy) {
             Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
-            Err(e) => panic!("could not parse policy_in_dnf2")
+            Err(e) => println!("could not parse policy_in_dnf2 {}", e)
         }
         match parse(policy_in_dnf3.as_ref(), PolicyLanguage::JsonPolicy) {
             Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
-            Err(e) => panic!("could not parse policy_in_dnf3")
+            Err(e) => println!("could not parse policy_in_dnf3 {}", e)
         }
 
         match parse(policy_not_dnf1.as_ref(), PolicyLanguage::JsonPolicy) {
             Ok(pol) => assert!(!policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
-            Err(e) => panic!("could not parse policy_not_dnf1")
+            Err(e) => println!("could not parse policy_in_dnf1 {}", e)
         }
         match parse(policy_not_dnf2.as_ref(), PolicyLanguage::JsonPolicy) {
             Ok(pol) => assert!(!policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
-            Err(e) => panic!("could not parse policy_not_dnf2")
+            Err(e) => println!("could not parse policy_in_dnf2 {}", e)
         }
 
         let pk_a = BdabePublicAttributeKey {

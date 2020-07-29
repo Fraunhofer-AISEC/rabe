@@ -12,6 +12,7 @@
 //!
 //! ```
 //!use rabe::schemes::mke08::*;
+//! use rabe::utils::policy::pest::PolicyLanguage;
 //!let (_pk, _msk) = setup();
 //!let mut _u_key = keygen(&_pk, &_msk, &String::from("user1"));
 //!let _att1 = String::from("aa1::A");
@@ -23,8 +24,8 @@
 //!_u_key._sk_a.push(request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap());
 //!_u_key._sk_a.push(request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap());
 //!let _plaintext = String::from("our plaintext!").into_bytes();
-//!let _policy = String::from(r#"{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
-//!let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, &_plaintext).unwrap();
+//!let _policy = String::from(r#"{"name": "and", "children": [{"name": "aa1::A"}, {"name": "aa2::B"}]}"#);
+//!let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, PolicyLanguage::JsonPolicy, &_plaintext).unwrap();
 //!assert_eq!(decrypt(&_pk, &_u_key, &_ct).unwrap(), _plaintext);
 //! ```
 use bn::{Group, Fr, G1, G2, Gt, pairing};
@@ -299,7 +300,7 @@ pub fn encrypt(
                 panic!("Error in mke08/encrypt: policy is not in dnf")
             }
         },
-        Err(e) => panic!("Error in mke08/encrypt: could not parse policy")
+        Err(e) => Err(e)
     }
 }
 
@@ -343,7 +344,7 @@ pub fn decrypt(
                 decrypt_symmetric(&_msg, &_ct._ct)
             }
         },
-        Err(e) => panic!("Error in mke08/encrypt: could not parse policy")
+        Err(e) => Err(e)
     }
 }
 
@@ -468,7 +469,7 @@ mod tests {
         let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let _policy = String::from(r#"{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
+        let _policy = String::from(r#"{"name": "and", "children": [{"name": "aa1::A"}, {"name": "aa2::B"}]}"#);
         // cp-abe ciphertext
         let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy,PolicyLanguage::JsonPolicy, &_plaintext)
             .unwrap();
@@ -506,7 +507,7 @@ mod tests {
         let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let _policy = String::from(r#"{"OR": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}"#);
+        let _policy = String::from(r#"{"name": "or", "children": [{"name": "aa1::A"}, {"name": "aa2::B"}]}"#);
         // cp-abe ciphertext
         let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, PolicyLanguage::JsonPolicy, &_plaintext)
             .unwrap();
@@ -547,7 +548,7 @@ mod tests {
             .into_bytes();
         // our policy
         let _policy = String::from(
-            r#"{"OR": [{"AND": [{"ATT": "aa1::A"}, {"ATT": "aa2::B"}]}, {"ATT": "aa2::X"}]}"#,
+            r#"{"name": "or", "children": [{"name": "and", "children": [{"name": "aa1::A"}, {"name": "aa2::B"}]}, {"name": "aa2::X"}]}"#,
         );
         // cp-abe ciphertext
         let _ct: Mke08Ciphertext = encrypt(
@@ -620,7 +621,7 @@ mod tests {
         let _plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
         // our policy
-        let _policy = String::from(r#"{"OR": [{"ATT": "aa2::A"}, {"ATT": "aa1::B"}]}"#);
+        let _policy = String::from(r#"{"name": "or", "children": [{"name": "aa2::A"}, {"name": "aa1::B"}]}"#);
         // cp-abe ciphertext
         let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, PolicyLanguage::JsonPolicy, &_plaintext)
             .unwrap();

@@ -12,11 +12,12 @@
 //!
 //! ```
 //!use rabe::schemes::lsw::*;
+//! use rabe::utils::policy::pest::PolicyLanguage;
 //!let (pk, msk) = setup();
 //!let plaintext = String::from("our plaintext!").into_bytes();
-//!let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "B"}]}"#);
+//!let policy = String::from(r#"{"name": "or", "children": [{"name": "X"}, {"name": "B"}]}"#);
 //!let ct_kp: KpAbeCiphertext = encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
-//!let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy).unwrap();
+//!let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy, PolicyLanguage::JsonPolicy).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_kp).unwrap(), plaintext);
 //! ```
 use bn::{Group, Fr, G1, G2, Gt, pairing};
@@ -257,10 +258,9 @@ pub fn decrypt(_sk: &KpAbeSecretKey, _ct: &KpAbeCiphertext) -> Result<Vec<u8>, R
                         panic!("Error in lsw/decrypt: attributes do not match policy.")
                     }
                 }
-                _ => panic!("Error in lsw/decrypt: Unreachable condition.")
             }
         },
-        Err(e)=> panic!("Error in lsw/decrypt: Could not parse policy.")
+        Err(e)=> Err(e)
     }
 }
 
@@ -282,7 +282,7 @@ mod tests {
         let plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let policy = String::from(r#"{"AND": [{"ATT": "C"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "and", "children": [{"name": "C"}, {"name": "B"}]}"#);
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
@@ -304,7 +304,7 @@ mod tests {
         let plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "B"}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "X"}, {"name": "B"}]}"#);
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
@@ -327,7 +327,7 @@ mod tests {
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let policy =
-            String::from(r#"{"OR": [{"ATT": "X"}, {"AND": [{"ATT": "Y"}, {"ATT": "Z"}]}]}"#);
+            String::from(r#"{"name": "or", "children": [{"name": "X"}, {"name": "and", "children": [{"name": "Y"}, {"name": "Z"}]}]}"#);
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key
@@ -348,7 +348,7 @@ mod tests {
         let plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let policy = String::from(r#"{"OR": [{"ATT": "X"}, {"ATT": "Y"}]}"#);
+        let policy = String::from(r#"{"name": "or", "children": [{"name": "X"}, {"name": "Y"}]}"#);
         // kp-abe ciphertext
         let ct_kp_matching: KpAbeCiphertext = encrypt(&pk, &att_matching, &plaintext).unwrap();
         // a kp-abe SK key

@@ -12,12 +12,13 @@
 //!
 //! ```
 //!use rabe::schemes::aw11::*;
+//! use rabe::utils::policy::pest::PolicyLanguage;
 //!let gk = setup();
 //!let (pk, msk) = authgen(&gk, &vec!["A".to_string(), "B".to_string()]).unwrap();
 //!let plaintext = String::from("our plaintext!").into_bytes();
-//!let policy = String::from(r#"{"OR": [{"ATT": "A"}, {"ATT": "B"}]}"#);
+//!let policy = String::from(r#"{"name": "or", "children": [{"name": "A"}, {"name": "B"}]}"#);
 //!let bob = keygen(&gk, &msk, &String::from("bob"), &vec!["A".to_string()]).unwrap();
-//!let ct: Aw11Ciphertext = encrypt(&gk, &vec![pk], &policy, &plaintext).unwrap();
+//!let ct: Aw11Ciphertext = encrypt(&gk, &vec![pk], &policy, PolicyLanguage::JsonPolicy, &plaintext).unwrap();
 //!let matching = decrypt(&gk, &bob, &ct).unwrap();
 //!assert_eq!(matching, plaintext);
 //! ```
@@ -27,7 +28,6 @@ use bn::{Fr, G1, G2, Gt, pairing};
 use utils::{
     secretsharing::{
         calc_coefficients,
-        gen_shares,
         calc_pruned
     },
     policy::msp::AbePolicy,
@@ -235,7 +235,7 @@ pub fn encrypt(
                 let _r_x:Fr = _rng.gen();
                 let _pk_attr = find_pk_attr(_pks, &_attr_name.to_uppercase());
                 match _pk_attr {
-                    None => panic!("Error in aw11/encrypt : Could not find corresponding PK."),
+                    None => {},
                     Some(_attr) => {
                         _c.push((
                             _attr_name.clone().to_uppercase(),
@@ -277,7 +277,7 @@ pub fn decrypt(
     return match parse(ct._policy.0.as_ref(), ct._policy.1) {
         Ok(pol) => {
             return if traverse_policy(&_str_attr, &pol, PolicyType::Leaf) == false {
-                panic!("Error: attributes in sk do not match policy in ct.");
+                Err(RabeError::new("Error: attributes in sk do not match policy in ct."))
             } else {
                 let _pruned = calc_pruned(&_str_attr, &pol, None);
                 match _pruned {
@@ -316,13 +316,13 @@ pub fn decrypt(
                             // Decrypt plaintext using derived secret from cp-abe scheme
                             decrypt_symmetric(&_msg, &ct._ct)
                         } else {
-                            panic!("Error in aw11/decrypt: attributes in sk do not match policy in ct.");
+                            Err(RabeError::new("Error in aw11/decrypt: attributes in sk do not match policy in ct."))
                         }
                     }
                 }
             }
         },
-        Err(e) => panic!("Error in aw11/decrypt: Could not parse policy")
+        Err(e) => Err(e)
     }
 }
 /// private function. finds the value vector of a specific attribute in a vector of various public keys
@@ -387,7 +387,7 @@ mod tests {
         let _plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let _policy = String::from(r#"{"AND": [{"ATT": "H"}, {"ATT": "B"}]}"#);
+        let _policy = String::from(r#"{"name": "and", "children": [{"name": "H"}, {"name": "B"}]}"#);
 
         // add attribute "B" of auth1 to bobs key
         add_attribute(&_gp, &_auth1_msk, &String::from("B"), &mut _bob);
@@ -434,7 +434,7 @@ mod tests {
         let _plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
-        let _policy = String::from(r#"{"OR": [{"ATT": "B"}, {"ATT": "C"}]}"#);
+        let _policy = String::from(r#"{"name": "or", "children": [{"name": "B"}, {"name": "C"}]}"#);
 
         // a vector of public attribute keys
         let mut _pks: Vec<Aw11PublicKey> = Vec::new();
@@ -482,7 +482,7 @@ mod tests {
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy =
-            String::from(r#"{"OR": [{"ATT": "B"}, {"AND": [{"ATT": "C"}, {"ATT": "D"}]}]}"#);
+            String::from(r#"{"name": "or", "children": [{"name": "B"}, {"name": "and", "children": [{"name": "C"}, {"name": "D"}]}]}"#);
 
         // a vector of public attribute keys
         let mut _pks: Vec<Aw11PublicKey> = Vec::new();
@@ -529,7 +529,7 @@ mod tests {
             String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
         // our policy
         let _policy =
-            String::from(r#"{"OR": [{"ATT": "B"}, {"AND": [{"ATT": "C"}, {"ATT": "A"}]}]}"#);
+            String::from(r#"{"name": "or", "children": [{"name": "B"}, {"name": "and", "children": [{"name": "C"}, {"name": "A"}]}]}"#);
         // a vector of public attribute keys
         let mut _pks: Vec<Aw11PublicKey> = Vec::new();
         _pks.push(_auth2_pk);
