@@ -62,8 +62,8 @@ pub fn traverse_policy(_attr: &Vec<String>, _json: &PolicyValue, _type: PolicyTy
                         ret |= traverse_policy(_attr, obj, PolicyType::Leaf)
                     }
                     ret
-                },
-                _ => false,
+                }
+                PolicyType::Leaf => false
             };
         }
     };
@@ -85,10 +85,10 @@ mod tests {
     #[test]
     fn test_traverse() {
         let policy_false = String::from(r#"joking-around?"#);
-        let policy1 = String::from(r#"{"name": "and": [{"name": "A"}, {"name": "B"}]}"#);
-        let policy2 = String::from(r#"{"name": "or": [{"name": "A"}, {"name": "B"}]}"#);
+        let policy1 = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#);
+        let policy2 = String::from(r#"{"name": "or", "children": [{"name": "A"}, {"name": "B"}]}"#);
         let policy3 = String::from(
-            r#"{"name": "and": [{"or": [{"name": "C"}, {"name": "D"}]}, {"name": "B"}]}"#,
+            r#"{"name": "and", "children": [{"or": [{"name": "C"}, {"name": "D"}]}, {"name": "B"}]}"#,
         );
         let mut _set0: Vec<String> = Vec::new();
         _set0.push(String::from("X"));

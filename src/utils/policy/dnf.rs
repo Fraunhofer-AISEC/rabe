@@ -8,7 +8,6 @@ use crate::{
     },
 };
 use utils::policy::pest::{PolicyLanguage, PolicyValue, parse, PolicyType};
-use utils::tools::get_value;
 
 /// A DNF policy for the MKE08 scheme and the BDABE scheme
 pub struct DnfPolicy {
@@ -39,9 +38,9 @@ impl DnfPolicy {
         }
     }
 
-    pub fn from_json(
+    pub fn from_policy<K: PublicAttributeKey>(
         _json: &PolicyValue,
-        _pks: &Vec<Mke08PublicAttributeKey>,
+        _pks: &Vec<K>,
     ) -> Result<DnfPolicy, RabeError> {
         json_to_dnf(_json, _pks)
     }
@@ -106,46 +105,69 @@ pub fn dnf<K: PublicAttributeKey>(
     _pks: &Vec<K>,
     _p: &PolicyValue,
     _i: usize,
+    _parent: Option<PolicyType>
 ) -> bool {
     let mut ret = true;
     // inner node
     return match _p {
-        PolicyValue::String(_s) => true,
-        PolicyValue::Array(nodes) => {
-            for (i, value) in nodes.iter().enumerate() {
-                ret = ret && dnf(_dnfp, _pks, &value, i + _i)
+        PolicyValue::String(_s) => {
+            for pak in _pks.iter() {
+                if pak._str() == *_s {
+                    if _dnfp._terms.len() > _i {
+                        _dnfp._terms[_i].0.push(pak._str().to_string());
+                        _dnfp._terms[_i] = (
+                            _dnfp._terms[_i].0.clone(),
+                            _dnfp._terms[_i].1 * pak._gt1(),
+                            _dnfp._terms[_i].2 * pak._gt2(),
+                            _dnfp._terms[_i].3 + pak._g1(),
+                            _dnfp._terms[_i].4 + pak._g2(),
+                        );
+                    } else {
+                        _dnfp._terms.push((
+                            vec![pak._str().to_string()],
+                            pak._gt1(),
+                            pak._gt2(),
+                            pak._g1(),
+                            pak._g2(),
+                        ));
+                    }
+                }
             }
-            ret
+            true
+        },
+        PolicyValue::Array(children) => {
+            return match _parent {
+                Some(PolicyType::And) => {
+                    for child in children {
+                        ret = ret && dnf(_dnfp, _pks, &child, _i, Some(PolicyType::And))
+                    }
+                    ret
+                },
+                Some(PolicyType::Or) => {
+                    for (i, child) in children.iter().enumerate() {
+                        ret = ret && dnf(_dnfp, _pks, &child, i + _i, Some(PolicyType::Or))
+                    }
+                    ret
+                },
+                _ => false,
+            }
         },
         PolicyValue::Object(obj) => {
-            match obj.0 {
-                PolicyType::And => dnf(_dnfp, _pks, &obj.1,  _i),
-                PolicyType::Or => dnf(_dnfp, _pks, &obj.1, _i),
-                _ => {
-                    for pak in _pks.iter() {
-                        if pak._str() == get_value(&obj.1) {
-                            if _dnfp._terms.len() > _i {
-                                _dnfp._terms[_i].0.push(pak._str().to_string());
-                                _dnfp._terms[_i] = (
-                                    _dnfp._terms[_i].0.clone(),
-                                    _dnfp._terms[_i].1 * pak._gt1(),
-                                    _dnfp._terms[_i].2 * pak._gt2(),
-                                    _dnfp._terms[_i].3 + pak._g1(),
-                                    _dnfp._terms[_i].4 + pak._g2(),
-                                );
-                            } else {
-                                _dnfp._terms.push((
-                                    vec![pak._str().to_string()],
-                                    pak._gt1(),
-                                    pak._gt2(),
-                                    pak._g1(),
-                                    pak._g2(),
-                                ));
-                            }
-                        }
+            return match _parent {
+                None => dnf(_dnfp, _pks, &obj.1, _i, Some(obj.0.clone())),
+                Some(PolicyType::Leaf) => dnf(_dnfp, _pks, &obj.1, _i, Some(PolicyType::Leaf)),
+                Some(PolicyType::Or) => {
+                    match &obj.0 {
+                        PolicyType::And => dnf(_dnfp, _pks, &obj.1, _i, Some(PolicyType::And)),
+                        _ => false,
                     }
-                    true
-                },
+                }
+                Some(PolicyType::And) => {
+                    match &obj.0 {
+                        PolicyType::Leaf => dnf(_dnfp, _pks, &obj.1, _i, Some(PolicyType::Leaf)),
+                        _ => false,
+                    }
+                }
             }
         }
     }
@@ -157,7 +179,7 @@ pub fn json_to_dnf<K: PublicAttributeKey>(
     _pks: &Vec<K>,
 ) -> Result<DnfPolicy, RabeError> {
     let mut dnfp = DnfPolicy::new();
-    if dnf(&mut dnfp, _pks, _p, 0) {
+    if dnf(&mut dnfp, _pks, _p, 0, None) {
         dnfp._terms.sort_by(|a, b| a.0.len().cmp(&b.0.len()));
         Ok(dnfp)
     }
@@ -166,38 +188,37 @@ pub fn json_to_dnf<K: PublicAttributeKey>(
     }
 }
 
-pub fn policy_in_dnf(p: &PolicyValue, conjunction: bool, policy: Option<PolicyType>) -> bool {
-    return match p {
+pub fn policy_in_dnf(pol: &PolicyValue, conjunction: bool, parent: Option<PolicyType>) -> bool {
+    return match pol {
         PolicyValue::Object(obj) => {
             match obj.0 {
-                PolicyType::And=> policy_in_dnf(&obj.1.as_ref(), conjunction, Some(PolicyType::And)),
+                PolicyType::And=> policy_in_dnf(&obj.1.as_ref(), true, Some(PolicyType::And)),
                 PolicyType::Or => policy_in_dnf(&obj.1.as_ref(), conjunction, Some(PolicyType::Or)),
-                _ => policy_in_dnf(&obj.1.as_ref(), conjunction, Some(PolicyType::Leaf)),
+                PolicyType::Leaf => policy_in_dnf(&obj.1.as_ref(), conjunction, Some(PolicyType::Leaf)),
             }
         },
         PolicyValue::String(_str) => true,
         PolicyValue::Array(children) => {
             let mut ret = true;
-            let len = children.len();
-            match policy {
+            match parent {
                 Some(PolicyType::And) => {
-                    for i in 0usize..len {
-                        ret &= policy_in_dnf(&children[i], true, None)
+                    for child in children {
+                        ret &= policy_in_dnf(&child, true, Some(PolicyType::And))
                     }
-                    ret
+                    return ret;
                 },
                 Some(PolicyType::Or) => {
                     if conjunction {
-                        ret = false;
+                        return false;
                     } else {
-                        for i in 0usize..len {
-                            ret &= policy_in_dnf(&children[i], conjunction, None)
+                        for child in children {
+                            ret &= policy_in_dnf(&child, conjunction, Some(PolicyType::Or))
                         }
                     }
-                    ret
+                    return ret;
                 },
                 _ => {
-                    println!("Error in policy_in_dnf: Array without parent AND or OR should not happen!");
+                    println!("policy_in_dnf: policy is not in DNF! Array without parent AND or OR.");
                     false
                 },
             }
@@ -217,26 +238,27 @@ mod tests {
         let policy_in_dnf3 = String::from(r#"{"name": "or", "children": [{"name": "C"}, {"name": "and",  "children": [{"name": "A"}, {"name": "C"}]}, {"name" :"and",  "children": [{"name": "A"}, {"name": "D"}]}]}"#);
         let policy_not_dnf1 = String::from(r#"{"name": "and", "children": [{"name": "or",  "children":: [{"name": "A"}, {"name": "B"}]}, {"name": "and",  "children": [{"name": "C"}, {"name": "D"}]}]}"#);
         let policy_not_dnf2 = String::from(r#"{"name": "or", "children":  [{"name": "and",  "children": [{"name": "or",  "children": [{"name": "C"}, {"name": "D"}]}, {"name": "B"}]}, {"name": "and",  "children": [{"name": "C"}, {"name": "D"}]}]}"#);
+
         match parse(policy_in_dnf1.as_ref(), PolicyLanguage::JsonPolicy) {
-            Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
+            Ok(pol) => assert!(policy_in_dnf(&pol, false, None)),
             Err(e) => println!("could not parse policy_in_dnf1 {}", e)
         }
         match parse(policy_in_dnf2.as_ref(), PolicyLanguage::JsonPolicy) {
-            Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
+            Ok(pol) => assert!(policy_in_dnf(&pol, false, None)),
             Err(e) => println!("could not parse policy_in_dnf2 {}", e)
         }
         match parse(policy_in_dnf3.as_ref(), PolicyLanguage::JsonPolicy) {
-            Ok(pol) => assert!(policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
+            Ok(pol) => assert!(policy_in_dnf(&pol, false, None)),
             Err(e) => println!("could not parse policy_in_dnf3 {}", e)
         }
 
         match parse(policy_not_dnf1.as_ref(), PolicyLanguage::JsonPolicy) {
-            Ok(pol) => assert!(!policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
-            Err(e) => println!("could not parse policy_in_dnf1 {}", e)
+            Ok(pol) => assert!(!policy_in_dnf(&pol, false, None)),
+            Err(e) => println!("could not parse policy_not_dnf1 (this is intended): {}", e)
         }
         match parse(policy_not_dnf2.as_ref(), PolicyLanguage::JsonPolicy) {
-            Ok(pol) => assert!(!policy_in_dnf(&pol, false, Some(PolicyType::Leaf))),
-            Err(e) => println!("could not parse policy_in_dnf2 {}", e)
+            Ok(pol) => assert!(!policy_in_dnf(&pol, false, None)),
+            Err(e) => println!("could not parse policy_not_dnf2 (this is intended): {}", e)
         }
 
         let pk_a = BdabePublicAttributeKey {

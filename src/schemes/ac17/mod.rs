@@ -355,7 +355,7 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Result<Vec<u8>
     match parse(ct._policy.0.as_ref(), ct._policy.1) {
         Ok(pol) => {
             return if traverse_policy(&sk._attr, &pol, PolicyType::Leaf) == false {
-                panic!("Error in cp_decrypt: attributes in SK do not match policy in CT.")
+                Err(RabeError::new("Error in cp_decrypt: attributes in SK do not match policy in CT."))
             } else {
                 match calc_pruned(&sk._attr, &pol, None) {
                     Err(e) => Err(e),
@@ -385,7 +385,7 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Result<Vec<u8>
                             // Decrypt plaintext using derived secret from cp-abe scheme
                             decrypt_symmetric(&_msg, &ct._ct._ct)
                         } else {
-                            panic!("Error: attributes in sk do not match policy in ct.")
+                            Err(RabeError::new("Error: attributes in sk do not match policy in ct."))
                         }
                     }
                 }
@@ -620,7 +620,7 @@ pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Result<Vec<u8>
                             // Decrypt plaintext using derived secret from cp-abe scheme
                             decrypt_symmetric(&_msg, &ct._ct._ct)
                         } else {
-                            panic!("Error in kp_decrypt: pruned attributes in sk do not match policy in ct.")
+                            Err(RabeError::new("Error in kp_decrypt: pruned attributes in sk do not match policy in ct."))
                         }
                     }
                 }

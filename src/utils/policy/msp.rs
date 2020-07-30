@@ -6,15 +6,16 @@ extern crate serde_json;
 use std::string::String;
 use utils::policy::pest::{PolicyLanguage, PolicyValue, parse, PolicyType};
 use RabeError;
+use std::fmt::{Display, Formatter, Result as FormatResult};
 
-const ZERO: i32 = 0;
-const PLUS: i32 = 1;
-const MINUS: i32 = -1;
+const ZERO: i8 = 0;
+const PLUS: i8 = 1;
+const MINUS: i8 = -1;
 
 pub struct AbePolicy {
-    pub _m: Vec<Vec<i32>>,
+    pub _m: Vec<Vec<i8>>,
     pub _pi: Vec<String>,
-    pub _deg: usize,
+    pub _c: usize,
 }
 
 #[allow(dead_code)]
@@ -30,17 +31,73 @@ impl AbePolicy {
 
     pub fn from_language(_content: &String, _language: PolicyLanguage) -> Result<AbePolicy, RabeError> {
         return match parse(_content, _language) {
-            Ok(json) => json_to_msp(&json),
+            Ok(json) => calculate_msp(&json),
             Err(e) => Err(e),
         }
     }
 
     pub fn from_policy(_content: &PolicyValue) -> Result<AbePolicy, RabeError> {
-        json_to_msp(_content)
+        calculate_msp(_content)
     }
 }
 
-fn lw(msp: &mut AbePolicy, p: &PolicyValue, v: &Vec<i32>, _type: PolicyType) -> bool {
+impl Display for AbePolicy {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FormatResult {
+        let mut _pi_str = String::from("[");
+        let mut _m_str = String::from("[");
+        for attribute in &self._pi {
+            _pi_str.push('"');
+            _pi_str.push_str(&attribute);
+            _pi_str.push('"');
+            _pi_str.push(',');
+        }
+        _pi_str.pop();
+        _pi_str.push(']');
+        for row in &self._m {
+            _m_str.push('(');
+            for col in row {
+                _m_str.push_str(&col.to_string());
+                _m_str.push(',');
+            }
+            _m_str.pop();
+            _m_str.push(')');
+            _m_str.push(',');
+        }
+        _m_str.pop();
+        _m_str.push(']');
+        write!(f, "{{_m: {}, _pi: {}, _c: {}}}", _m_str, _pi_str, self._c)
+    }
+}
+
+
+//#[doc = /**
+// * BEWARE: policy must be in DNF!
+// */]
+pub fn calculate_msp(p: &PolicyValue) -> Result<AbePolicy, RabeError> {
+    let mut v: Vec<i8> = Vec::new();
+    let mut _values: Vec<Vec<i8>> = Vec::new();
+    let mut _attributes: Vec<String> = Vec::new();
+    let mut msp = AbePolicy {
+        _m: _values,
+        _pi: _attributes,
+        _c: 1,
+    };
+    v.push(PLUS);
+    if lw(&mut msp, p, &v, None) {
+        for val in &mut msp._m {
+            val.resize(msp._c, ZERO);
+        }
+        // permutate both _pi and _m according to _pi
+        let permutation = permutation::sort(&msp._pi[..]);
+        msp._pi = permutation.apply_slice(&msp._pi[..]);
+        msp._m = permutation.apply_slice(&msp._m[..]);
+        return Ok(msp);
+    }
+    return Err(RabeError::new("lewko waters algorithm failed =("))
+}
+/// Converting from Boolean Formulas to LSSS Matrices
+/// Lewko Waters: "Decentralizing Attribute-Based Encryption" Appendix G
+fn lw(msp: &mut AbePolicy, p: &PolicyValue, v: &Vec<i8>, _parent: Option<PolicyType>) -> bool {
     let mut v_tmp_left = Vec::new();
     let mut v_tmp_right = v.clone();
     return match p {
@@ -51,59 +108,42 @@ fn lw(msp: &mut AbePolicy, p: &PolicyValue, v: &Vec<i32>, _type: PolicyType) -> 
         },
         PolicyValue::Object(obj) => {
             match obj.0 {
-                PolicyType::And => lw(msp, &obj.1.as_ref(), v, PolicyType::And),
-                PolicyType::Or => lw(msp, &obj.1.as_ref(), v, PolicyType::Or),
-                _ => lw(msp, &obj.1.as_ref(), v, PolicyType::Leaf),
+                PolicyType::And => lw(msp, &obj.1.as_ref(), v, Some(PolicyType::And)),
+                PolicyType::Or => lw(msp, &obj.1.as_ref(), v, Some(PolicyType::Or)),
+                PolicyType::Leaf => lw(msp, &obj.1.as_ref(), v, Some(PolicyType::Leaf)),
             }
         },
         PolicyValue::Array(policies) => {
-            match _type {
-                PolicyType::And => {
-                    if policies.len() != 2 {
-                        return false;
-                    }
-                    v_tmp_right.resize(msp._deg, ZERO);
-                    v_tmp_right.push(PLUS);
-                    v_tmp_left.resize(msp._deg, ZERO);
-                    v_tmp_left.push(MINUS);
-                    msp._deg += 1;
-                    lw(msp, &policies[0], &v_tmp_right, PolicyType::Leaf) && lw(msp, &policies[1], &v_tmp_left, PolicyType::Leaf)
-                },
-                PolicyType::Or => {
+            let len = policies.len();
+            if len < 2 {
+                panic!("lw: policy with just a single attribute is not allowed");
+            }
+            return match _parent {
+                Some(PolicyType::Or) => {
                     let mut _ret = true;
                     for policy in policies {
-                        _ret &= lw(msp, &policy, &v, PolicyType::Leaf);
+                        _ret &= lw(msp, &policy, &v, Some(PolicyType::Or));
                     }
                     return _ret;
                 },
-                PolicyType::Leaf => false
+                Some(PolicyType::And) => {
+                    if len != 2 {
+                        panic!("lw: Invalid policy. Number of arguments under AND != 2");
+                    }
+                    v_tmp_right.resize(msp._c, ZERO);
+                    v_tmp_right.push(PLUS);
+                    v_tmp_left.resize(msp._c, ZERO);
+                    v_tmp_left.push(MINUS);
+                    msp._c += 1;
+                    lw(msp, &policies[0], &v_tmp_right, Some(PolicyType::And)) && lw(msp, &policies[1], &v_tmp_left, Some(PolicyType::And))
+                },
+                Some(PolicyType::Leaf) => false,
+                None => false,
             }
         }
     };
 }
 
-//#[doc = /**
-// * BEWARE: policy must be in DNF!
-// */]
-pub fn json_to_msp(p: &PolicyValue) -> Result<AbePolicy, RabeError> {
-    let mut v: Vec<i32> = Vec::new();
-    let mut _values: Vec<Vec<i32>> = Vec::new();
-    let mut _attributes: Vec<String> = Vec::new();
-    let mut msp = AbePolicy {
-        _m: _values,
-        _pi: _attributes,
-        _deg: 1,
-    };
-    v.push(PLUS);
-    if lw(&mut msp, p, &v, PolicyType::Leaf) {
-        for p in &mut msp._m {
-            p.resize(msp._deg, ZERO);
-        }
-        msp._pi.reverse();
-        return Ok(msp);
-    }
-    return Err(RabeError::new(&"lw algorithm failed =("))
-}
 
 #[cfg(test)]
 mod tests {
@@ -112,19 +152,19 @@ mod tests {
 
     #[test]
     fn test_msp_from() {
-        let policy = String::from(r#"{name:"or", children:[{name:"and", children:[{name:"A"},{name:"B"}]},{name:"or", children:[{name:"C"},{name:"D"}]}]}"#);
+        let policy = String::from(r#"{name:"and", children:[{name:"A"}, {name:"or", "children":[{name:"D"}, {name:"and", "children":[{name:"B"},{name:"C"}]}]} ]}"#);
         let mut _values: Vec<Vec<bn::Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
         let _zero = 0;
         let _plus = 1;
         let _minus = -1;
-        let p1 = vec![_zero, _zero, _minus];
-        let p2 = vec![_plus, _zero, _plus];
-        let p3 = vec![_zero, _minus, _zero];
-        let p4 = vec![_plus, _plus, _zero];
+        let p1 = vec![_plus, _plus, _zero];
+        let p2 = vec![_zero, _minus, _plus];
+        let p3 = vec![_zero, _zero, _minus];
+        let p4 = vec![_zero, _minus, _zero];
         match parse(policy.as_ref(), PolicyLanguage::JsonPolicy) {
             Ok(pol) => {
-                let mut _msp_static = AbePolicy {
+                let _msp_static = AbePolicy {
                     _m: vec![p1, p2, p3, p4],
                     _pi: vec![
                         String::from("A"),
@@ -132,7 +172,7 @@ mod tests {
                         String::from("C"),
                         String::from("D"),
                     ],
-                    _deg: 3,
+                    _c: 3,
                 };
                 match AbePolicy::from_policy(&pol).ok() {
                     None => assert!(false),
@@ -141,14 +181,12 @@ mod tests {
                             let p = &_msp._m[i];
                             let p_test = &_msp_static._m[i];
                             for j in 0..3 {
-                                //println!("_mspg[{:?}][{:?}]: {:?}", i, j, p[j]);
-                                //println!("_msps[{:?}][{:?}]: {:?}", i, j, p_test[j]);
                                 assert_eq!(p[j], p_test[j]);
                             }
                             //println!("_pi[{:?}]{:?} _pi[{:?}]{:?}",i,_msp_static._pi[i],i,_msp._pi[i]);
                             assert_eq!(_msp_static._pi[i], _msp._pi[i]);
                         }
-                        assert_eq!(_msp_static._deg, _msp._deg);
+                        assert_eq!(_msp_static._c, _msp._c);
                     }
                 }
             },

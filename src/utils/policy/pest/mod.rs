@@ -53,7 +53,7 @@ pub fn serialize_policy(val: &PolicyValue, language: PolicyLanguage) -> String {
                 },
                 Array(a) => {
                     let contents: Vec<_> = a.iter().map(|val| serialize_policy(val, language)).collect();
-                    format!("\"children\": [{}]", contents.join(","))
+                    format!("\"children\": [{}]", contents.join(", "))
                 }
                 String(s) => format!("{{\"name\": \"{}\"}}", s),
             }
@@ -71,7 +71,6 @@ mod tests {
         let pol = String::from(r#"{"name": "A"}"#);
         let json: PolicyValue = parse(&pol, PolicyLanguage::JsonPolicy).expect("unsuccessful parse");
         let serialized_json = serialize_policy(&json, PolicyLanguage::JsonPolicy);
-        println!("1:{}", serialized_json);
         assert_eq!(serialized_json, pol);
     }
 
@@ -80,7 +79,6 @@ mod tests {
         let pol = String::from(r#"{"name": "and", "children": [{"name": "B"}, {"name": "C"}]}"#);
         let json: PolicyValue = parse(&pol, PolicyLanguage::JsonPolicy).expect("unsuccessful parse");
         let serialized_json =serialize_policy(&json, PolicyLanguage::JsonPolicy);
-        println!("2:{}", serialized_json);
         assert_eq!(serialized_json, pol);
     }
 }

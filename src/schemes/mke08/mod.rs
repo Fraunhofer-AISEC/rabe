@@ -297,7 +297,7 @@ pub fn encrypt(
                 let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
                 Ok(Mke08Ciphertext { _policy: (_policy, _language), _e, _ct})
             } else {
-                panic!("Error in mke08/encrypt: policy is not in dnf")
+                Err(RabeError::new("Error in mke08/encrypt: policy is not in dnf"))
             }
         },
         Err(e) => Err(e)
@@ -327,7 +327,7 @@ pub fn decrypt(
     match parse(_ct._policy.0.as_ref(), _ct._policy.1) {
         Ok(pol) => {
             return if traverse_policy(&_attr, &pol, PolicyType::Leaf) == false {
-                panic!("Error in mke08/decrypt: attributes in sk do not match policy in ct.");
+                Err(RabeError::new("Error in mke08/decrypt: attributes in sk do not match policy in ct."))
             } else {
                 let mut _msg = Gt::one();
                 for (_i, _e_j) in _ct._e.iter().enumerate() {

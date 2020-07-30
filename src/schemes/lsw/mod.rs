@@ -255,7 +255,7 @@ pub fn decrypt(_sk: &KpAbeSecretKey, _ct: &KpAbeCiphertext) -> Result<Vec<u8>, R
                         // Decrypt plaintext using derived secret from cp-abe scheme
                         decrypt_symmetric(&_msg, &_ct._ct)
                     } else {
-                        panic!("Error in lsw/decrypt: attributes do not match policy.")
+                        Err(RabeError::new("Error in lsw/decrypt: attributes do not match policy."))
                     }
                 }
             }

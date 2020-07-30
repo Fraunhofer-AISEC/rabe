@@ -243,7 +243,7 @@ mod tests {
         _input.push(_shares[1]);
         let _reconstruct = recover_secret(
             _input,
-            &String::from(r#"{"OR": [{"name": "A"}, {"name": "B"}]}"#),
+            &String::from(r#"{"name":"or", "children": [{"name": "A"}, {"name": "B"}]}"#),
         );
         assert!(_k == _reconstruct);
     }
@@ -258,13 +258,7 @@ mod tests {
             Ok(pol) => {
                 let _shares = gen_shares_policy(_secret, &pol, None).unwrap();
                 let _coeff = calc_coefficients(&pol, Some(Fr::one()), None).unwrap();
-                for _s in _shares {
-                    println!("_shares: {:?}", _s.0);
-                }
-                for _c in _coeff {
-                    println!("_coeff: {:?}", _c.0);
-                }
-                //assert!(_k == _reconstruct);
+                assert_eq!(_coeff.len(), _shares.len());
             },
             Err(e) => println!("test_gen_shares_json: could not parse policy {}", e)
         }
@@ -286,7 +280,7 @@ mod tests {
         //println!("_share2: {:?}", into_dec(_shares[2]).unwrap());
         let _reconstruct = recover_secret(
             _input,
-            &String::from(r#"{"AND": [{"name": "A"}, {"name": "B"}]}"#),
+            &String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#),
         );
         //println!("_reconstructed: {:?}", into_dec(_reconstruct).unwrap());
         assert!(_k == _reconstruct);
@@ -299,9 +293,9 @@ mod tests {
         _attributes.push(String::from("3"));
         _attributes.push(String::from("4"));
 
-        let pol1 = String::from(r#"{"OR": [{"AND": [{"name": "1"}, {"name": "2"}]}, {"AND": [{"name": "3"}, {"name": "4"}]}]}"#);
-        let pol2 = String::from(r#"{"OR": [{"name": "3"}, {"AND": [{"name": "4"}, {"name": "5"}]}]}"#);
-        let pol3 = String::from(r#"{"AND": [{"AND": [{"name": "1"}, {"name": "2"}]}, {"AND": [{"name": "3"}, {"name": "4"}]}]}"#);
+        let pol1 = String::from(r#"{"name": "or", "children": [{"name": "and", "children": [{"name": "1"}, {"name": "2"}]}, {"name": "and", "children": [{"name": "3"}, {"name": "4"}]}]}"#);
+        let pol2 = String::from(r#"{"name": "or", "children": [{"name": "3"}, {"name": "and", "children": [{"name": "4"}, {"name": "5"}]}]}"#);
+        let pol3 = String::from(r#"{"name": "or", "children": [{"name": "and", "children": [{"name": "1"}, {"name": "4"}]}, {"name": "and", "children": [{"name": "3"}, {"name": "1"}]}]}"#);
 
         let _result1 = calc_pruned(
             &_attributes,

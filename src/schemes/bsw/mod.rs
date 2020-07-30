@@ -250,7 +250,7 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Result<Vec<u8>, R
     match parse(_ct._policy.0.as_ref(), _ct._policy.1) {
         Ok(pol) => {
             return if traverse_policy(&_str_attr, &pol, PolicyType::Leaf) == false {
-                panic!("Error in bsw/encrypt: attributes do not match policy.")
+                Err(RabeError::new("Error in bsw/encrypt: attributes do not match policy."))
             } else {
                 match calc_pruned(&_str_attr, &pol, None) {
                     Err(e) => Err(e),
@@ -355,9 +355,9 @@ mod tests {
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
 
-        let mut _policy = String::from("{\"AND\": [");
+        let mut _policy = String::from("{\"name\": \"and\", \"children\": [");
         for n in 1..11 {
-            let mut _current = String::from("{\"ATT\": \"attr");
+            let mut _current = String::from("{\"name\": \"attr");
             if n < 10 {
                 _current.push_str(&n.to_string());
                 _current.push_str(&String::from("\"}, "));
@@ -368,7 +368,6 @@ mod tests {
             _policy.push_str(&_current);
         }
         _policy.push_str(&String::from("}"));
-        println!("{:?}", _policy);
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &_policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
 
@@ -397,33 +396,25 @@ mod tests {
         let mut att_not_matching: Vec<String> = Vec::new();
         att_not_matching.push(String::from("x"));
         att_not_matching.push(String::from("y"));
-
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
-
-        let mut _policy_mut = String::from("{\"AND\": [{\"ATT\": \"a2\"}, {\"ATT\": \"a1\"}]}");
-
+        let mut _policy_mut = String::from("{\"name\":\"and\", \"children\": [{\"name\": \"a2\"}, {\"name\": \"a1\"}]}");
         for _i in 3.._num_nested {
-            let mut _str = String::from("{\"AND\":[");
-            _str.push_str("{\"ATT\":\"");
+            let mut _str = String::from("{\"name\":\"and\", \"children\":[");
+            _str.push_str("{\"name\":\"");
             _str.push_str(&att_matching[_i - 1]);
             _str.push_str("\"},");
             _str.push_str(&_policy_mut);
             _str.push_str("]}");
             _policy_mut = _str.clone();
         }
-
-        println!("{}", _policy_mut);
-
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &_policy_mut, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
-
         // and now decrypt again with mathcing sk
         let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
         assert_eq!(_match.is_ok(), true);
         assert_eq!(_match.unwrap(), plaintext);
-
         let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
         assert_eq!(_no_match.is_ok(), false);
     }
@@ -456,7 +447,6 @@ mod tests {
         let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
         assert_eq!(_match.is_ok(), true);
         assert_eq!(_match.unwrap(), plaintext);
-
         let _no_match = decrypt(&keygen(&pk, &msk, &att_not_matching).unwrap(), &ct_cp);
         assert_eq!(_no_match.is_ok(), false);
     }
@@ -470,22 +460,17 @@ mod tests {
         att_matching.push(String::from("A"));
         att_matching.push(String::from("B"));
         att_matching.push(String::from("C"));
-
         // a set of two attributes NOT matching the policy
         let mut att_not_matching: Vec<String> = Vec::new();
         att_not_matching.push(String::from("A"));
         att_not_matching.push(String::from("D"));
-
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
-
         // our policy
         let policy = String::from(r#"{"name": "and", "children":  [{"name": "A"}, {"name": "B"}]}"#);
-
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
-
         // and now decrypt again with mathcing sk
         let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
         assert_eq!(_match.is_ok(), true);
@@ -503,22 +488,17 @@ mod tests {
         att_matching.push(String::from("A"));
         att_matching.push(String::from("B"));
         att_matching.push(String::from("C"));
-
         // a set of two attributes NOT matching the policy
         let mut att_not_matching: Vec<String> = Vec::new();
         att_not_matching.push(String::from("A"));
         att_not_matching.push(String::from("D"));
-
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
-
         // our policy
         let policy = String::from(r#"{"name": "and", "children":  [{"name": "A"}, {"name": "B"}, {"name": "C"}]}"#);
-
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
-
         // and now decrypt again with mathcing sk
         let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
         assert_eq!(_match.is_ok(), true);
@@ -538,22 +518,17 @@ mod tests {
         att_matching.push(String::from("B"));
         att_matching.push(String::from("C"));
         att_matching.push(String::from("D"));
-
         // a set of two attributes NOT matching the policy
         let mut att_not_matching: Vec<String> = Vec::new();
         att_not_matching.push(String::from("A"));
         att_not_matching.push(String::from("C"));
-
         // our plaintext
         let plaintext = String::from("dance like no one's watching, encrypt like everyone is!")
             .into_bytes();
-
         // our policy
         let policy = String::from(r#"{"name": "or", "children": [{"name": "and", "children":  [{"name": "A"}, {"name": "B"}]}, {"name": "and", "children":  [{"name": "C"}, {"name": "D"}]}]}"#);
-
         // cp-abe ciphertext
         let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
-
         // and now decrypt again with mathcing sk
         let _match = decrypt(&keygen(&pk, &msk, &att_matching).unwrap(), &ct_cp);
         assert_eq!(_match.is_ok(), true);

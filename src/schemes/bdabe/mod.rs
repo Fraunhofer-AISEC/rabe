@@ -23,7 +23,7 @@
 //!let _policy = String::from(r#"{"name": "aa1::A"}"#);
 //!let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
 //!let _match = decrypt(&_pk, &_u_key, &_ct);
-//!assert_eq!(_match.is_some(), true);
+//!assert_eq!(_match.is_ok(), true);
 //!assert_eq!(_match.unwrap(), _plaintext);
 //! ```
 use std::string::String;
@@ -299,7 +299,7 @@ pub fn encrypt(
                 //Encrypt plaintext using derived key from secret
                 Ok(BdabeCiphertext {_policy: (_policy, _language), _j, _ct })
             } else {
-                panic!("Error in bdabe/encrypt: Policy not in DNF.")
+                Err(RabeError::new("Error in bdabe/encrypt: Policy not in DNF."))
             }
         },
         Err(e) => Err(e)
@@ -325,8 +325,8 @@ pub fn decrypt(
         .collect::<Vec<_>>();
     match parse(_ct._policy.0.as_ref(), _ct._policy.1) {
         Ok(pol) => {
-            return if traverse_policy(&_str_attr, &pol, PolicyType::Leaf) == false {
-                panic!("Error in bdabe/decrypt: attributes in sk do not match policy in ct.");
+            if traverse_policy(&_str_attr, &pol, PolicyType::Leaf) == false {
+                Err(RabeError::new("Error in bdabe/decrypt: attributes in sk do not match policy in ct."))
             } else {
                 let mut _msg = Gt::one();
                 for (_i, _ct_j) in _ct._j.iter().enumerate() {
