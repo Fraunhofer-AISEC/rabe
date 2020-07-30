@@ -1,0 +1,35 @@
+// Example ("A" and "b") or "c"
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+QUOTE = _{ "\"" }
+andvalue = _{ "and" | "AND" | "&&"  }
+orvalue  = _{ "or" | "OR" | "||" }
+andinner = _{ andvalue | QUOTE ~ andvalue ~ QUOTE }
+orinner  = _{ orvalue | QUOTE ~ orvalue ~ QUOTE }
+BRACEOPEN = _{ "(" | "[" | "{" }
+BRACECLOSE = _{ ")" | "]" | "}" }
+node = _{ and | or }
+or = {
+    term ~ (orinner ~ term)+
+}
+and = {
+    term ~ (andinner ~ term)+
+}
+term = _{ value | "(" ~ node ~ ")" }
+// Values
+value = _{ string | number | BRACEOPEN ~ node ~ BRACECLOSE }
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+number = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ~ ("." ~ ASCII_DIGIT*)?
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+content = _{ SOI ~ node ~ EOI }
