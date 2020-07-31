@@ -20,8 +20,8 @@
 //!let _att1_pk = request_attribute_pk(&_pk, &_a1_key, &_att1).unwrap();
 //!_u_key._ska.push(request_attribute_sk(&_u_key._pk, &_a1_key, &_att1).unwrap());
 //!let _plaintext = String::from("our plaintext!").into_bytes();
-//!let _policy = String::from(r#"{"name": "aa1::A"}"#);
-//!let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk], &_policy, &_plaintext, PolicyLanguage::JsonPolicy).unwrap();
+//!let _policy = String::from(r#""aa1::A" or "aa1::B""#);
+//!let _ct: BdabeCiphertext = encrypt(&_pk, &vec![_att1_pk], &_policy, &_plaintext, PolicyLanguage::HumanPolicy).unwrap();
 //!let _match = decrypt(&_pk, &_u_key, &_ct);
 //!assert_eq!(_match.is_ok(), true);
 //!assert_eq!(_match.unwrap(), _plaintext);

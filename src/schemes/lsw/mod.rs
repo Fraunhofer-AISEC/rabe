@@ -15,9 +15,9 @@
 //! use rabe::utils::policy::pest::PolicyLanguage;
 //!let (pk, msk) = setup();
 //!let plaintext = String::from("our plaintext!").into_bytes();
-//!let policy = String::from(r#"{"name": "or", "children": [{"name": "X"}, {"name": "B"}]}"#);
+//!let policy = String::from(r#""X" or "B""#);
 //!let ct_kp: KpAbeCiphertext = encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
-//!let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy, PolicyLanguage::JsonPolicy).unwrap();
+//!let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy, PolicyLanguage::HumanPolicy).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_kp).unwrap(), plaintext);
 //! ```
 use bn::{Group, Fr, G1, G2, Gt, pairing};

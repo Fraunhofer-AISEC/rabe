@@ -24,8 +24,8 @@
 //!_u_key._sk_a.push(request_authority_sk(&_att1, &_a1_key, &_u_key._pk_u).unwrap());
 //!_u_key._sk_a.push(request_authority_sk(&_att2, &_a2_key, &_u_key._pk_u).unwrap());
 //!let _plaintext = String::from("our plaintext!").into_bytes();
-//!let _policy = String::from(r#"{"name": "and", "children": [{"name": "aa1::A"}, {"name": "aa2::B"}]}"#);
-//!let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, PolicyLanguage::JsonPolicy, &_plaintext).unwrap();
+//!let _policy = String::from(r#""aa1::A" and "aa2::B""#);
+//!let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, PolicyLanguage::HumanPolicy, &_plaintext).unwrap();
 //!assert_eq!(decrypt(&_pk, &_u_key, &_ct).unwrap(), _plaintext);
 //! ```
 use bn::{Group, Fr, G1, G2, Gt, pairing};

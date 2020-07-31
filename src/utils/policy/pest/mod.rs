@@ -81,7 +81,6 @@ pub fn serialize_policy(val: &PolicyValue, language: PolicyLanguage, parent: Opt
                         Some(PolicyType::Or) => format!("({})", contents.join(" or ")),
                         _ => panic!("children without parent")
                     }
-
                 }
                 String(s) => format!("{}", s),
             }

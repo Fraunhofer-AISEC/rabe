@@ -16,9 +16,9 @@
 //!let gk = setup();
 //!let (pk, msk) = authgen(&gk, &vec!["A".to_string(), "B".to_string()]).unwrap();
 //!let plaintext = String::from("our plaintext!").into_bytes();
-//!let policy = String::from(r#"{"name": "or", "children": [{"name": "A"}, {"name": "B"}]}"#);
+//!let policy = String::from(r#""A" or "B""#);
 //!let bob = keygen(&gk, &msk, &String::from("bob"), &vec!["A".to_string()]).unwrap();
-//!let ct: Aw11Ciphertext = encrypt(&gk, &vec![pk], &policy, PolicyLanguage::JsonPolicy, &plaintext).unwrap();
+//!let ct: Aw11Ciphertext = encrypt(&gk, &vec![pk], &policy, PolicyLanguage::HumanPolicy, &plaintext).unwrap();
 //!let matching = decrypt(&gk, &bob, &ct).unwrap();
 //!assert_eq!(matching, plaintext);
 //! ```

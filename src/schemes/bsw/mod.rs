@@ -15,8 +15,8 @@
 //! use rabe::utils::policy::pest::PolicyLanguage;
 //!let (pk, msk) = setup();
 //!let plaintext = String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
-//!let policy = String::from(r#"{"name": "and", "children":  [{"name": "A"}, {"name": "B"}]}"#);
-//!let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
+//!let policy = String::from(r#""A" and "B""#);
+//!let ct_cp: CpAbeCiphertext = encrypt(&pk, &policy, &plaintext, PolicyLanguage::HumanPolicy).unwrap();
 //!let sk: CpAbeSecretKey = keygen(&pk, &msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_cp).unwrap(), plaintext);
 //! ```

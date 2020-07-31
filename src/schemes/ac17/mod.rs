@@ -17,9 +17,12 @@
 //! use rabe::utils::policy::pest::PolicyLanguage;
 //! let (pk, msk) = setup();
 //! let plaintext = String::from("our plaintext!").into_bytes();
-//! let policy = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#);
-//! let ct: Ac17KpCiphertext =  kp_encrypt(&pk, &vec!["A".to_string(), "B".to_string()], &plaintext).unwrap();
-//! let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy, PolicyLanguage::JsonPolicy).unwrap();
+//! let policy = String::from(r#""A" and "B""#);
+//! let ct: Ac17KpCiphertext =  kp_encrypt(&pk, &vec![
+//!     "A".to_string(),
+//!     "B".to_string()
+//! ], &plaintext).unwrap();
+//! let sk: Ac17KpSecretKey = kp_keygen(&msk, &policy, PolicyLanguage::HumanPolicy).unwrap();
 //! assert_eq!(kp_decrypt(&sk, &ct).unwrap(), plaintext);
 //! ```
 //!
@@ -30,9 +33,12 @@
 //! use rabe::utils::policy::pest::PolicyLanguage;
 //! let (pk, msk) = setup();
 //! let plaintext = String::from("our plaintext!").into_bytes();
-//! let policy = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#);
-//! let ct: Ac17CpCiphertext =  cp_encrypt(&pk, &policy, &plaintext, PolicyLanguage::JsonPolicy).unwrap();
-//! let sk: Ac17CpSecretKey = cp_keygen(&msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
+//! let policy = String::from(r#""A" and "B""#);
+//! let ct: Ac17CpCiphertext =  cp_encrypt(&pk, &policy, &plaintext, PolicyLanguage::HumanPolicy).unwrap();
+//! let sk: Ac17CpSecretKey = cp_keygen(&msk, &vec![
+//!     "A".to_string(),
+//!     "B".to_string()
+//! ]).unwrap();
 //! assert_eq!(cp_decrypt(&sk, &ct).unwrap(), plaintext);
 //! ```
 use std::{
