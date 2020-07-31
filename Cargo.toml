@@ -1,6 +1,6 @@
 [package]
 name = "rabe"
-version = "0.2.1"
+version = "0.2.2"
 description = "ABE Schemes implemented in rust."
 authors = [
     "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
@@ -11,6 +11,7 @@ license = "MIT"
 [lib]
 name="rabe"
 crate-type=["rlib", "cdylib"]
+bench = false
 
 [dependencies]
 arrayref = "0.3.4"
