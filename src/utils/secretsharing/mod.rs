@@ -1,9 +1,4 @@
-extern crate rand;
-#[allow(dead_code)]
-extern crate serde;
-extern crate serde_json;
-
-use bn::*;
+use rabe_bn::*;
 use rand::Rng;
 use utils::{
     tools::{contains, usize_to_fr, get_value},

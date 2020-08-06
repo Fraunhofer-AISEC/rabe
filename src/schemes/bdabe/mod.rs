@@ -28,7 +28,7 @@
 //! ```
 use std::string::String;
 use rand::Rng;
-use bn::{Group, Fr, G1, G2, Gt, pairing};
+use rabe_bn::{Group, Fr, G1, G2, Gt, pairing};
 use utils::{
     policy::*,
     tools::*,
@@ -42,17 +42,17 @@ use utils::policy::dnf::policy_in_dnf;
 /// A BDABE Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabePublicKey {
-    pub _g1: bn::G1,
-    pub _g2: bn::G2,
-    pub _p1: bn::G1,
-    pub _p2: bn::G2,
-    pub _e_gg_y: bn::Gt,
+    pub _g1: G1,
+    pub _g2: G2,
+    pub _p1: G1,
+    pub _p2: G2,
+    pub _e_gg_y: Gt,
 }
 
 /// A BDABE Master Key (MK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeMasterKey {
-    pub _y: bn::Fr,
+    pub _y: Fr,
 }
 
 /// A BDABE User Key (PKu, SKu and SKa's)
@@ -67,40 +67,40 @@ pub struct BdabeUserKey {
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabePublicUserKey {
     pub _u: String,
-    pub _u1: bn::G1,
-    pub _u2: bn::G2,
+    pub _u1: G1,
+    pub _u2: G2,
 }
 
 /// A BDABE Secret User Key (SKu)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeSecretUserKey {
-    pub _u1: bn::G1,
-    pub _u2: bn::G2,
+    pub _u1: G1,
+    pub _u2: G2,
 }
 
 /// A BDABE Secret Attribute Key (SKa)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeSecretAttributeKey {
     pub _str: String,
-    pub _au1: bn::G1,
-    pub _au2: bn::G2,
+    pub _au1: G1,
+    pub _au2: G2,
 }
 
 /// A BDABE Public Attribute Key (PKa)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabePublicAttributeKey {
     pub _str: String,
-    pub _a1: bn::G1,
-    pub _a2: bn::G2,
-    pub _a3: bn::Gt,
+    pub _a1: G1,
+    pub _a2: G2,
+    pub _a3: Gt,
 }
 
 /// A BDABE Secret Authority Key (SKauth)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeSecretAuthorityKey {
-    pub _a1: bn::G1,
-    pub _a2: bn::G2,
-    pub _a3: bn::Fr,
+    pub _a1: G1,
+    pub _a2: G2,
+    pub _a3: Fr,
     pub _a: String,
 }
 
@@ -108,11 +108,11 @@ pub struct BdabeSecretAuthorityKey {
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct BdabeCiphertextTuple {
     pub _str: Vec<String>,
-    pub _e1: bn::Gt,
-    pub _e2: bn::G1,
-    pub _e3: bn::G2,
-    pub _e4: bn::G1,
-    pub _e5: bn::G2,
+    pub _e1: Gt,
+    pub _e2: G1,
+    pub _e3: G2,
+    pub _e4: G1,
+    pub _e5: G2,
 }
 
 /// A BDABE Ciphertext (CT)
@@ -383,8 +383,8 @@ fn is_satisfiable(_conjunction: &Vec<String>, _sk: &Vec<BdabeSecretAttributeKey>
 fn calc_satisfiable(
     _conjunction: &Vec<String>,
     _sk: &Vec<BdabeSecretAttributeKey>,
-) -> (bn::G1, bn::G2) {
-    let mut ret: (bn::G1, bn::G2) = (G1::one(), G2::one());
+) -> (G1, G2) {
+    let mut ret: (G1, G2) = (G1::one(), G2::one());
     for _i in 0usize.._conjunction.len() {
         match _sk
             .into_iter()

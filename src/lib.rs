@@ -13,7 +13,7 @@ extern crate arrayref;
 extern crate base64;
 extern crate bincode;
 extern crate blake2_rfc;
-extern crate bn;
+extern crate rabe_bn;
 extern crate byteorder;
 extern crate crypto;
 extern crate libc;

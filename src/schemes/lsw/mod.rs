@@ -20,7 +20,7 @@
 //!let sk: KpAbeSecretKey = keygen(&pk, &msk, &policy, PolicyLanguage::HumanPolicy).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_kp).unwrap(), plaintext);
 //! ```
-use bn::{Group, Fr, G1, G2, Gt, pairing};
+use rabe_bn::{Group, Fr, G1, G2, Gt, pairing};
 use std::ops::Neg;
 use utils::{
     tools::*,

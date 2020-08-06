@@ -1,5 +1,5 @@
 use std::string::String;
-use bn::{Group, Gt, G1, G2};
+use rabe_bn::{Group, Gt, G1, G2};
 use crate::{
     RabeError,
     schemes::{

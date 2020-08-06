@@ -28,7 +28,7 @@
 //!let _ct: Mke08Ciphertext = encrypt(&_pk, &vec![_att1_pk, _att2_pk], &_policy, PolicyLanguage::HumanPolicy, &_plaintext).unwrap();
 //!assert_eq!(decrypt(&_pk, &_u_key, &_ct).unwrap(), _plaintext);
 //! ```
-use bn::{Group, Fr, G1, G2, Gt, pairing};
+use rabe_bn::{Group, Fr, G1, G2, Gt, pairing};
 use rand::Rng;
 use std::string::String;
 use utils::{

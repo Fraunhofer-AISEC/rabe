@@ -1,8 +1,3 @@
-extern crate bn;
-#[allow(dead_code)]
-extern crate serde;
-extern crate serde_json;
-
 use std::string::String;
 use utils::policy::pest::{PolicyLanguage, PolicyValue, parse, PolicyType};
 use RabeError;
@@ -149,11 +144,12 @@ fn lw(msp: &mut AbePolicy, p: &PolicyValue, v: &Vec<i8>, _parent: Option<PolicyT
 mod tests {
 
     use super::*;
+    use rabe_bn::Fr;
 
     #[test]
     fn test_msp_from() {
         let policy = String::from(r#"{name:"and", children:[{name:"A"}, {name:"or", "children":[{name:"D"}, {name:"and", "children":[{name:"B"},{name:"C"}]}]} ]}"#);
-        let mut _values: Vec<Vec<bn::Fr>> = Vec::new();
+        let mut _values: Vec<Vec<Fr>> = Vec::new();
         let mut _attributes: Vec<String> = Vec::new();
         let _zero = 0;
         let _plus = 1;

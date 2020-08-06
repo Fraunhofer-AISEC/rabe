@@ -24,7 +24,7 @@
 //! ```
 use std::string::String;
 use rand::Rng;
-use bn::{Fr, G1, G2, Gt, pairing};
+use rabe_bn::{Fr, G1, G2, Gt, pairing};
 use utils::{
     secretsharing::{
         calc_coefficients,

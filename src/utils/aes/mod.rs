@@ -1,19 +1,14 @@
-#[allow(dead_code)]
-extern crate bn;
-extern crate crypto;
-extern crate serde;
-extern crate serde_json;
-
 use bincode::serialize;
 use crypto::buffer::{BufferResult, ReadBuffer, WriteBuffer};
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use crypto::{aes, blockmodes, buffer, symmetriccipher};
 use rand::{RngCore, thread_rng};
+use rabe_bn::Gt;
 use RabeError;
 
 /// Key Encapsulation Mechanism (Encryption Function)
-pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
+pub fn encrypt_symmetric(_msg: &Gt, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut _key: [u8; 32] = [0; 32];
     let mut _iv: Vec<u8> = vec![0; 16];
     let mut _ret: Vec<u8> = Vec::new();
@@ -33,7 +28,7 @@ pub fn encrypt_symmetric(_msg: &bn::Gt, _plaintext: &Vec<u8>) -> Result<Vec<u8>,
     }
 }
 /// Key Encapsulation Mechanism (Decryption Function)
-pub fn decrypt_symmetric(_msg: &bn::Gt, _iv_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
+pub fn decrypt_symmetric(_msg: &Gt, _iv_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut _key: [u8; 32] = [0; 32];
     let mut _iv = _iv_ct.clone();
     let _data = _iv.split_off(16);

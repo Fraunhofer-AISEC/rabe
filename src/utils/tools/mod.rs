@@ -1,12 +1,4 @@
-#[allow(dead_code)]
-extern crate bn;
-extern crate crypto;
-extern crate num_bigint;
-extern crate rand;
-extern crate serde;
-extern crate serde_json;
-
-use bn::*;
+use rabe_bn::*;
 use num_bigint::ToBigInt;
 use std::collections::HashSet;
 use utils::policy::pest::{PolicyValue, PolicyType};

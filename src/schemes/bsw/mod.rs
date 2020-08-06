@@ -20,7 +20,7 @@
 //!let sk: CpAbeSecretKey = keygen(&pk, &msk, &vec!["A".to_string(), "B".to_string()]).unwrap();
 //!assert_eq!(decrypt(&sk, &ct_cp).unwrap(), plaintext);
 //! ```
-use bn::{Fr, G1, G2, Gt, pairing};
+use rabe_bn::{Fr, G1, G2, Gt, pairing};
 use rand::Rng;
 use utils::{
     secretsharing::{gen_shares_policy, calc_pruned, calc_coefficients},

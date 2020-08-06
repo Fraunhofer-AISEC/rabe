@@ -6,6 +6,7 @@
 //! * policy
 //! * secretSharing
 //! * tools
+//! * file
 //!
 pub mod aes;
 pub mod hash;

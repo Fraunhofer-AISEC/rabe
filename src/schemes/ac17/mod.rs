@@ -45,7 +45,7 @@ use std::{
     string::String,
     ops::Neg
 };
-use bn::{Group, Gt, G1, G2, Fr, pairing};
+use rabe_bn::{Group, Gt, G1, G2, Fr, pairing};
 use rand::Rng;
 use utils::{
     policy::msp::AbePolicy,
