@@ -5,14 +5,14 @@ description = "ABE Schemes implemented in rust."
 authors = [
     "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
     "Bramm, Georg <georg.bramm@aisec.fraunhofer.de>",
-    "Schuette, Julian <julian.schuette@aisec.fraunhofer.de>"]
+    "Schuette, Julian <julian.schuette@aisec.fraunhofer.de>"
+]
 keywords = ["pairing","crypto","cryptography", "abe", "cp-abe", "kp-abe"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/Fraunhofer-AISEC/rabe"
 repository = "https://github.com/Fraunhofer-AISEC/rabe"
 documentation = "https://docs.rs/rabe"
-
 
 [lib]
 name="rabe"
