@@ -9,7 +9,7 @@ andinner = _{ andvalue | QUOTE ~ andvalue ~ QUOTE }
 orinner  = _{ orvalue | QUOTE ~ orvalue ~ QUOTE }
 BRACEOPEN = _{ "(" | "[" | "{" }
 BRACECLOSE = _{ ")" | "]" | "}" }
-node = _{ and | or }
+node = _{ and | or | term }
 or = {
     term ~ (orinner ~ term)+
 }
