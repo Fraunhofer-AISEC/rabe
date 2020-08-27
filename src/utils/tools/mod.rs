@@ -1,5 +1,4 @@
 use rabe_bn::*;
-use num_bigint::ToBigInt;
 use std::collections::HashSet;
 use utils::policy::pest::{PolicyValue, PolicyType};
 
@@ -9,8 +8,7 @@ pub fn is_negative(_attr: &String) -> bool {
 }
 
 pub fn usize_to_fr(_i: usize) -> Fr {
-    let _i = _i.to_bigint().unwrap();
-    return Fr::from_str(&_i.to_str_radix(10)).unwrap();
+    return Fr::from_str(&_i.to_string()).unwrap();
 }
 
 pub fn contains(data: &Vec<String>, value: &String) -> bool {

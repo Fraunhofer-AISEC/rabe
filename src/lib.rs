@@ -14,7 +14,6 @@ extern crate rabe_bn;
 extern crate byteorder;
 extern crate crypto;
 extern crate libc;
-extern crate num_bigint;
 extern crate rand;
 extern crate serde;
 extern crate serde_json;
