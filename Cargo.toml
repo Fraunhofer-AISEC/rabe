@@ -1,6 +1,6 @@
 [package]
 name = "rabe"
-version = "0.2.2"
+version = "0.2.3"
 description = "ABE Schemes implemented in rust."
 authors = [
     "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
@@ -20,13 +20,10 @@ crate-type=["rlib", "cdylib"]
 bench = false
 
 [dependencies]
-arrayref = "0.3.4"
 base64 = "0.10.1"
-bincode = "1.0.0"
 blake2-rfc = "0.2.17"
-rabe-bn = "0.4.6"
+rabe-bn = "0.4.10"
 byteorder = "1.2.2"
-clap = "2.27.1"
 libc = "0.2.0"
 num-bigint = "0.1.40"
 rand = "0.7.3"

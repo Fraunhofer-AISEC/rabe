@@ -8,10 +8,7 @@
 #![allow(dead_code)]
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
-extern crate arrayref;
 extern crate base64;
-extern crate bincode;
 extern crate blake2_rfc;
 extern crate rabe_bn;
 extern crate byteorder;
@@ -38,6 +35,7 @@ use std::{fmt::{
 use pest::error::{Error as PestError, LineColLocation};
 use utils::policy::pest::json::Rule as jsonRule;
 use utils::policy::pest::human::Rule as humanRule;
+use crypto::symmetriccipher::SymmetricCipherError;
 
 #[derive(Debug)]
 pub struct RabeError {
@@ -83,5 +81,18 @@ impl From<PestError<humanRule>> for RabeError {
         RabeError::new(
             format!("Json Policy Error in line {}\n", line).as_ref()
         )
+    }
+}
+
+impl From<SymmetricCipherError> for RabeError {
+    fn from(error: SymmetricCipherError) -> Self {
+        match error {
+            SymmetricCipherError::InvalidPadding => RabeError::new(
+                format!("Error during decryption: Invalid Padding!").as_ref()
+            ),
+            SymmetricCipherError::InvalidLength=> RabeError::new(
+                format!("Error during decryption: Invalid Length!").as_ref()
+            )
+        }
     }
 }

@@ -1,4 +1,3 @@
-use bincode::serialize;
 use crypto::buffer::{BufferResult, ReadBuffer, WriteBuffer};
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
@@ -14,18 +13,13 @@ pub fn encrypt_symmetric(_msg: &Gt, _plaintext: &Vec<u8>) -> Result<Vec<u8>, Rab
     let mut _ret: Vec<u8> = Vec::new();
     let mut _sha = Sha3::sha3_256();
     let mut _rng = thread_rng();
-    match serialize(&_msg) {
-        Err(e) => Err(RabeError::new(e.to_string().as_ref())),
-        Ok(_serialized_msg) => {
-            _sha.input(&_serialized_msg);
-            _sha.result(&mut _key);
-            _rng.fill_bytes(&mut _iv);
-            _ret.append(&mut _iv.clone());
-            let mut encrypted_data = encrypt_aes(&_plaintext, &_key, &_iv).ok().unwrap();
-            _ret.append(&mut encrypted_data);
-            return Ok(_ret);
-        }
-    }
+    let vec: Vec<u8> = _msg.clone().into();
+    _sha.input(&vec);
+    _sha.result(&mut _key);
+    _rng.fill_bytes(&mut _iv);
+    _ret.append(&mut _iv.clone());
+    _ret.append(&mut encrypt_aes(&_plaintext, &_key, &_iv).ok().unwrap());
+    return Ok(_ret);
 }
 /// Key Encapsulation Mechanism (Decryption Function)
 pub fn decrypt_symmetric(_msg: &Gt, _iv_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
@@ -33,16 +27,10 @@ pub fn decrypt_symmetric(_msg: &Gt, _iv_ct: &Vec<u8>) -> Result<Vec<u8>, RabeErr
     let mut _iv = _iv_ct.clone();
     let _data = _iv.split_off(16);
     let mut _sha = Sha3::sha3_256();
-    let mut _rng = thread_rng();
-    match serialize(&_msg) {
-        Err(e) => Err(RabeError::new(e.to_string().as_ref())),
-        Ok(_serialized_msg) => {
-            _sha.input(&_serialized_msg);
-            _sha.result(&mut _key);
-            let decrypted_data = decrypt_aes(&_data, &_key, &_iv).ok().unwrap();
-            return Ok(decrypted_data);
-        }
-    }
+    let vec: Vec<u8> = _msg.clone().into();
+    _sha.input(&vec);
+    _sha.result(&mut _key);
+    return decrypt_aes(&_data, &_key, &_iv);
 }
 
 /// Decrypts a buffer with the given key and iv using AES-256/CBC/Pkcs encryption.
@@ -127,7 +115,7 @@ fn decrypt_aes(
     encrypted_data: &[u8],
     key: &[u8],
     iv: &[u8],
-) -> ::std::result::Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
+) -> ::std::result::Result<Vec<u8>, RabeError> {
     let mut decryptor =
         aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
 
