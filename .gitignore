@@ -1,3 +1,4 @@
+NDK
 /target/
 /rabe_derive/target/*
 **/*.rs.bk
