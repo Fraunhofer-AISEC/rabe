@@ -227,8 +227,6 @@ pub fn keygen(
     _policy: &String,
     _language: PolicyLanguage,
 ) -> Result<Yct14AbeSecretKey, RabeError> {
-    // random number generator
-    let mut _rng = rand::thread_rng();
     match parse(_policy, _language) {
         Ok(pol) => {
             let mut du: Vec<Yct14Attribute> = Vec::new();
