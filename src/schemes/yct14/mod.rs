@@ -1,4 +1,3 @@
-//! This is the documentation for the `LSW` scheme:
 //!
 //! * Developped by Xuanxia Yao, Zhi Chen, Ye Tian, "A lightweight attribute-based encryption scheme for the Internet of things"
 //! * Published in: Future Generation Computer Systems
