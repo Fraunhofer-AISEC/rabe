@@ -29,7 +29,6 @@ use utils::policy::pest::{PolicyLanguage, parse};
 use RabeError;
 use std::ops::Mul;
 
-/// A yct14 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Yct14Attribute {
     name: String,
@@ -37,7 +36,6 @@ pub struct Yct14Attribute {
     node: Option<Yct14Type>,
 }
 
-/// A yct14 Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub enum Yct14Type {
     Public(Gt),
