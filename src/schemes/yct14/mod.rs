@@ -279,15 +279,13 @@ pub fn encrypt(
         let mut attributes: Vec<Yct14Attribute> = Vec::new();
         // random secret
         let k: Fr = rand::thread_rng().gen();
-        // public secret
+        // aes secret = public g ** random k
         let _cs: Gt = pk.g.pow(k);
 
         for attr in _attributes.into_iter() {
             attributes.push(Yct14Attribute::public_from(attr, pk, k));
         }
-        println!("k:{}", serde_json::to_string(&k).unwrap());
-        println!("cs:{}", &_cs.to_string());
-        //Encrypt plaintext using derived key from secret
+        //Encrypt plaintext using aes secret
         match encrypt_symmetric(&_cs, &_plaintext.to_vec()) {
             Ok(ct) => Ok(Yct14AbeCiphertext { attributes, ct }),
             Err(e) => Err(e)
@@ -326,7 +324,6 @@ pub fn decrypt(_sk: &Yct14AbeSecretKey, _ct: &Yct14AbeCiphertext) -> Result<Vec<
                                 .unwrap();
                             _prod_t = _prod_t * z.pow(coeff);
                         }
-                        println!("cs:{}", &_prod_t.to_string());
                         decrypt_symmetric(&_prod_t, &_ct.ct)
                     } else {
                         Err(RabeError::new("Error in decrypt: attributes do not match policy."))
