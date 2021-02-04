@@ -3,34 +3,37 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use crypto::{aes, blockmodes, buffer, symmetriccipher};
 use rand::{RngCore, thread_rng};
-use rabe_bn::Gt;
 use RabeError;
 
 /// Key Encapsulation Mechanism (Encryption Function)
-pub fn encrypt_symmetric(_msg: &Gt, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
+pub fn encrypt_symmetric<T: std::fmt::Display>(_msg: &T, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut _key: [u8; 32] = [0; 32];
     let mut _iv: Vec<u8> = vec![0; 16];
     let mut _ret: Vec<u8> = Vec::new();
-    let mut _sha = Sha3::sha3_256();
     let mut _rng = thread_rng();
-    let vec: Vec<u8> = _msg.clone().into();
+    let vec: Vec<u8> = _msg.to_string().into_bytes();
+    //println!("aes key: {:?}", vec.to_ascii_lowercase());
+    let mut _sha = Sha3::sha3_256();
     _sha.input(&vec);
-    _sha.result(&mut _key);
+    let key = _sha.result_str();
+    //println!("sha key: {:?}", key);
     _rng.fill_bytes(&mut _iv);
     _ret.append(&mut _iv.clone());
-    _ret.append(&mut encrypt_aes(&_plaintext, &_key, &_iv).ok().unwrap());
+    _ret.append(&mut encrypt_aes(&_plaintext, &key.into_bytes(), &_iv).ok().unwrap());
     return Ok(_ret);
 }
 /// Key Encapsulation Mechanism (Decryption Function)
-pub fn decrypt_symmetric(_msg: &Gt, _iv_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
+pub fn decrypt_symmetric<T: std::fmt::Display>(_msg: &T, _iv_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut _key: [u8; 32] = [0; 32];
     let mut _iv = _iv_ct.clone();
     let _data = _iv.split_off(16);
+    let vec: Vec<u8> = _msg.to_string().into_bytes();
+    //println!("aes key: {:?}", vec.to_ascii_lowercase());
     let mut _sha = Sha3::sha3_256();
-    let vec: Vec<u8> = _msg.clone().into();
     _sha.input(&vec);
-    _sha.result(&mut _key);
-    return decrypt_aes(&_data, &_key, &_iv);
+    let key = _sha.result_str();
+    //println!("sha key: {:?}", key);
+    return decrypt_aes(&_data, &key.into_bytes(), &_iv);
 }
 
 /// Decrypts a buffer with the given key and iv using AES-256/CBC/Pkcs encryption.
