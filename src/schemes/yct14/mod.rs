@@ -116,14 +116,14 @@ impl Yct14Attribute {
     }
 }
 
-/// A LSW Public Key (PK)
+/// A Public Key (PK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Yct14AbePublicKey {
     g: Gt,
     attributes: Vec<Yct14Attribute>
 }
 
-/// A LSW Master Key (MSK)
+/// A Master Key (MSK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Yct14AbeMasterKey {
     s: Fr,
@@ -145,7 +145,7 @@ impl Yct14AbeMasterKey {
     }
 }
 
-/// A LSW Secret User Key (SK)
+/// A Secret User Key (SK)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Yct14AbeSecretKey {
     policy: (String, PolicyLanguage),
@@ -167,7 +167,7 @@ impl Yct14AbeSecretKey {
     }
 }
 
-/// A LSW Ciphertext (CT)
+/// A Ciphertext (CT)
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Yct14AbeCiphertext {
     attributes: Vec<Yct14Attribute>,
@@ -189,7 +189,7 @@ impl Yct14AbeCiphertext {
     }
 }
 
-/// The setup algorithm of LSW KP-ABE. Generates a new KpAbePublicKey and a new KpAbeMasterKey.
+/// The setup algorithm of KP-ABE. Generates a new Yct14AbePublicKey and a new Yct14AbeMasterKey.
 pub fn setup(attribute_keys: Vec<String>) -> (Yct14AbePublicKey, Yct14AbeMasterKey) {
     // random number generator
     let mut _rng = rand::thread_rng();
