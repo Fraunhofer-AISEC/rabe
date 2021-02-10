@@ -12,12 +12,14 @@ extern crate base64;
 extern crate blake2_rfc;
 extern crate rabe_bn;
 extern crate byteorder;
-extern crate crypto;
 extern crate libc;
 extern crate rand;
 extern crate serde;
 extern crate serde_json;
 extern crate pest;
+extern crate ccm;
+extern crate aes;
+extern crate sha3;
 #[macro_use]
 extern crate pest_derive;
 
@@ -34,7 +36,7 @@ use std::{fmt::{
 use pest::error::{Error as PestError, LineColLocation};
 use utils::policy::pest::json::Rule as jsonRule;
 use utils::policy::pest::human::Rule as humanRule;
-use crypto::symmetriccipher::SymmetricCipherError;
+use ccm::aead;
 
 #[derive(Debug)]
 pub struct RabeError {
@@ -83,15 +85,8 @@ impl From<PestError<humanRule>> for RabeError {
     }
 }
 
-impl From<SymmetricCipherError> for RabeError {
-    fn from(error: SymmetricCipherError) -> Self {
-        match error {
-            SymmetricCipherError::InvalidPadding => RabeError::new(
-                format!("Error during decryption: Invalid Padding!").as_ref()
-            ),
-            SymmetricCipherError::InvalidLength=> RabeError::new(
-                format!("Error during decryption: Invalid Length!").as_ref()
-            )
-        }
+impl From<aead::Error> for RabeError {
+    fn from(_error: aead::Error) -> Self {
+        RabeError::new("Error during symmetric encryption or decryption!") // Aead's error is intentionally opaque, there is no more information in here
     }
 }
