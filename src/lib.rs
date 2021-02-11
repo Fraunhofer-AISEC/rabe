@@ -38,13 +38,13 @@ use utils::policy::pest::json::Rule as jsonRule;
 use utils::policy::pest::human::Rule as humanRule;
 use ccm::aead;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct RabeError {
     details: String,
 }
 
 impl RabeError {
-    fn new(msg: &str) -> RabeError {
+    pub fn new(msg: &str) -> RabeError {
         RabeError { details: msg.to_string() }
     }
 }
@@ -88,5 +88,26 @@ impl From<PestError<humanRule>> for RabeError {
 impl From<aead::Error> for RabeError {
     fn from(_error: aead::Error) -> Self {
         RabeError::new("Error during symmetric encryption or decryption!") // Aead's error is intentionally opaque, there is no more information in here
+    }
+}
+
+impl From<serde_cbor::Error> for RabeError {
+    fn from(_error: serde_cbor::Error) -> Self {
+        RabeError::new(
+            format!("serde_cbor::error offest {}", _error.offset()).as_ref()
+        )
+    }
+}
+
+impl From<base64::DecodeError> for RabeError {
+    fn from(_error: base64::DecodeError) -> Self {
+        RabeError::new(
+            format!("base64::DecodeError {}", _error.to_string()).as_ref()
+        )
+    }
+}
+impl From<String> for RabeError {
+    fn from(_error: String) -> Self {
+        RabeError::new(_error.as_str())
     }
 }

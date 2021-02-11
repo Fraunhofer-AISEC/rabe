@@ -1,11 +1,13 @@
 
-[![CircleCI](https://img.shields.io/circleci/build/github/Fraunhofer-AISEC/rabe/master?style=flat-square&token=34294d6ee7dca20e0fe912aeffea61aa53b812a6)](https://circleci.com/gh/Fraunhofer-AISEC/rabe)
+[![Crates.io](https://img.shields.io/crates/v/rabe?style=plastic)](https://crates.io/crates/rabe)
+[![Docs.rs](https://img.shields.io/docsrs/rabe?style=plastic)](https://docs.rs/rabe)
+[![License](https://img.shields.io/crates/l/rabe?style=plastic)](https://github.com/Fraunhofer-AISEC/rabe/blob/master/LICENSE)
 
 # Rabe
 
 rabe is a rust library implementing several Attribute Based Encryption (ABE) schemes using a modified version of the `bn` library of zcash (type-3 pairing / Baretto Naering curve). The modification of `bn` brings in `serde` instead of the deprecated `rustc_serialize`.
 
-This is a rust crate and comes with C bindings. For integration in distributed applications head over to [rabe-keyserver](ttps://github.com/Fraunhofer-AISEC/rabe-keyserver), which wraps rabe in a standalone REST API webserver.
+This is a rust crate and comes with C bindings. For integration in distributed applications contact [us](mailto:info@aisec.fraunhofer.de).
 
 # Implemented Ciphertext Policy Schemes (CP-ABE)
 
@@ -40,6 +42,11 @@ Shashank Agrawal, Melissa Chase, "FAME: Fast Attribute-based Message Encryption"
 
 Allison Lewko, Amit Sahai and Brent Waters, "Revocation Systems with Very Small Private Keys". In IEEE Symposium on Security and Privacy, 2010. SP'10. Available from http://eprint.iacr.org/2008/309.pdf
 
+## YCT14 KP-ABE
+
+Xuanxia Yao, Zhi Chen, Ye Tian, "A lightweight attribute-based encryption scheme for the Internet of things". In Future Generation Computer Systems. Available from http://www.sciencedirect.com/science/article/pii/S0167739X14002039
+
+
 # Building rabe
 
 In order to compile and test:
@@ -54,9 +61,4 @@ In order to run on the console use
 For example, in order to create msk and pk of an AC17 KP-ABE scheme run:
 ```bash
 $ ./target/debug/rabe --scheme AC17KP setup
-```
-
-To compile the C testfile:
-```bash
-gcc test.c -lrabe -L./target/debug -o test
 ```
