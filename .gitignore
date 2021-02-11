@@ -1,5 +1,5 @@
 NDK
-/target/
+target
 /rabe_derive/target/*
 **/*.rs.bk
 *.key
