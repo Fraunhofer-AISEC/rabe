@@ -33,7 +33,7 @@ use rand::Rng;
 use std::string::String;
 use utils::{
     aes::*,
-    hash::blake2b_hash_fr,
+    hash::sha3_hash_fr,
     policy::dnf::DnfPolicy,
     tools::*
 };
@@ -202,22 +202,32 @@ pub fn authgen(_a: &String) -> Mke08SecretAuthorityKey {
 ///
 pub fn request_authority_pk(
     _pk: &Mke08PublicKey,
-    _a: &String,
-    _sk_a: &Mke08SecretAuthorityKey,
-) -> Option<Mke08PublicAttributeKey> {
+    _attribute: &String,
+    _ska: &Mke08SecretAuthorityKey,
+) -> Result<Mke08PublicAttributeKey, RabeError> {
     // if attribute a is from authority sk_a
-    return if from_authority(_a, &_sk_a._a) {
-        let exponent = blake2b_hash_fr(_a) * blake2b_hash_fr(&_sk_a._a) * _sk_a._r;
-        // return PK and mke
-        Some(Mke08PublicAttributeKey {
-            _str: _a.clone(),
-            _g1: _pk._g1 * exponent,
-            _g2: _pk._g2 * exponent,
-            _gt1: _pk._e_gg_y1.pow(exponent),
-            _gt2: _pk._e_gg_y2.pow(exponent),
-        })
+    return if from_authority(_attribute, &_ska._a) {
+        match sha3_hash_fr(_attribute) {
+            Ok(hash_1) => {
+                match sha3_hash_fr(&_ska._a) {
+                    Ok(hash_2) => {
+                        let exp = hash_1 * hash_2 * _ska._r;
+                        // return PK and mke
+                        Ok(Mke08PublicAttributeKey {
+                            _str: _attribute.to_string(),
+                            _g1: _pk._g1 * exp,
+                            _g2: _pk._g2 * exp,
+                            _gt1: _pk._e_gg_y1.pow(exp),
+                            _gt2: _pk._e_gg_y2.pow(exp),
+                        })
+                    },
+                    Err(e) => Err(e)
+                }
+            },
+            Err(e) => Err(e)
+        }
     } else {
-        None
+        Err(RabeError::new(&format!("attribute {} is not from_authority() or !is_eligible()", _attribute.to_string())))
     }
 }
 
@@ -233,18 +243,28 @@ pub fn request_authority_sk(
     _a: &String,
     _sk_a: &Mke08SecretAuthorityKey,
     _pk_u: &Mke08PublicUserKey,
-) -> Option<Mke08SecretAttributeKey> {
+) -> Result<Mke08SecretAttributeKey, RabeError> {
     // if attribute a is from authority sk_a
     return if from_authority(_a, &_sk_a._a) && is_eligible(_a, &_pk_u._u) {
-        let exponent = blake2b_hash_fr(_a) * blake2b_hash_fr(&_sk_a._a) * _sk_a._r;
-        // return PK and mke
-        Some(Mke08SecretAttributeKey {
-            _str: _a.clone(),
-            _g1: _pk_u._pk_g1 * exponent,
-            _g2: _pk_u._pk_g2 * exponent,
-        })
+        match sha3_hash_fr(_a) {
+            Ok(hash_1) => {
+                match sha3_hash_fr(&_sk_a._a) {
+                    Ok(hash_2) => {
+                        let exp = hash_1 * hash_2 * _sk_a._r;
+                        // return PK and mke
+                        Ok(Mke08SecretAttributeKey {
+                            _str: _a.clone(),
+                            _g1: _pk_u._pk_g1 * exp,
+                            _g2: _pk_u._pk_g2 * exp,
+                        })
+                    },
+                    Err(e) => Err(e)
+                }
+            },
+            Err(e) => Err(e)
+        }
     } else {
-        None
+        Err(RabeError::new(&format!("attribute {} is not from_authority() or !is_eligible()", _a.to_string())))
     }
 }
 
@@ -294,7 +314,7 @@ pub fn encrypt(
                 }
                 //Encrypt plaintext using derived key from secret
                 let _policy = _policy.to_string();
-                let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
+                let _ct = encrypt_symmetric(_msg, &_plaintext.to_vec()).unwrap();
                 Ok(Mke08Ciphertext { _policy: (_policy, _language), _e, _ct})
             } else {
                 Err(RabeError::new("Error in mke08/encrypt: policy is not in dnf"))
@@ -341,7 +361,7 @@ pub fn decrypt(
                     }
                 }
                 // Decrypt plaintext using derived secret from mke08 scheme
-                decrypt_symmetric(&_msg, &_ct._ct)
+                decrypt_symmetric(_msg, &_ct._ct)
             }
         },
         Err(e) => Err(e)

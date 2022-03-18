@@ -52,7 +52,7 @@ use utils::{
     tools::*,
     secretsharing::*,
     aes::*,
-    hash::blake2b_hash_g1
+    hash::sha3_hash
 };
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use RabeError;
@@ -216,7 +216,7 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
                 _hash.push_str(&_attr);
                 _hash.push_str(&_l.to_string());
                 _hash.push_str(&_t.to_string());
-                _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
+                _prod = _prod + (sha3_hash(msk._g, &_hash).expect("could not hash _hash") * (_br[_l] * _a_t));
             }
             _prod = _prod + (msk._g * (_sigma_attr * _a_t));
             _key.push(_prod);
@@ -236,7 +236,7 @@ pub fn cp_keygen(msk: &Ac17MasterKey, attributes: &Vec<String>) -> Option<Ac17Cp
             _hash.push_str(&String::from("01"));
             _hash.push_str(&_l.to_string());
             _hash.push_str(&_t.to_string());
-            _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
+            _prod = _prod + (sha3_hash(msk._g, &_hash).expect("could not hash _hash") * (_br[_l] * _a_t));
         }
         _prod = _prod + (msk._g * (_sigma * _a_t));
         _k_p.push(_prod);
@@ -301,8 +301,10 @@ pub fn cp_encrypt(
                         let mut _hash3 = String::new();
                         _hash3.push_str(&_hash2);
                         _hash3.push_str(&_t.to_string());
-                        let _hashed_value = blake2b_hash_g1(pk._g, &_hash3);
-                        _y.push(_hashed_value);
+                        match sha3_hash(pk._g, &_hash3) {
+                            Ok(hashed) => _y.push(hashed),
+                            Err(e) => return Err(e)
+                        };
                     }
                     _x.push(_y)
                 }
@@ -318,15 +320,19 @@ pub fn cp_encrypt(
                         _hash.push_str(&msp._pi[_i]);
                         _hash.push_str(&_l.to_string());
                         _hash.push_str(&_t.to_string());
-                        let mut _prod1 = blake2b_hash_g1(pk._g, &_hash);
-                        for _j in 0usize.._num_cols {
-                            if msp._m[_i][_j] == 1 {
-                                _prod1 = _prod1 + _hash_table[_j][_l][_t];
-                            } else if msp._m[_i][_j] == -1 {
-                                _prod1 = _prod1 - _hash_table[_j][_l][_t];
-                            }
+                        match sha3_hash(pk._g, &_hash) {
+                            Ok(mut hash) => {
+                                for _j in 0usize.._num_cols {
+                                    if msp._m[_i][_j] == 1 {
+                                        hash = hash + _hash_table[_j][_l][_t];
+                                    } else if msp._m[_i][_j] == -1 {
+                                        hash = hash - _hash_table[_j][_l][_t];
+                                    }
+                                }
+                                _prod = _prod + (hash * _s[_t]);
+                            },
+                            Err(e) => return Err(e)
                         }
-                        _prod = _prod + (_prod1 * _s[_t]);
                     }
                     _ct.push(_prod);
                 }
@@ -338,7 +344,7 @@ pub fn cp_encrypt(
             }
             // random msg
             let _msg: Gt = _rng.gen();
-            let _ct = encrypt_symmetric(&_msg, &plaintext.to_vec()).unwrap();
+            let _ct = encrypt_symmetric(_msg, &plaintext.to_vec()).unwrap();
             _c_p = _c_p * _msg;
             //Encrypt plaintext using derived key from secret
             Ok(Ac17CpCiphertext {
@@ -389,7 +395,7 @@ pub fn cp_decrypt(sk: &Ac17CpSecretKey, ct: &Ac17CpCiphertext) -> Result<Vec<u8>
                             }
                             let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
                             // Decrypt plaintext using derived secret from cp-abe scheme
-                            decrypt_symmetric(&_msg, &ct._ct._ct)
+                            decrypt_symmetric(_msg, &ct._ct._ct)
                         } else {
                             Err(RabeError::new("Error: attributes in sk do not match policy in ct."))
                         }
@@ -459,7 +465,7 @@ pub fn kp_keygen(
                         _hash.push_str(&msp._pi[_i]);
                         _hash.push_str(&_l.to_string());
                         _hash.push_str(&_t.to_string());
-                        _prod = _prod + (blake2b_hash_g1(msk._g, &_hash) * (_br[_l] * _a_t));
+                        _prod = _prod + (sha3_hash(msk._g, &_hash).expect("could not hash _hash") * (_br[_l] * _a_t));
                     }
                     _prod = _prod + (msk._g * (_sigma_attr * _a_t));
                     if msp._m[_i][0] == 1 {
@@ -478,7 +484,7 @@ pub fn kp_keygen(
                             _hash1.push_str(&_hash0);
                             _hash1.push_str(&_l.to_string());
                             _hash1.push_str(&_t.to_string());
-                            _temp = _temp + (blake2b_hash_g1(msk._g, &_hash1) * (_br[_l] * _a_t));
+                            _temp = _temp + (sha3_hash(msk._g, &_hash1).expect("could not hash _hash") * (_br[_l] * _a_t));
                         }
                         _temp = _temp + (msk._g * _sigma_prime[_j - 1].neg());
                         if msp._m[_i][_j] == 1 {
@@ -528,7 +534,7 @@ pub fn kp_encrypt(
     pk: &Ac17PublicKey,
     attributes: &Vec<String>,
     _plaintext: &[u8],
-) -> Option<Ac17KpCiphertext> {
+) -> Result<Ac17KpCiphertext, RabeError> {
     // random number generator
     let mut _rng = rand::thread_rng();
     // pick randomness
@@ -557,9 +563,12 @@ pub fn kp_encrypt(
                 _hash.push_str(&_attr);
                 _hash.push_str(&_l.to_string());
                 _hash.push_str(&_t.to_string());
-
-                let mut _prod1 = blake2b_hash_g1(pk._g, &_hash);
-                _prod = _prod + (_prod1 * _s[_t]);
+                match sha3_hash(pk._g, &_hash) {
+                    Ok(hash) => {
+                        _prod = _prod + (hash * _s[_t])
+                    },
+                    Err(e) => return Err(e)
+                };
             }
             _ct.push(_prod);
         }
@@ -571,13 +580,13 @@ pub fn kp_encrypt(
     }
     // random msg
     let _msg: Gt = _rng.gen();
-    let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
+    let _ct = encrypt_symmetric(_msg, &_plaintext.to_vec()).unwrap();
     _c_p = _c_p * _msg;
     //Encrypt plaintext using derived key from secret
-    return Some(Ac17KpCiphertext {
+    Ok(Ac17KpCiphertext {
         _attr: attributes.clone(),
         _ct: Ac17Ciphertext {_c_0, _c, _c_p, _ct},
-    });
+    })
 }
 
 /// The decrypt algorithm of AC17KP. Reconstructs the original plaintext data as Vec<u8>, given a Ac17KpCiphertext with a matching Ac17KpSecretKey.
@@ -624,7 +633,7 @@ pub fn kp_decrypt(sk: &Ac17KpSecretKey, ct: &Ac17KpCiphertext) -> Result<Vec<u8>
                             }
                             let _msg = ct._ct._c_p * (_prod2_gt * _prod1_gt.inverse());
                             // Decrypt plaintext using derived secret from cp-abe scheme
-                            decrypt_symmetric(&_msg, &ct._ct._ct)
+                            decrypt_symmetric(_msg, &ct._ct._ct)
                         } else {
                             Err(RabeError::new("Error in kp_decrypt: pruned attributes in sk do not match policy in ct."))
                         }

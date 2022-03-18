@@ -9,7 +9,6 @@
 #[macro_use]
 extern crate serde_derive;
 extern crate base64;
-extern crate blake2_rfc;
 extern crate rabe_bn;
 extern crate byteorder;
 extern crate libc;
@@ -17,7 +16,7 @@ extern crate rand;
 extern crate serde;
 extern crate serde_json;
 extern crate pest;
-extern crate ccm;
+extern crate eax;
 extern crate aes;
 extern crate sha3;
 #[macro_use]
@@ -36,7 +35,8 @@ use std::{fmt::{
 use pest::error::{Error as PestError, LineColLocation};
 use utils::policy::pest::json::Rule as jsonRule;
 use utils::policy::pest::human::Rule as humanRule;
-use ccm::aead;
+use eax::aead;
+use std::array::TryFromSliceError;
 
 #[derive(Debug, Serialize)]
 pub struct RabeError {
@@ -88,6 +88,12 @@ impl From<PestError<humanRule>> for RabeError {
 impl From<aead::Error> for RabeError {
     fn from(_error: aead::Error) -> Self {
         RabeError::new("Error during symmetric encryption or decryption!") // Aead's error is intentionally opaque, there is no more information in here
+    }
+}
+
+impl From<TryFromSliceError> for RabeError {
+    fn from(_error: TryFromSliceError) -> Self {
+        RabeError::new(&_error.to_string())
     }
 }
 

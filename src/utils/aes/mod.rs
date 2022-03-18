@@ -1,61 +1,66 @@
-// use crypto::buffer::{BufferResult, ReadBuffer, WriteBuffer};
-// use crypto::digest::Digest;
-// use crypto::sha3::Sha3;
-// use crypto::{aes, blockmodes, buffer, symmetriccipher};
-
-use sha3::{Sha3_256, Digest};
-use aes::Aes256;
-use ccm::{self, aead::{NewAead, AeadInPlace}};
-use ccm::aead::generic_array::GenericArray;
-
-use rand::{Rng, thread_rng};
+use eax::Eax;
+use eax::aead::{Aead, NewAead, generic_array::GenericArray};
+use crate::RabeError;
 use std::convert::TryInto;
-use RabeError;
+use rand::thread_rng;
+use rand::Rng;
+use aes::Aes256;
 
-/// Key Encapsulation Mechanism (Encryption Function)
-pub fn encrypt_symmetric<T: std::fmt::Display>(_msg: &T, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
+/// Key Encapsulation Mechanism (AES-256 Encryption Function)
+pub fn encrypt_symmetric<G: std::convert::Into<Vec<u8>>>(_msg: G, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut rng = thread_rng();
     let key = kdf(_msg);
-    let iv: [u8; 13] = rng.gen();
-
-    //  key length 256 bit,  tag size 16 byte,  nonce size 13 bytes
-    let ccm: ccm::Ccm<Aes256, ccm::consts::U16, ccm::consts::U13> = ccm::Ccm::new(&key);
-    let mut res: Vec<u8> = _plaintext.clone();
-    ccm.encrypt_in_place(&GenericArray::from(iv), &[], &mut res)?;
-    res.splice(0..0, iv.iter().cloned()); // add IV at the beginning
-    Ok(res)
+    let key_ga = GenericArray::from_slice(key.as_slice());
+    let cipher = Eax::<Aes256>::new(key_ga);
+    let nonce_vec: Vec<u8> = (0..16).into_iter().map(|_| rng.gen()).collect(); // 16*u8 = 128 Bit
+    let nonce = GenericArray::from_slice(nonce_vec.as_ref());
+    match cipher.encrypt(nonce, _plaintext.as_ref()) {
+        Ok(mut ct) => {
+            ct.splice(0..0, nonce.iter().cloned()); // first 16 bytes are nonce i.e. [nonce|ciphertext]
+            Ok(ct)
+        }
+        Err(e) => Err(RabeError::new(&format!("encryption error: {:?}", e.to_string())))
+    }
 }
 
-/// Key Encapsulation Mechanism (Decryption Function)
-pub fn decrypt_symmetric<T: std::fmt::Display>(_msg: &T, _iv_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
-    let mut data = _iv_ct.clone().split_off(13);
-    let iv: [u8; 13] = match _iv_ct[..13].try_into() {
+/// Key Encapsulation Mechanism (AES-256 Decryption Function)
+pub fn decrypt_symmetric<G: std::convert::Into<Vec<u8>>>(_msg: G, _nonce_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
+    let ciphertext = _nonce_ct.clone().split_off(16); // 16*u8 = 128 Bit
+    let nonce: [u8; 16] = match _nonce_ct[..16].try_into() { // first 16 bytes are nonce i.e. [nonce|ciphertext]
         Ok(iv) => iv,
-        Err(_) => return Err(RabeError{ details: String::from("Error extracting IV from ciphertext: Expected an IV of 13 bytes")}), // this REALLY shouldn't happen.
+        Err(_) => return Err(RabeError::new("Error extracting IV from ciphertext: Expected an IV of 16 bytes")), // this REALLY shouldn't happen.
     };
     let key = kdf(_msg);
-
-    let ccm: ccm::Ccm<Aes256, ccm::consts::U16, ccm::consts::U13> = ccm::Ccm::new(&key);
-    ccm.decrypt_in_place(&GenericArray::from(iv), &[], &mut data)?;
-    Ok(data)
+    let key_ga = GenericArray::from_slice(key.as_slice());
+    let cipher = Eax::<Aes256>::new(key_ga);
+    let nonce = GenericArray::from_slice(nonce.as_ref());
+    match cipher.decrypt(nonce, ciphertext.as_ref()) {
+        Ok(data) => Ok(data),
+        Err(e) => Err(RabeError::new(&format!("decryption error: {:?}", e.to_string())))
+    }
 }
 
-/// Key derivation function - turns anything implementing the `Display` trait into a key for AES-256
-fn kdf<G: std::fmt::Display>(inp: &G) -> GenericArray<u8, ccm::consts::U32> {
+/// Key derivation function - turns anything implementing the `Into<Vec<u8>` trait into a key for AES-256
+fn kdf<T: std::convert::Into<Vec<u8>>>(data: T) -> Vec<u8> {
+    use sha3::{
+        Digest,
+        Sha3_256
+    };
     let mut hasher = Sha3_256::new();
-    hasher.update(inp.to_string().into_bytes());
-    hasher.finalize()
+    hasher.update(data.into());
+    hasher.finalize().to_vec()
 }
 
-#[cfg(tests)]
 mod tests {
-    use super::*;
+
     #[test]
-    fn correctness_test() {
-        let key = "7h15 15 4 v3ry 53cr37 k3y";
+    fn correctness_test1() {
+        use crate::utils::aes::{encrypt_symmetric, decrypt_symmetric};
+        let key = "7h15 15 4 v3ry 53cr37 k3ysdfsfsdfsdfdsfdsf1";
         let plaintext =
-            String::from("dance like no one's watching, encrypt like everyone is!").into_bytes();
-        let ciphertext = encrypt_symmetric(&key, &plaintext).unwrap();
-        assert_eq!(decrypt_symmetric(&key, &ciphertext).unwrap(), plaintext);
+            String::from("dance like no one's watching, encrypt like everyone is!");
+        let ciphertext = encrypt_symmetric(key, &plaintext.clone().into_bytes()).unwrap();
+        let reconstruct = decrypt_symmetric(key, &ciphertext).unwrap();
+        assert_eq!(plaintext.into_bytes(), reconstruct);
     }
 }

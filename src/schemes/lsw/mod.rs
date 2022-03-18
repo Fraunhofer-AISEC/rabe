@@ -26,7 +26,7 @@ use utils::{
     tools::*,
     secretsharing::{gen_shares_policy, calc_coefficients, calc_pruned},
     aes::*,
-    hash::{blake2b_hash_fr, blake2b_hash_g1}
+    hash::{sha3_hash_fr, sha3_hash}
 };
 use rand::Rng;
 use utils::policy::pest::{PolicyLanguage, parse};
@@ -118,19 +118,21 @@ pub fn keygen(
             for (_share_str, _share_value) in _shares.into_iter() {
                 let _r:Fr = _rng.gen();
                 if is_negative(&_share_str) {
+                    let _share_hash = sha3_hash_fr(&_share_str).expect("could not hash _share_str");
                     _d.push((
                         _share_str.to_string(),
                         G1::zero(),
                         G2::zero(),
                         (_pk._g_g1 * _share_value) + (_pk._g_g1_b2 * _r),
-                        _pk._g_g1_b * (blake2b_hash_fr(&_share_str) * _r) + (_msk._h_g1 * _r),
+                        _pk._g_g1_b * (_share_hash * _r) + (_msk._h_g1 * _r),
                         _pk._g_g1 * _r.neg(),
                     ));
                 } else {
+                    let _share_hash = sha3_hash(_pk._g_g1, &_share_str).expect("could not hash _share_str");
                     _d.push((
                         _share_str.to_string(),
                         (_pk._g_g1 * (_msk._alpha2 * _share_value))
-                            + (blake2b_hash_g1(_pk._g_g1, &_share_str) * _r),
+                            + (_share_hash * _r),
                         _pk._g_g2 * _r,
                         G1::zero(),
                         G1::zero(),
@@ -179,16 +181,16 @@ pub fn encrypt(
         for (_i, _attr) in _attributes.into_iter().enumerate() {
             _ej.push((
                 _attr.to_string(),
-                blake2b_hash_g1(_pk._g_g1, &_attr) * _s,
+                sha3_hash(_pk._g_g1, &_attr).expect("could not hash _attr") * _s,
                 _pk._g_g1_b * _sx[_i],
-                (_pk._g_g1_b2 * (_sx[_i] * blake2b_hash_fr(&_attr))) + (_pk._h_g1_b * _sx[_i]),
+                (_pk._g_g1_b2 * (_sx[_i] * sha3_hash_fr(&_attr).expect("could not hash _attr"))) + (_pk._h_g1_b * _sx[_i]),
             ));
         }
         // random message
         let _msg: Gt = _rng.gen();
         let _e1 = _pk._e_gg_alpha.pow(_s) * _msg;
         let _e2 = _pk._g_g2 * _s;
-        let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
+        let _ct = encrypt_symmetric(_msg, &_plaintext.to_vec()).unwrap();
         //Encrypt plaintext using derived key from secret
         Some(KpAbeCiphertext {_e1, _e2, _ej, _ct})
     }
@@ -253,7 +255,7 @@ pub fn decrypt(_sk: &KpAbeSecretKey, _ct: &KpAbeCiphertext) -> Result<Vec<u8>, R
                         }
                         let _msg = _ct._e1 * _prod_t.inverse();
                         // Decrypt plaintext using derived secret from cp-abe scheme
-                        decrypt_symmetric(&_msg, &_ct._ct)
+                        decrypt_symmetric(_msg, &_ct._ct)
                     } else {
                         Err(RabeError::new("Error in lsw/decrypt: attributes do not match policy."))
                     }

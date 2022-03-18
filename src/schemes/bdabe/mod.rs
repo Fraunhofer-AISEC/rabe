@@ -33,7 +33,7 @@ use utils::{
     policy::*,
     tools::*,
     aes::*,
-    hash::blake2b_hash_fr
+    hash::sha3_hash_fr
 };
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use RabeError;
@@ -210,19 +210,29 @@ pub fn request_attribute_pk(
     _pk: &BdabePublicKey,
     _ska: &BdabeSecretAuthorityKey,
     _attribute: &String,
-) -> Option<BdabePublicAttributeKey> {
+) -> Result<BdabePublicAttributeKey, RabeError> {
     // if attribute a is from authority sk_a
     return if from_authority(_attribute, &_ska._a) {
-        let exponent = blake2b_hash_fr(_attribute) * blake2b_hash_fr(&_ska._a) * _ska._a3;
-        // return PK and mke
-        Some(BdabePublicAttributeKey {
-            _str: _attribute.clone(),
-            _a1: _pk._g1 * exponent,
-            _a2: _pk._g2 * exponent,
-            _a3: _pk._e_gg_y.pow(exponent),
-        })
+        match sha3_hash_fr(_attribute) {
+            Ok(hash_1) => {
+                match sha3_hash_fr(&_ska._a) {
+                    Ok(hash_2) => {
+                        let exp = hash_1 * hash_2 * _ska._a3;
+                        // return PK and mke
+                        Ok(BdabePublicAttributeKey {
+                            _str: _attribute.clone(),
+                            _a1: _pk._g1 * exp,
+                            _a2: _pk._g2 * exp,
+                            _a3: _pk._e_gg_y.pow(exp),
+                        })
+                    },
+                    Err(e) => Err(e)
+                }
+            },
+            Err(e) => Err(e)
+        }
     } else {
-        None
+        Err(RabeError::new(&format!("attribute {} is not from_authority() or !is_eligible()", _attribute.to_string())))
     }
 }
 
@@ -238,18 +248,28 @@ pub fn request_attribute_sk(
     _pku: &BdabePublicUserKey,
     _ska: &BdabeSecretAuthorityKey,
     _attribute: &String,
-) -> Option<BdabeSecretAttributeKey> {
+) -> Result<BdabeSecretAttributeKey, RabeError> {
     // if attribute a is from authority sk_a
     return if from_authority(_attribute, &_ska._a) && is_eligible(_attribute, &_pku._u) {
-        let exponent = blake2b_hash_fr(_attribute) * blake2b_hash_fr(&_ska._a) * _ska._a3;
-        // return PK and mke
-        Some(BdabeSecretAttributeKey {
-            _str: _attribute.to_string(),
-            _au1: _pku._u1 * exponent,
-            _au2: _pku._u2 * exponent,
-        })
+        match sha3_hash_fr(_attribute) {
+            Ok(hash_1) => {
+                match sha3_hash_fr(&_ska._a) {
+                    Ok(hash_2) => {
+                        let exp = hash_1 * hash_2 * _ska._a3;
+                        // return PK and mke
+                        Ok(BdabeSecretAttributeKey {
+                            _str: _attribute.to_string(),
+                            _au1: _pku._u1 * exp,
+                            _au2: _pku._u2 * exp,
+                        })
+                    },
+                    Err(e) => Err(e)
+                }
+            },
+            Err(e) => Err(e)
+        }
     } else {
-        None
+        Err(RabeError::new(&format!("attribute {} is not from_authority() or !is_eligible()", _attribute.to_string())))
     }
 }
 
@@ -282,7 +302,7 @@ pub fn encrypt(
                 // random Gt msg
                 let _msg = pairing(_rng.gen(), _rng.gen());
                 // CT result vector
-                let _ct = encrypt_symmetric(&_msg, &_plaintext.to_vec()).unwrap();
+                let _ct = encrypt_symmetric(_msg, &_plaintext.to_vec()).unwrap();
                 let mut _j: Vec<BdabeCiphertextTuple> = Vec::new();
                 // now add randomness using _r_j
                 for _term in dnf._terms {
@@ -340,7 +360,7 @@ pub fn decrypt(
                     }
                 }
                 // Decrypt plaintext using derived secret from Bdabe scheme
-                decrypt_symmetric(&_msg, &_ct._ct)
+                decrypt_symmetric(_msg, &_ct._ct)
             }
         },
         Err(e) => Err(e)

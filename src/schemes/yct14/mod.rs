@@ -282,7 +282,7 @@ pub fn encrypt(
             attributes.push(Yct14Attribute::public_from(attr, pk, k));
         }
         //Encrypt plaintext using aes secret
-        match encrypt_symmetric(&_cs, &_plaintext.to_vec()) {
+        match encrypt_symmetric(_cs, &_plaintext.to_vec()) {
             Ok(ct) => Ok(Yct14AbeCiphertext { attributes, ct }),
             Err(e) => Err(e)
         }
@@ -320,7 +320,7 @@ pub fn decrypt(_sk: &Yct14AbeSecretKey, _ct: &Yct14AbeCiphertext) -> Result<Vec<
                                 .unwrap();
                             _prod_t = _prod_t * z.pow(coeff);
                         }
-                        decrypt_symmetric(&_prod_t, &_ct.ct)
+                        decrypt_symmetric(_prod_t, &_ct.ct)
                     } else {
                         Err(RabeError::new("Error in decrypt: attributes do not match policy."))
                     }

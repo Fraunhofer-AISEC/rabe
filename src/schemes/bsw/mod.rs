@@ -26,7 +26,7 @@ use utils::{
     secretsharing::{gen_shares_policy, calc_pruned, calc_coefficients},
     tools::*,
     aes::*,
-    hash::blake2b_hash_g2
+    hash::*
 };
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use RabeError;
@@ -130,7 +130,7 @@ pub fn keygen(
         _d_j.push(CpAbeAttribute {
             _str: _j.clone(), // attribute name
             _g1: _pk._g1 * _r_j, // D_j Prime
-            _g2: _g_r + (blake2b_hash_g2(_pk._g2, &_j) * _r_j), // D_j
+            _g2: _g_r + (sha3_hash(_pk._g2, &_j).expect("could not hash _j") * _r_j), // D_j
         });
     }
     return Some(CpAbeSecretKey {_d, _d_j});
@@ -181,7 +181,7 @@ pub fn delegate(
             _d_k.push(CpAbeAttribute {
                 _str: _attr.clone(),
                 _g1: _d_j_val.0 + (_pk._g1 * _r_j),
-                _g2: _d_j_val.1 + (blake2b_hash_g2(_pk._g2, &_attr) * _r_j) + (_pk._g2 * _r),
+                _g2: _d_j_val.1 + (sha3_hash(_pk._g2, &_attr).expect("could not hash _attr") * _r_j) + (_pk._g2 * _r),
             });
         }
         Some(CpAbeSecretKey {
@@ -222,11 +222,11 @@ pub fn encrypt(
                 _c_y.push(CpAbeAttribute {
                     _str: _j.clone(),
                     _g1: _pk._g1 * _j_val,
-                    _g2: blake2b_hash_g2(_pk._g2, &_j) * _j_val,
+                    _g2: sha3_hash(_pk._g2, &_j).expect("could not hash _j") * _j_val,
                 });
             }
             let _policy = _policy.to_string();
-            let _ct = encrypt_symmetric(&_msg, &_plaintext).unwrap();
+            let _ct = encrypt_symmetric(_msg, &_plaintext).unwrap();
             //Encrypt plaintext using derived key from secret
             return Ok(CpAbeCiphertext {_policy: (_policy, _language), _c, _c_p, _c_y, _ct});
         },
@@ -286,7 +286,7 @@ pub fn decrypt(_sk: &CpAbeSecretKey, _ct: &CpAbeCiphertext) -> Result<Vec<u8>, R
                             }
                             let _msg = _ct._c_p * ((pairing(_ct._c, _sk._d)) * _a.inverse()).inverse();
                             // Decrypt plaintext using derived secret from cp-abe scheme
-                            decrypt_symmetric(&_msg, &_ct._ct)
+                            decrypt_symmetric(_msg, &_ct._ct)
                         }
                     }
                 }
