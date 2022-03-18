@@ -47,16 +47,19 @@ Allison Lewko, Amit Sahai and Brent Waters, "Revocation Systems with Very Small 
 Xuanxia Yao, Zhi Chen, Ye Tian, "A lightweight attribute-based encryption scheme for the Internet of things". In Future Generation Computer Systems. Available from http://www.sciencedirect.com/science/article/pii/S0167739X14002039
 
 
-# Building rabe
+# Building rabe lib
 
 In order to compile and test:
 - install rust nightly
 - git clone library 
 - install build-essential
-- and then run 'cargo build && RUST_BACKTRACE=1 cargo test -- --nocapture'
+- and then run `cargo build --release && RUST_BACKTRACE=1 cargo test -- --nocapture`
+
+# Building rabe console app
 
 In order to run on the console use 
-- target/debug/rabe
+- go to `console` folder and then run `cargo build --release`
+- console app is then available at `/target/release/rabe`
 
 For example, in order to create msk and pk of an AC17 KP-ABE scheme run:
 ```bash

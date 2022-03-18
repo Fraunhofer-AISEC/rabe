@@ -8,13 +8,9 @@
 #![allow(dead_code)]
 #[macro_use]
 extern crate serde_derive;
-extern crate base64;
 extern crate rabe_bn;
-extern crate byteorder;
-extern crate libc;
 extern crate rand;
 extern crate serde;
-extern crate serde_json;
 extern crate pest;
 extern crate eax;
 extern crate aes;
@@ -97,21 +93,6 @@ impl From<TryFromSliceError> for RabeError {
     }
 }
 
-impl From<serde_cbor::Error> for RabeError {
-    fn from(_error: serde_cbor::Error) -> Self {
-        RabeError::new(
-            format!("serde_cbor::error offest {}", _error.offset()).as_ref()
-        )
-    }
-}
-
-impl From<base64::DecodeError> for RabeError {
-    fn from(_error: base64::DecodeError) -> Self {
-        RabeError::new(
-            format!("base64::DecodeError {}", _error.to_string()).as_ref()
-        )
-    }
-}
 impl From<String> for RabeError {
     fn from(_error: String) -> Self {
         RabeError::new(_error.as_str())
