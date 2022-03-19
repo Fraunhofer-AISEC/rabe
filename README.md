@@ -57,11 +57,13 @@ In order to compile and test:
 
 # Building rabe console app
 
-In order to run on the console use 
-- go to `console` folder and then run `cargo build --release`
-- console app is then available at `/target/release/rabe`
+In order to compile and test:
+- install rust nightly
+- git clone library
+- install build-essential
+- and then run `cargo run -p rabe-console`
 
 For example, in order to create msk and pk of an AC17 KP-ABE scheme run:
 ```bash
-$ ./target/debug/rabe --scheme AC17KP setup
+$ cargo run -p rabe-console -- --scheme AC17KP setup
 ```

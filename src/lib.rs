@@ -47,7 +47,7 @@ impl RabeError {
 
 impl Display for RabeError {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "RabeError: {}", self.details)
+        write!(f, "Error: {}", self.details)
     }
 }
 
@@ -83,7 +83,8 @@ impl From<PestError<humanRule>> for RabeError {
 
 impl From<aead::Error> for RabeError {
     fn from(_error: aead::Error) -> Self {
-        RabeError::new("Error during symmetric encryption or decryption!") // Aead's error is intentionally opaque, there is no more information in here
+        // Aead's error is intentionally opaque, there is no more information in here
+        RabeError::new("Error during symmetric encryption or decryption!")
     }
 }
 

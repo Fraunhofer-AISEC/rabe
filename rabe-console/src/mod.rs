@@ -4,7 +4,6 @@
 //! * Date: 02/2021
 //!
 extern crate base64;
-extern crate blake2_rfc;
 extern crate rand;
 extern crate serde;
 extern crate rabe;
@@ -465,7 +464,7 @@ fn main() {
         .get_matches();
 
     if let Err(e) = run(_abe_app) {
-        println!("Application error: {}", e);
+        println!("Application Error: {}", e);
         process::exit(1);
     }
 
@@ -775,7 +774,7 @@ fn main() {
                     _gp = match ser_dec(&_gp_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -819,14 +818,14 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -855,14 +854,14 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -977,7 +976,7 @@ fn main() {
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1004,7 +1003,7 @@ fn main() {
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1032,14 +1031,14 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1068,14 +1067,14 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1103,14 +1102,14 @@ fn main() {
                     _pk = match ser_dec(&_gp_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1139,14 +1138,14 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_ska_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1174,14 +1173,14 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1215,14 +1214,14 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_msk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1302,14 +1301,14 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _msk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1418,7 +1417,7 @@ fn main() {
                         _pk = match ser_dec(&_pk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -1452,7 +1451,7 @@ fn main() {
                         _pk = match ser_dec(&_pk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -1486,7 +1485,7 @@ fn main() {
                         _pk = match ser_dec(&_pk_files[0].clone()) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -1520,7 +1519,7 @@ fn main() {
                         _pk = match ser_dec(&_pk_files[0].clone()) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -1551,7 +1550,7 @@ fn main() {
                     _gp = match ser_dec(&_gp_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1565,7 +1564,7 @@ fn main() {
                         _pka = match ser_dec(&filename) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -1593,7 +1592,7 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1607,7 +1606,7 @@ fn main() {
                         _pka = match ser_dec(&filename) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -1635,7 +1634,7 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1649,7 +1648,7 @@ fn main() {
                         _pka = match ser_dec(&filename) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -1680,7 +1679,7 @@ fn main() {
                         _pk = match ser_dec(&_pk_files[0].clone()) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -1762,14 +1761,14 @@ fn main() {
                     _sk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _ct = match ser_dec(&_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1786,14 +1785,14 @@ fn main() {
                     _sk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _ct = match ser_dec(&_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1810,14 +1809,14 @@ fn main() {
                     _sk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _ct = match ser_dec(&_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1834,14 +1833,14 @@ fn main() {
                     _sk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _ct = match ser_dec(&_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1860,21 +1859,21 @@ fn main() {
                     _gp = match ser_dec(&_gp_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _sk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _ct = match ser_dec(&_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1893,21 +1892,21 @@ fn main() {
                     _pk = match ser_dec(&_pk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _sk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _ct = match ser_dec(&_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1926,21 +1925,21 @@ fn main() {
                     _pk = match ser_dec(&_gp_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _sk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _ct = match ser_dec(&_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -1957,14 +1956,14 @@ fn main() {
                     _sk = match ser_dec(&_sk_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
                     _ct = match ser_dec(&_file) {
                         Ok(parsed) => match from_slice(&parsed) {
                             Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(e.into())
+                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                         },
                         Err(e) => return Err(e)
                     };
@@ -2040,21 +2039,20 @@ fn main() {
                         _pk = match ser_dec(&_pk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
                         _ska = match ser_dec(&_au_sk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
                     }
                     match mke08::request_authority_pk(&_pk, &_attributes[0], &_ska) {
-                        None => {}
-                        Some(_a_pk) => {
+                        Ok(_a_pk) => {
                             if _json {
                                 write_file(
                                     Path::new(&_pka_file),
@@ -2066,7 +2064,8 @@ fn main() {
                                     ser_enc(_a_pk, PKA_BEGIN, PKA_END)
                                 );
                             }
-                        }
+                        },
+                        Err(e) => return Err(e)
                     }
                 }
                 Scheme::BDABE => {
@@ -2079,21 +2078,20 @@ fn main() {
                         _pk = match ser_dec(&_pk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
                         _ska = match ser_dec(&_au_sk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
                     }
                     match bdabe::request_attribute_pk(&_pk, &_ska, &_attributes[0]) {
-                        None => {}
-                        Some(_a_pk) => {
+                        Ok(_a_pk) => {
                             if _json {
                                 write_file(
                                     Path::new(&_pka_file),
@@ -2105,7 +2103,8 @@ fn main() {
                                     ser_enc(_a_pk, PKA_BEGIN, PKA_END)
                                 );
                             }
-                        }
+                        },
+                        Err(e) => return Err(e)
                     }
                 }
                 _ => {
@@ -2180,14 +2179,14 @@ fn main() {
                         _usk = match ser_dec(&_sk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
                         _skau = match ser_dec(&_au_sk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -2197,8 +2196,7 @@ fn main() {
                         &_skau,
                         &_usk._pk_u,
                     ) {
-                        None => {}
-                        Some(_a_sk) => {
+                        Ok(_a_sk) => {
                             if _json {
                                 write_file(
                                     Path::new(&_ask_file),
@@ -2210,7 +2208,8 @@ fn main() {
                                     ser_enc(_a_sk, SKA_BEGIN, SKA_END),
                                 );
                             }
-                        }
+                        },
+                        Err(e) => return Err(e)
                     }
                 }
                 Scheme::BDABE => {
@@ -2224,14 +2223,14 @@ fn main() {
                         _usk = match ser_dec(&_sk_file) {
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
                         _skau = match ser_dec(&_au_sk_file){
                             Ok(parsed) => match from_slice(&parsed) {
                                 Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(e.into())
+                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
                             },
                             Err(e) => return Err(e)
                         };
@@ -2241,8 +2240,7 @@ fn main() {
                         &_skau,
                         &_attributes[0],
                     ) {
-                        None => {}
-                        Some(_a_sk) => {
+                        Ok(_a_sk) => {
                             if _json {
                                 write_file(
                                     Path::new(&_ask_file),
@@ -2254,7 +2252,8 @@ fn main() {
                                     ser_enc(_a_sk, SKA_BEGIN, SKA_END)
                                 );
                             }
-                        }
+                        },
+                        Err(e) => println!("Error: {}", e.to_string())
                     }
                 }
                 _ => {
@@ -2286,15 +2285,19 @@ fn ser_enc<T: Serialize>(input: T, head: &str, tail: &str) -> String {
 }
 fn ser_dec(file_name: &String) -> Result<Vec<u8>, RabeError> {
     use inflate::inflate_bytes;
-    let base64: Vec<u8> = decode(
+    match decode(
         &read_raw(
             &read_file(
                 Path::new(file_name)
             )
         )
-    )?;
-    match inflate_bytes(&base64) {
-        Ok(bytes) => Ok(bytes),
+    ) {
+        Ok(base64) => {
+            match inflate_bytes(&base64) {
+                Ok(bytes) => Ok(bytes),
+                Err(e) => Err(RabeError::new(e.to_string().as_str()))
+            }
+        },
         Err(e) => Err(RabeError::new(e.to_string().as_str()))
     }
 
