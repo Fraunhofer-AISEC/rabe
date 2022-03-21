@@ -4,7 +4,7 @@ use utils::{
     tools::{contains, usize_to_fr, get_value},
     policy::pest::{PolicyValue, PolicyLanguage, parse, PolicyType}
 };
-use RabeError;
+use crate::error::RabeError;
 
 pub fn calc_coefficients(_json: &PolicyValue, _fr: Option<Fr>, _type: Option<PolicyType>) -> Option<Vec<(String, Fr)>> {
     let _coeff = _fr.unwrap_or(Fr::one());

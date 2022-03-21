@@ -1,8 +1,8 @@
-//! This is the documentation for the `BSW` scheme:
+//! `BSW` scheme by John Bethencourt, Amit Sahai, Brent Waters.
 //!
 //! * Developped by John Bethencourt, Amit Sahai, Brent Waters, "Ciphertext-Policy Attribute-Based Encryption"
 //! * Published in Security and Privacy, 2007. SP'07. IEEE Symposium on. IEEE
-//! * Available from https://doi.org/10.1109/SP.2007.11
+//! * Available from <https://doi.org/10.1109/SP.2007.11>
 //! * Type: encryption (attribute-based)
 //! * Setting: bilinear groups (asymmetric)
 //! * Authors: Georg Bramm
@@ -29,10 +29,16 @@ use utils::{
     hash::*
 };
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
-use RabeError;
+use crate::error::RabeError;
+#[cfg(not(feature = "borsh"))]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "borsh")]
+use borsh::{BorshSerialize, BorshDeserialize};
 
 /// A BSW Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct CpAbePublicKey {
     pub _g1: G1,
     pub _g2: G2,
@@ -42,14 +48,18 @@ pub struct CpAbePublicKey {
 }
 
 /// A BSW Master Key (MSK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct CpAbeMasterKey {
     pub _beta: Fr,
     pub _g2_alpha: G2,
 }
 
 /// A BSW Ciphertext (CT)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct CpAbeCiphertext {
     pub _policy: (String, PolicyLanguage),
     pub _c: G1,
@@ -59,14 +69,18 @@ pub struct CpAbeCiphertext {
 }
 
 /// A BSW Secret User Key (SK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct CpAbeSecretKey {
     pub _d: G2,
     pub _d_j: Vec<CpAbeAttribute>,
 }
 
 /// A BSW Attribute
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct CpAbeAttribute {
     pub _str: String,
     pub _g1: G1,

@@ -1,16 +1,18 @@
-//! This is the documentation for the RABE library.
-//!
-//! * Developped by Georg Bramm, Martin Schanzenbach, Julian Schuette
-//! * Type: encryption (attribute-based)
-//! * Setting: bilinear groups (asymmetric), based on a modified bn library by zcash
-//! * Date: 07/2020
-//!
-#![allow(dead_code)]
-#[macro_use]
-extern crate serde_derive;
+//! rabe is a rust library implementing several Attribute Based Encryption (ABE) schemes using a modified version of the `bn` library of zcash (type-3 pairing / Baretto Naering curve). The modification of `bn` brings in `serde` or `borsh` instead of the deprecated `rustc_serialize`.
+/// The standard serialization library is `serde`. If you want to use `borsh`, you need to specify it as feature.
+///
+/// For integration in distributed applications contact [us](mailto:info@aisec.fraunhofer.de).
+///!
+///! * Developped by Bramm, Schanzenbach, Schuette
+#[allow(dead_code)]
+
+#[cfg(feature = "borsh")]
+extern crate borsh;
+#[cfg(not(feature = "borsh"))]
+extern crate serde;
+
 extern crate rabe_bn;
 extern crate rand;
-extern crate serde;
 extern crate pest;
 extern crate eax;
 extern crate aes;
@@ -18,84 +20,10 @@ extern crate sha3;
 #[macro_use]
 extern crate pest_derive;
 
-/// implemented schemes
+/// rabe schemes
 pub mod schemes;
-/// various utilities
+/// rabe library utilities
 pub mod utils;
+/// rabe error, that is used in the library
+pub mod error;
 
-use std::{fmt::{
-    Display,
-    Result,
-    Formatter
-}, error::Error, cmp};
-use pest::error::{Error as PestError, LineColLocation};
-use utils::policy::pest::json::Rule as jsonRule;
-use utils::policy::pest::human::Rule as humanRule;
-use eax::aead;
-use std::array::TryFromSliceError;
-
-#[derive(Debug, Serialize)]
-pub struct RabeError {
-    details: String,
-}
-
-impl RabeError {
-    pub fn new(msg: &str) -> RabeError {
-        RabeError { details: msg.to_string() }
-    }
-}
-
-impl Display for RabeError {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "Error: {}", self.details)
-    }
-}
-
-impl Error for RabeError {
-    fn description(&self) -> &str {
-        &self.details
-    }
-}
-
-impl From<PestError<jsonRule>> for RabeError {
-    fn from(error: PestError<jsonRule>) -> Self {
-        let line = match error.line_col.to_owned() {
-            LineColLocation::Pos((line, _)) => line,
-            LineColLocation::Span((start_line, _), (end_line, _)) => cmp::max(start_line, end_line),
-        };
-        RabeError::new(
-            format!("Json Policy Error in line {}\n", line).as_ref()
-        )
-    }
-}
-
-impl From<PestError<humanRule>> for RabeError {
-    fn from(error: PestError<humanRule>) -> Self {
-        let line = match error.line_col.to_owned() {
-            LineColLocation::Pos((line, _)) => line,
-            LineColLocation::Span((start_line, _), (end_line, _)) => cmp::max(start_line, end_line),
-        };
-        RabeError::new(
-            format!("Json Policy Error in line {}\n", line).as_ref()
-        )
-    }
-}
-
-impl From<aead::Error> for RabeError {
-    fn from(_error: aead::Error) -> Self {
-        // Aead's error is intentionally opaque, there is no more information in here
-        RabeError::new("Error during symmetric encryption or decryption!")
-    }
-}
-
-impl From<TryFromSliceError> for RabeError {
-    fn from(_error: TryFromSliceError) -> Self {
-        RabeError::new(&_error.to_string())
-    }
-}
-
-impl From<String> for RabeError {
-    fn from(_error: String) -> Self {
-        RabeError::new(_error.as_str())
-    }
-}

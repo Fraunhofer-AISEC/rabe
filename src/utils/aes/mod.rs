@@ -1,6 +1,6 @@
 use eax::Eax;
 use eax::aead::{Aead, NewAead, generic_array::GenericArray};
-use crate::RabeError;
+use crate::error::RabeError;
 use std::convert::TryInto;
 use rand::thread_rng;
 use rand::Rng;

@@ -1,24 +1,25 @@
 //! a rabe console application.
 //!
-//! * Developped by Georg Bramm, Fraunhofer AISEC
-//! * Date: 02/2021
-//!
-extern crate base64;
 extern crate rand;
-extern crate serde;
 extern crate rabe;
 extern crate deflate;
 extern crate inflate;
-extern crate serde_json;
-extern crate serde_derive;
-#[macro_use]
-extern crate clap;
+#[cfg(feature = "borsh")]
+extern crate borsh;
+#[cfg(not(feature = "borsh"))]
+extern crate serde;
+#[cfg(not(feature = "borsh"))]
 extern crate serde_cbor;
 
-use base64::{decode, encode};
+extern crate rustc_hex as hex;
+
+#[macro_use]
+extern crate clap;
+
+use hex::{FromHex, ToHex};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use crate::rabe::{
-    RabeError,
+    error::RabeError,
     schemes::{
         ac17,
         aw11,
@@ -33,14 +34,22 @@ use crate::rabe::{
         file::{write_file, read_file, read_raw, write_from_vec, read_to_vec}
     }
 };
-use serde::Serialize;
-use serde_cbor::{
-    from_slice,
-    ser::to_vec_packed
+#[cfg(not(feature = "borsh"))]
+use serde::{
+    de::DeserializeOwned,
+    Serialize
 };
+#[cfg(feature = "borsh")]
+use borsh::{BorshSerialize, BorshDeserialize};
+
 use std::{
     process,
     path::Path
+};
+#[cfg(not(feature = "borsh"))]
+use serde_cbor::{
+    ser::to_vec_packed,
+    from_slice
 };
 
 // File extensions
@@ -50,13 +59,12 @@ const KEY_DELEGATE_EXTENSION: &'static str = "del";
 const DOT: &'static str = ".";
 
 // Object names
-const ATTRIBUTES: &'static str = "attribute";
-const POLICY: &'static str = "policy";
-const NAME: &'static str = "name";
-const SCHEME: &'static str = "scheme";
-const JSON: &'static str = "json";
-const LANG: &'static str = "lang";
-const FILE: &'static str = "file";
+const ATTRIBUTES: &'static str = "a";
+const POLICY: &'static str = "p";
+const NAME: &'static str = "n";
+const SCHEME: &'static str = "s";
+const LANG: &'static str = "l";
+const FILE: &'static str = "f";
 
 // Default file names
 const GP_FILE: &'static str = "gp";
@@ -69,24 +77,24 @@ const AU_PK_FILE: &'static str = "pkau";
 const AU_SK_FILE: &'static str = "skau";
 
 // Key file header and footer
-const GP_BEGIN: &'static str = "-----BEGIN GLOBAL PARAMETERS-----\n";
-const GP_END: &'static str = "\n-----END GLOBAL PARAMETERS-----";
-const SK_BEGIN: &'static str = "-----BEGIN SECRET KEY-----\n";
-const SK_END: &'static str = "\n-----END SECRET KEY-----";
-const MSK_BEGIN: &'static str = "-----BEGIN MASTER SECRET KEY-----\n";
-const MSK_END: &'static str = "\n-----END MASTER SECRET KEY-----";
-const PK_BEGIN: &'static str = "-----BEGIN PUBLIC KEY-----\n";
-const PK_END: &'static str = "\n-----END PUBLIC KEY-----";
-const CT_BEGIN: &'static str = "-----BEGIN CIPHERTEXT-----\n";
-const CT_END: &'static str = "\n-----END CIPHERTEXT-----";
-const SKA_BEGIN: &'static str = "-----BEGIN SECRET ATTRIBUTE KEY-----\n";
-const SKA_END: &'static str = "\n-----END SECRET ATTRIBUTE KEY-----";
-const PKA_BEGIN: &'static str = "-----BEGIN PUBLIC ATTRIBUTE-----\n";
-const PKA_END: &'static str = "\n-----END PUBLIC ATTRIBUTE-----";
-const AU_PK_BEGIN: &'static str = "-----BEGIN PUBLIC AUTHORITY-----\n";
-const AU_PK_END: &'static str = "\n-----END PUBLIC AUTHORITY-----";
-const AU_SK_BEGIN: &'static str = "-----BEGIN SECRET AUTHORITY-----\n";
-const AU_SK_END: &'static str = "\n-----END SECRET AUTHORITY-----";
+const GP_BEGIN: &'static str = "-----BEGIN GP-----\n";
+const GP_END: &'static str = "\n-----END GP-----";
+const SK_BEGIN: &'static str = "-----BEGIN SK-----\n";
+const SK_END: &'static str = "\n-----END SK-----";
+const MSK_BEGIN: &'static str = "-----BEGIN MSK-----\n";
+const MSK_END: &'static str = "\n-----END MSK-----";
+const PK_BEGIN: &'static str = "-----BEGIN PK-----\n";
+const PK_END: &'static str = "\n-----END PK-----";
+const CT_BEGIN: &'static str = "-----BEGIN CT-----\n";
+const CT_END: &'static str = "\n-----END CT-----";
+const SKA_BEGIN: &'static str = "-----BEGIN SAK-----\n";
+const SKA_END: &'static str = "\n-----END SAK-----";
+const PKA_BEGIN: &'static str = "-----BEGIN PAK-----\n";
+const PKA_END: &'static str = "\n-----END PAK-----";
+const AU_PK_BEGIN: &'static str = "-----BEGIN PAUK-----\n";
+const AU_PK_END: &'static str = "\n-----END PAUK-----";
+const AU_SK_BEGIN: &'static str = "-----BEGIN SAUK-----\n";
+const AU_SK_END: &'static str = "\n-----END SAUK-----";
 
 // Application commands
 const CMD_SETUP: &'static str = "setup";
@@ -142,12 +150,6 @@ fn main() {
                 .help("scheme(s) to use."),
         )
         .arg(
-            Arg::with_name(JSON)
-                .long(JSON)
-                .required(false)
-                .takes_value(false),
-        )
-        .arg(
             Arg::with_name(LANG)
                 .long(LANG)
                 .required(false)
@@ -185,6 +187,7 @@ fn main() {
                         .required(false)
                         .takes_value(true)
                         .multiple(true)
+                        .last(true)
                         .help("attributes to use."),
                 ),
         )
@@ -275,13 +278,6 @@ fn main() {
                         .help("authrotiy secret key file."),
                 )
                 .arg(
-                    Arg::with_name(ATTRIBUTES)
-                        .required(false)
-                        .takes_value(true)
-                        .multiple(true)
-                        .help("attributes to use."),
-                )
-                .arg(
                     Arg::with_name(POLICY)
                         .required(false)
                         .takes_value(true)
@@ -292,6 +288,13 @@ fn main() {
                         .required(false)
                         .takes_value(true)
                         .help("id of the user (AW11)"),
+                )
+                .arg(
+                    Arg::with_name(ATTRIBUTES)
+                        .long(ATTRIBUTES)
+                        .required(false)
+                        .takes_value(true)
+                        .help("attributes to use."),
                 ),
         )
         .subcommand(
@@ -490,16 +493,15 @@ fn main() {
             } else {
                 _lang = PolicyLanguage::HumanPolicy;
             }
-            let _json: bool = argument_matches.is_present(JSON);
             match argument_matches.subcommand() {
-                (CMD_SETUP, Some(arguments)) => run_setup(arguments, _scheme, _json),
-                (CMD_AUTHGEN, Some(arguments)) => run_authgen(arguments, _scheme, _lang, _json),
-                (CMD_KEYGEN, Some(arguments)) => run_keygen(arguments, _scheme, _lang, _json),
-                (CMD_DELEGATE, Some(arguments)) => run_delegate(arguments, _scheme, _lang, _json),
-                (CMD_ENCRYPT, Some(arguments)) => run_encrypt(arguments, _scheme, _lang, _json),
-                (CMD_DECRYPT, Some(arguments)) => run_decrypt(arguments, _scheme, _lang, _json),
-                (CMD_REQ_ATTR_PK, Some(arguments)) => run_req_attr_pk(arguments, _scheme, _lang, _json),
-                (CMD_REQ_ATTR_SK, Some(arguments)) => run_req_attr_sk(arguments, _scheme, _lang, _json),
+                (CMD_SETUP, Some(arguments)) => run_setup(arguments, _scheme),
+                (CMD_AUTHGEN, Some(arguments)) => run_authgen(arguments, _scheme, _lang),
+                (CMD_KEYGEN, Some(arguments)) => run_keygen(arguments, _scheme, _lang),
+                (CMD_DELEGATE, Some(arguments)) => run_delegate(arguments, _scheme, _lang),
+                (CMD_ENCRYPT, Some(arguments)) => run_encrypt(arguments, _scheme, _lang),
+                (CMD_DECRYPT, Some(arguments)) => run_decrypt(arguments, _scheme, _lang),
+                (CMD_REQ_ATTR_PK, Some(arguments)) => run_req_attr_pk(arguments, _scheme, _lang),
+                (CMD_REQ_ATTR_SK, Some(arguments)) => run_req_attr_sk(arguments, _scheme, _lang),
                 _ => Ok(()),
             }
         } else {
@@ -508,7 +510,7 @@ fn main() {
         }
     }
 
-    fn run_setup(arguments: &ArgMatches, _scheme: Scheme, _json: bool) -> Result<(), RabeError> {
+    fn run_setup(arguments: &ArgMatches, _scheme: Scheme) -> Result<(), RabeError> {
         let mut _msk_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
@@ -539,127 +541,65 @@ fn main() {
         match _scheme {
             Scheme::AC17CP | Scheme::AC17KP => {
                 let (_pk, _msk) = ac17::setup();
-                if _json {
-                    write_file(
-                        Path::new(&_msk_file),
-                        serde_json::to_string_pretty(&_msk).unwrap(),
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        serde_json::to_string_pretty(&_pk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_msk_file),
-                        ser_enc(_msk, MSK_BEGIN, MSK_END)
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        ser_enc(_pk, PK_BEGIN, PK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_msk_file),
+                    ser_enc(_msk, MSK_BEGIN, MSK_END)
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    ser_enc(_pk, PK_BEGIN, PK_END)
+                );
             }
             Scheme::AW11 => {
                 let _gp = aw11::setup();
-                if _json {
-                    write_file(
-                        Path::new(&_gp_file),
-                        serde_json::to_string_pretty(&_gp).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_msk_file),
-                        ser_enc(_gp, GP_BEGIN, GP_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_msk_file),
+                    ser_enc(_gp, GP_BEGIN, GP_END)
+                );
             }
             Scheme::BDABE => {
                 let (_pk, _msk) = bdabe::setup();
-                if _json {
-                    write_file(
-                        Path::new(&_msk_file),
-                        serde_json::to_string_pretty(&_msk).unwrap(),
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        serde_json::to_string_pretty(&_pk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_msk_file),
-                        ser_enc(_msk, MSK_BEGIN, MSK_END)
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        ser_enc(_pk, PK_BEGIN, PK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_msk_file),
+                    ser_enc(_msk, MSK_BEGIN, MSK_END)
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    ser_enc(_pk, PK_BEGIN, PK_END)
+                );
             }
             Scheme::BSW => {
                 let (_pk, _msk) = bsw::setup();
-                if _json {
-                    write_file(
-                        Path::new(&_msk_file),
-                        serde_json::to_string_pretty(&_msk).unwrap(),
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        serde_json::to_string_pretty(&_pk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_msk_file),
-                        ser_enc(_msk, MSK_BEGIN, MSK_END)
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        ser_enc(_pk, PK_BEGIN, PK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_msk_file),
+                    ser_enc(_msk, MSK_BEGIN, MSK_END)
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    ser_enc(_pk, PK_BEGIN, PK_END)
+                );
             }
             Scheme::LSW => {
                 let (_pk, _msk) = lsw::setup();
-                if _json {
-                    write_file(
-                        Path::new(&_msk_file),
-                        serde_json::to_string_pretty(&_msk).unwrap(),
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        serde_json::to_string_pretty(&_pk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_msk_file),
-                        ser_enc(_msk, MSK_BEGIN, MSK_END)
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        ser_enc(_pk, PK_BEGIN, PK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_msk_file),
+                    ser_enc(_msk, MSK_BEGIN, MSK_END)
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    ser_enc(_pk, PK_BEGIN, PK_END)
+                );
             }
             Scheme::MKE08 => {
                 let (_pk, _msk) = mke08::setup();
-                if _json {
-                    write_file(
-                        Path::new(&_msk_file),
-                        serde_json::to_string_pretty(&_msk).unwrap(),
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        serde_json::to_string_pretty(&_pk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_msk_file),
-                        ser_enc(_msk, MSK_BEGIN, MSK_END)
-                    );
-                    write_file(
-                        Path::new(&_pk_file),
-                        ser_enc(_pk, PK_BEGIN, PK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_msk_file),
+                    ser_enc(_msk, MSK_BEGIN, MSK_END)
+                );
+                write_file(
+                    Path::new(&_pk_file),
+                    ser_enc(_pk, PK_BEGIN, PK_END)
+                );
             },
             Scheme::YCT14 => {
                 let mut _attributes: Vec<String> = Vec::new();
@@ -676,25 +616,14 @@ fn main() {
                 }
                 if _attributes.len() > 0 {
                     let (_pk, _msk) = yct14::setup(_attributes);
-                    if _json {
-                        write_file(
-                            Path::new(&_msk_file),
-                            serde_json::to_string_pretty(&_msk).unwrap(),
-                        );
-                        write_file(
-                            Path::new(&_pk_file),
-                            serde_json::to_string_pretty(&_pk).unwrap(),
-                        );
-                    } else {
-                        write_file(
-                            Path::new(&_msk_file),
-                            ser_enc(_msk, MSK_BEGIN, MSK_END)
-                        );
-                        write_file(
-                            Path::new(&_pk_file),
-                            ser_enc(_pk, PK_BEGIN, PK_END)
-                        );
-                    }
+                    write_file(
+                        Path::new(&_msk_file),
+                        ser_enc(_msk, MSK_BEGIN, MSK_END)
+                    );
+                    write_file(
+                        Path::new(&_pk_file),
+                        ser_enc(_pk, PK_BEGIN, PK_END)
+                    );
                 }
                 else {
                     return Err(RabeError::new("sorry, yct14 needs attributes at setup()"));
@@ -708,7 +637,6 @@ fn main() {
         arguments: &ArgMatches,
         _scheme: Scheme,
         _lang: PolicyLanguage,
-        _json: bool,
     ) -> Result<(), RabeError> {
         let mut _policy: String = String::new();
         let mut _attributes: Vec<String> = Vec::new();
@@ -767,18 +695,10 @@ fn main() {
         }
         match _scheme {
             Scheme::AW11 => {
-                let mut _gp: aw11::Aw11GlobalKey;
-                if _json {
-                    _gp = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
-                } else {
-                    _gp = match ser_dec(&_gp_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _gp: aw11::Aw11GlobalKey = match ser_dec(&_gp_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 match aw11::authgen(&_gp, &_attributes) {
                     None => {
                         return Err(RabeError::new(
@@ -786,98 +706,47 @@ fn main() {
                         ));
                     }
                     Some((_pk, _msk)) => {
-                        if _json {
-                            write_file(
-                                Path::new(&_msk_file),
-                                serde_json::to_string_pretty(&_msk).unwrap(),
-                            );
-                            write_file(
-                                Path::new(&_pk_file),
-                                serde_json::to_string_pretty(&_pk).unwrap(),
-                            );
-                        } else {
-                            write_file(
-                                Path::new(&_msk_file),
-                                ser_enc(_msk, AU_SK_BEGIN, AU_SK_END)
-                            );
-                            write_file(
-                                Path::new(&_pk_file),
-                                ser_enc(_pk, AU_PK_BEGIN, AU_PK_END)
-                            );
-                        }
+                        write_file(
+                            Path::new(&_msk_file),
+                            ser_enc(_msk, AU_SK_BEGIN, AU_SK_END)
+                        );
+                        write_file(
+                            Path::new(&_pk_file),
+                            ser_enc(_pk, AU_PK_BEGIN, AU_PK_END)
+                        );
                     }
                 }
             }
             Scheme::BDABE => {
-                let mut _pk: bdabe::BdabePublicKey;
-                let mut _msk: bdabe::BdabeMasterKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: bdabe::BdabePublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: bdabe::BdabeMasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: bdabe::BdabeSecretAuthorityKey =
                     bdabe::authgen(&_pk, &_msk, &_name);
-                if _json {
-                    write_file(
-                        Path::new(&_au_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_au_file),
-                        ser_enc(_sk, AU_SK_BEGIN, AU_SK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_au_file),
+                    ser_enc(_sk, AU_SK_BEGIN, AU_SK_END)
+                );
             }
             Scheme::MKE08 => {
-                let mut _pk: mke08::Mke08PublicKey;
-                let mut _msk: mke08::Mke08MasterKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: mke08::Mke08PublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: mke08::Mke08MasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: mke08::Mke08SecretAuthorityKey = mke08::authgen(&_name);
-                if _json {
-                    write_file(
-                        Path::new(&_au_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_au_file),
-                        ser_enc(_sk, AU_SK_BEGIN, AU_SK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_au_file),
+                    ser_enc(_sk, AU_SK_BEGIN, AU_SK_END)
+                );
             },
             _ => {
                 return Err(RabeError::new("sorry, this is not a multi-authoriy scheme"));
@@ -890,7 +759,6 @@ fn main() {
         arguments: &ArgMatches,
         _scheme: Scheme,
         _lang: PolicyLanguage,
-        _json: bool,
     ) -> Result<(), RabeError> {
         let mut _sk_file = String::from("");
         let mut _ska_file = String::from("");
@@ -969,235 +837,113 @@ fn main() {
         }
         match _scheme {
             Scheme::AC17CP => {
-                let mut _msk: ac17::Ac17MasterKey;
-                if _json {
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
-                let _sk: ac17::Ac17CpSecretKey = ac17::cp_keygen(&_msk, &_attributes)
-                    .unwrap();
-                if _json {
-                    write_file(
-                        Path::new(&_sk_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_sk_file),
-                        ser_enc(_sk, SK_BEGIN, SK_END)
-                    );
-                }
+                print!("loading {} ...", _msk_file);
+                let _msk: ac17::Ac17MasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => panic!("{}", e.to_string())
+                };
+                println!("... done");
+                print!("creating AC17CP sk for {:?} ...", _attributes);
+                match ac17::cp_keygen(&_msk, &_attributes) {
+                    Ok(sk) => {
+                        println!("... done");
+                        println!("saving as {}", _sk_file);
+                        write_file(
+                            Path::new(&_sk_file),
+                            ser_enc(sk, SK_BEGIN, SK_END)
+                        )
+                    },
+                    Err(e) => panic!("{}", e.to_string())
+                };
             }
             Scheme::AC17KP => {
-                let mut _msk: ac17::Ac17MasterKey;
-                if _json {
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _msk: ac17::Ac17MasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: ac17::Ac17KpSecretKey = ac17::kp_keygen(&_msk, &_policy, _lang).unwrap();
-                if _json {
-                    write_file(
-                        Path::new(&_sk_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_sk_file),
-                        ser_enc(_sk, SK_BEGIN, SK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_sk_file),
+                    ser_enc(_sk, SK_BEGIN, SK_END)
+                );
             }
             Scheme::BSW => {
-                let mut _pk: bsw::CpAbePublicKey;
-                let mut _msk: bsw::CpAbeMasterKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: bsw::CpAbePublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: bsw::CpAbeMasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: bsw::CpAbeSecretKey = bsw::keygen(&_pk, &_msk, &_attributes)
                     .unwrap();
-                if _json {
-                    write_file(
-                        Path::new(&_sk_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_sk_file),
-                        ser_enc(_sk, SK_BEGIN, SK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_sk_file),
+                    ser_enc(_sk, SK_BEGIN, SK_END)
+                );
             }
             Scheme::LSW => {
-                let mut _pk: lsw::KpAbePublicKey;
-                let mut _msk: lsw::KpAbeMasterKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: lsw::KpAbePublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: lsw::KpAbeMasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: lsw::KpAbeSecretKey = lsw::keygen(&_pk, &_msk, &_policy, _lang).unwrap();
-                if _json {
-                    write_file(
-                        Path::new(&_sk_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_sk_file),
-                        ser_enc(_sk, SK_BEGIN, SK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_sk_file),
+                    ser_enc(_sk, SK_BEGIN, SK_END)
+                );
             }
             Scheme::AW11 => {
-                let mut _pk: aw11::Aw11GlobalKey;
-                let mut _msk: aw11::Aw11MasterKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_gp_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: aw11::Aw11GlobalKey = match ser_dec(&_gp_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: aw11::Aw11MasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: aw11::Aw11SecretKey =
                     aw11::keygen(&_pk, &_msk, &_name, &_attributes).unwrap();
-                if _json {
-                    write_file(
-                        Path::new(&_name_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_name_file),
-                        ser_enc(_sk, SK_BEGIN, SK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_name_file),
+                    ser_enc(_sk, SK_BEGIN, SK_END)
+                );
             }
             Scheme::BDABE => {
-                let mut _pk: bdabe::BdabePublicKey;
-                let mut _msk: bdabe::BdabeSecretAuthorityKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_ska_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_ska_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: bdabe::BdabePublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: bdabe::BdabeSecretAuthorityKey = match ser_dec(&_ska_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: bdabe::BdabeUserKey = bdabe::keygen(&_pk, &_msk, &_name);
-                if _json {
-                    write_file(
-                        Path::new(&_name_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
+                write_file(
+                    Path::new(&_name_file),
+                    ser_enc(_sk, SK_BEGIN, SK_END)
+                );
+            }
+            Scheme::MKE08 => {
+                let _pk: mke08::Mke08PublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: mke08::Mke08MasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                if _name != String::from("") {
+                    let _sk: mke08::Mke08UserKey = mke08::keygen(&_pk, &_msk, &_name);
                     write_file(
                         Path::new(&_name_file),
                         ser_enc(_sk, SK_BEGIN, SK_END)
                     );
-                }
-            }
-            Scheme::MKE08 => {
-                let mut _pk: mke08::Mke08PublicKey;
-                let mut _msk: mke08::Mke08MasterKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
-                if _name != String::from("") {
-                    let _sk: mke08::Mke08UserKey = mke08::keygen(&_pk, &_msk, &_name);
-                    if _json {
-                        write_file(
-                            Path::new(&_name_file),
-                            serde_json::to_string_pretty(&_sk).unwrap(),
-                        );
-                    } else {
-                        write_file(
-                            Path::new(&_name_file),
-                            ser_enc(_sk, SK_BEGIN, SK_END)
-                        );
-                    }
                 } else {
                     return Err(RabeError::new(
                         "sorry, the name/id for the user key is not set.",
@@ -1205,39 +951,19 @@ fn main() {
                 }
             }
             Scheme::YCT14 => {
-                let mut _pk: yct14::Yct14AbePublicKey;
-                let mut _msk: yct14::Yct14AbeMasterKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_msk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_msk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: yct14::Yct14AbePublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: yct14::Yct14AbeMasterKey = match ser_dec(&_msk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: yct14::Yct14AbeSecretKey = yct14::keygen(&_pk, &_msk, &_policy, _lang).unwrap();
-                if _json {
-                    write_file(
-                        Path::new(&_sk_file),
-                        serde_json::to_string_pretty(&_sk).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_sk_file),
-                        ser_enc(_sk, SK_BEGIN, SK_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_sk_file),
+                    ser_enc(_sk, SK_BEGIN, SK_END)
+                );
             }
         }
         Ok(())
@@ -1247,7 +973,6 @@ fn main() {
         arguments: &ArgMatches,
         _scheme: Scheme,
         _lang: PolicyLanguage,
-        _json: bool,
     ) -> Result<(), RabeError> {
         let mut _sk_file = String::from("");
         let mut _dg_file = String::from("");
@@ -1292,27 +1017,14 @@ fn main() {
         }
         match _scheme {
             Scheme::BSW => {
-                let mut _pk: bsw::CpAbePublicKey;
-                let mut _msk: bsw::CpAbeSecretKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _msk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _msk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: bsw::CpAbePublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _msk: bsw::CpAbeSecretKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let _sk: Option<bsw::CpAbeSecretKey> =
                     bsw::delegate(&_pk, &_msk, &_attributes);
                 match _sk {
@@ -1322,17 +1034,10 @@ fn main() {
                         ));
                     }
                     Some(_del) => {
-                        if _json {
-                            write_file(
-                                Path::new(&_dg_file),
-                                serde_json::to_string_pretty(&_del).unwrap(),
-                            );
-                        } else {
-                            write_file(
-                                Path::new(&_dg_file),
-                                ser_enc(_del, SK_BEGIN, SK_END)
-                            );
-                        }
+                        write_file(
+                            Path::new(&_dg_file),
+                            ser_enc(_del, SK_BEGIN, SK_END)
+                        );
                     }
                 }
             }
@@ -1349,7 +1054,6 @@ fn main() {
         arguments: &ArgMatches,
         _scheme: Scheme,
         _lang: PolicyLanguage,
-        _json: bool,
     ) -> Result<(), RabeError> {
         let mut _pk_files: Vec<String> = Vec::new();
         let mut _pk_file = String::from("");
@@ -1407,33 +1111,18 @@ fn main() {
         let buffer: Vec<u8> = read_to_vec(Path::new(&_pt_file));
         match _scheme {
             Scheme::AC17CP => {
-                let mut _pk: ac17::Ac17PublicKey;
                 // only one pk is allowed
                 if _pk_files.len() == 1 {
                     _pk_file = _pk_files[0].clone();
-                    if _json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    } else {
-                        _pk = match ser_dec(&_pk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _pk: ac17::Ac17PublicKey = match ser_dec(&_pk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     let _ct = ac17::cp_encrypt(&_pk, &_policy, &buffer, _lang);
-                    if _json {
-                        write_file(
-                            Path::new(&_ct_file),
-                            serde_json::to_string_pretty(&_ct).unwrap(),
-                        );
-                    } else {
-                        write_file(
-                            Path::new(&_ct_file),
-                            ser_enc(_ct, CT_BEGIN, CT_END)
-                        );
-                    }
+                    write_file(
+                        Path::new(&_ct_file),
+                        ser_enc(_ct, CT_BEGIN, CT_END)
+                    );
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the AC17CP Scheme with zero or multiple PKs is not possible. ",
@@ -1441,33 +1130,17 @@ fn main() {
                 }
             }
             Scheme::AC17KP => {
-                let mut _pk: ac17::Ac17PublicKey;
                 // only one pk is allowed
                 if _pk_files.len() == 1 {
-                    _pk_file = _pk_files[0].clone();
-                    if _json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    } else {
-                        _pk = match ser_dec(&_pk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _pk: ac17::Ac17PublicKey = match ser_dec(&_pk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     let _ct = ac17::kp_encrypt(&_pk, &_attributes, &buffer);
-                    if _json {
-                        write_file(
-                            Path::new(&_ct_file),
-                            serde_json::to_string_pretty(&_ct).unwrap(),
-                        );
-                    } else {
-                        write_file(
-                            Path::new(&_ct_file),
-                            ser_enc(_ct, CT_BEGIN, CT_END)
-                        );
-                    }
+                    write_file(
+                        Path::new(&_ct_file),
+                        ser_enc(_ct, CT_BEGIN, CT_END)
+                    );
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the AC17KP Scheme with zero or multiple PKs is not possible. ",
@@ -1475,33 +1148,17 @@ fn main() {
                 }
             }
             Scheme::BSW => {
-                let mut _pk: bsw::CpAbePublicKey;
                 // only one pk is allowed
                 if _pk_files.len() == 1 {
-                    if _json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_files[0].clone())))
-                            .unwrap();
-                    } else {
-                        _pk = match ser_dec(&_pk_files[0].clone()) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _pk: bsw::CpAbePublicKey = match ser_dec(&_pk_files[0].clone()) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     let _ct = bsw::encrypt(&_pk, &_policy, &buffer, _lang);
-                    if _json {
-                        write_file(
-                            Path::new(&_ct_file),
-                            serde_json::to_string_pretty(&_ct).unwrap(),
-                        );
-                    } else {
-                        write_file(
-                            Path::new(&_ct_file),
-                            ser_enc(_ct, CT_BEGIN, CT_END)
-                        );
-                    }
+                    write_file(
+                        Path::new(&_ct_file),
+                        ser_enc(_ct, CT_BEGIN, CT_END)
+                    );
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the BSW Scheme with zero or multiple PKs is not possible. ",
@@ -1509,33 +1166,17 @@ fn main() {
                 }
             }
             Scheme::LSW => {
-                let mut _pk: lsw::KpAbePublicKey;
                 // only one pk is allowed
                 if _pk_files.len() == 1 {
-                    if _json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_files[0].clone())))
-                            .unwrap();
-                    } else {
-                        _pk = match ser_dec(&_pk_files[0].clone()) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _pk: lsw::KpAbePublicKey = match ser_dec(&_pk_files[0].clone()) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     let _ct = lsw::encrypt(&_pk, &_attributes, &buffer);
-                    if _json {
-                        write_file(
-                            Path::new(&_ct_file),
-                            serde_json::to_string_pretty(&_ct).unwrap(),
-                        );
-                    } else {
-                        write_file(
-                            Path::new(&_ct_file),
-                            ser_enc(_ct, CT_BEGIN, CT_END)
-                        );
-                    }
+                    write_file(
+                        Path::new(&_ct_file),
+                        ser_enc(_ct, CT_BEGIN, CT_END)
+                    );
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the LSW Scheme with zero or multiple PKs is not possible. ",
@@ -1543,159 +1184,73 @@ fn main() {
                 }
             }
             Scheme::AW11 => {
-                let mut _gp: aw11::Aw11GlobalKey;
-                if _json {
-                    _gp = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
-                } else {
-                    _gp = match ser_dec(&_gp_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _gp: aw11::Aw11GlobalKey = match ser_dec(&_gp_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let mut _pks: Vec<aw11::Aw11PublicKey> = Vec::new();
                 for filename in _pk_files {
-                    let mut _pka: aw11::Aw11PublicKey;
-                    if _json {
-                        _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
-                    } else {
-                        _pka = match ser_dec(&filename) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _pka: aw11::Aw11PublicKey = match ser_dec(&filename) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     _pks.push(_pka);
                 }
                 let _ct = aw11::encrypt(&_gp, &_pks, &_policy, _lang, &buffer);
-                if _json {
-                    write_file(
-                        Path::new(&_ct_file),
-                        serde_json::to_string_pretty(&_ct).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_ct_file),
-                        ser_enc(_ct, CT_BEGIN, CT_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_ct_file),
+                    ser_enc(_ct, CT_BEGIN, CT_END)
+                );
             }
             Scheme::BDABE => {
-                let mut _pk: bdabe::BdabePublicKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: bdabe::BdabePublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let mut _attr_vec: Vec<bdabe::BdabePublicAttributeKey> = Vec::new();
                 for filename in _pk_files {
-                    let mut _pka: bdabe::BdabePublicAttributeKey;
-                    if _json {
-                        _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
-                    } else {
-                        _pka = match ser_dec(&filename) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _pka: bdabe::BdabePublicAttributeKey = match ser_dec(&filename) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     _attr_vec.push(_pka);
                 }
                 let _ct = bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer, _lang);
-                if _json {
-                    write_file(
-                        Path::new(&_ct_file),
-                        serde_json::to_string_pretty(&_ct).unwrap(),
-                    );
-                } else {
-                    write_file(
-                        Path::new(&_ct_file),
-                        ser_enc(_ct, CT_BEGIN, CT_END)
-                    );
-                }
+                write_file(
+                    Path::new(&_ct_file),
+                    ser_enc(_ct, CT_BEGIN, CT_END)
+                );
             }
             Scheme::MKE08 => {
-                let mut _pk: mke08::Mke08PublicKey;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: mke08::Mke08PublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 let mut _attr_vec: Vec<mke08::Mke08PublicAttributeKey> = Vec::new();
                 for filename in _pk_files {
-                    let mut _pka: mke08::Mke08PublicAttributeKey;
-                    if _json {
-                        _pka = serde_json::from_str(&read_file(Path::new(&filename))).unwrap();
-                    } else {
-                        _pka = match ser_dec(&filename) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _pka: mke08::Mke08PublicAttributeKey = match ser_dec(&filename) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     _attr_vec.push(_pka);
                 }
                 let _ct = mke08::encrypt(&_pk, &_attr_vec, &_policy, _lang, &buffer);
-                if _json {
-                    write_file(
-                        Path::new(&_ct_file),
-                        serde_json::to_string_pretty(&_ct).unwrap(),
-                    );
-                } else {
+                write_file(
+                    Path::new(&_ct_file),
+                    ser_enc(_ct, CT_BEGIN, CT_END)
+                );
+            }
+            Scheme::YCT14 => {
+                if _pk_files.len() == 1 {
+                    let _pk: yct14::Yct14AbePublicKey = match ser_dec(&_pk_files[0].clone()) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
+                    let _ct = yct14::encrypt(&_pk, &_attributes, &buffer);
                     write_file(
                         Path::new(&_ct_file),
                         ser_enc(_ct, CT_BEGIN, CT_END)
                     );
-                }
-            }
-            Scheme::YCT14 => {
-                let mut _pk: yct14::Yct14AbePublicKey;
-                // only one pk is allowed
-                if _pk_files.len() == 1 {
-                    if _json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_files[0].clone())))
-                            .unwrap();
-                    } else {
-                        _pk = match ser_dec(&_pk_files[0].clone()) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
-                    let _ct = yct14::encrypt(&_pk, &_attributes, &buffer);
-                    if _json {
-                        write_file(
-                            Path::new(&_ct_file),
-                            serde_json::to_string_pretty(&_ct).unwrap(),
-                        );
-                    } else {
-                        write_file(
-                            Path::new(&_ct_file),
-                            ser_enc(_ct, CT_BEGIN, CT_END)
-                        );
-                    }
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the LSW Scheme with zero or multiple PKs is not possible. ",
@@ -1710,7 +1265,6 @@ fn main() {
         arguments: &ArgMatches,
         _scheme: Scheme,
         _lang: PolicyLanguage,
-        _json: bool,
     ) -> Result<(), RabeError> {
         let mut _sk_file = String::from("");
         let mut _gp_file = String::from("");
@@ -1752,222 +1306,103 @@ fn main() {
         }
         match _scheme {
             Scheme::AC17CP => {
-                let mut _sk: ac17::Ac17CpSecretKey;
-                let mut _ct: ac17::Ac17CpCiphertext;
-                if _json {
-                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
-                } else {
-                    _sk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _ct = match ser_dec(&_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _sk: ac17::Ac17CpSecretKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _ct: ac17::Ac17CpCiphertext = match ser_dec(&_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 _pt_option = ac17::cp_decrypt(&_sk, &_ct);
             }
             Scheme::AC17KP => {
-                let mut _sk: ac17::Ac17KpSecretKey;
-                let mut _ct: ac17::Ac17KpCiphertext;
-                if _json {
-                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
-                } else {
-                    _sk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _ct = match ser_dec(&_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _sk: ac17::Ac17KpSecretKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _ct: ac17::Ac17KpCiphertext = match ser_dec(&_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 _pt_option = ac17::kp_decrypt(&_sk, &_ct);
             }
             Scheme::BSW => {
-                let mut _sk: bsw::CpAbeSecretKey;
-                let mut _ct: bsw::CpAbeCiphertext;
-                if _json {
-                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
-                } else {
-                    _sk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _ct = match ser_dec(&_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _sk: bsw::CpAbeSecretKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _ct: bsw::CpAbeCiphertext = match ser_dec(&_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 _pt_option = bsw::decrypt(&_sk, &_ct);
             }
             Scheme::LSW => {
-                let mut _sk: lsw::KpAbeSecretKey;
-                let mut _ct: lsw::KpAbeCiphertext;
-                if _json {
-                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
-                } else {
-                    _sk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _ct = match ser_dec(&_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _sk: lsw::KpAbeSecretKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _ct: lsw::KpAbeCiphertext = match ser_dec(&_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 _pt_option = lsw::decrypt(&_sk, &_ct);
             }
             Scheme::AW11 => {
-                let mut _gp: aw11::Aw11GlobalKey;
-                let mut _sk: aw11::Aw11SecretKey;
-                let mut _ct: aw11::Aw11Ciphertext;
-                if _json {
-                    _gp = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
-                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
-                } else {
-                    _gp = match ser_dec(&_gp_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _sk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _ct = match ser_dec(&_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _gp: aw11::Aw11GlobalKey = match ser_dec(&_gp_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _sk: aw11::Aw11SecretKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _ct: aw11::Aw11Ciphertext = match ser_dec(&_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 _pt_option = aw11::decrypt(&_gp, &_sk, &_ct);
             }
             Scheme::BDABE => {
-                let mut _pk: bdabe::BdabePublicKey;
-                let mut _sk: bdabe::BdabeUserKey;
-                let mut _ct: bdabe::BdabeCiphertext;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_pk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _sk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _ct = match ser_dec(&_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: bdabe::BdabePublicKey = match ser_dec(&_pk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _sk: bdabe::BdabeUserKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _ct: bdabe::BdabeCiphertext = match ser_dec(&_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 _pt_option = bdabe::decrypt(&_pk, &_sk, &_ct);
             }
             Scheme::MKE08 => {
-                let mut _pk: mke08::Mke08PublicKey;
-                let mut _sk: mke08::Mke08UserKey;
-                let mut _ct: mke08::Mke08Ciphertext;
-                if _json {
-                    _pk = serde_json::from_str(&read_file(Path::new(&_gp_file))).unwrap();
-                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
-                } else {
-                    _pk = match ser_dec(&_gp_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _sk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _ct = match ser_dec(&_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _pk: mke08::Mke08PublicKey = match ser_dec(&_gp_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _sk: mke08::Mke08UserKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _ct: mke08::Mke08Ciphertext = match ser_dec(&_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 _pt_option = mke08::decrypt(&_pk, &_sk, &_ct);
             }
             Scheme::YCT14 => {
-                let mut _sk: yct14::Yct14AbeSecretKey;
-                let mut _ct: yct14::Yct14AbeCiphertext;
-                if _json {
-                    _sk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                    _ct = serde_json::from_str(&read_file(Path::new(&_file))).unwrap();
-                } else {
-                    _sk = match ser_dec(&_sk_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                    _ct = match ser_dec(&_file) {
-                        Ok(parsed) => match from_slice(&parsed) {
-                            Ok(parsed_res) => parsed_res,
-                            Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                        },
-                        Err(e) => return Err(e)
-                    };
-                }
+                let _sk: yct14::Yct14AbeSecretKey = match ser_dec(&_sk_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
+                let _ct: yct14::Yct14AbeCiphertext = match ser_dec(&_file) {
+                    Ok(parsed) => parsed,
+                    Err(e) => return Err(e)
+                };
                 _pt_option = yct14::decrypt(&_sk, &_ct);
             }
         }
@@ -1986,7 +1421,6 @@ fn main() {
         arguments: &ArgMatches,
         _scheme: Scheme,
         _lang: PolicyLanguage,
-        _json: bool,
     ) -> Result<(), RabeError> {
         let mut _pk_file = String::from("");
         let mut _au_sk_file = String::from("");
@@ -2030,79 +1464,39 @@ fn main() {
         if _attributes.len() == 1 {
             match _scheme {
                 Scheme::MKE08 => {
-                    let mut _pk: mke08::Mke08PublicKey;
-                    let mut _ska: mke08::Mke08SecretAuthorityKey;
-                    if _json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                        _ska = serde_json::from_str(&read_file(Path::new(&_au_sk_file))).unwrap();
-                    } else {
-                        _pk = match ser_dec(&_pk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                        _ska = match ser_dec(&_au_sk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let  _pk: mke08::Mke08PublicKey = match ser_dec(&_pk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
+                    let  _ska: mke08::Mke08SecretAuthorityKey = match ser_dec(&_au_sk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     match mke08::request_authority_pk(&_pk, &_attributes[0], &_ska) {
                         Ok(_a_pk) => {
-                            if _json {
-                                write_file(
-                                    Path::new(&_pka_file),
-                                    serde_json::to_string_pretty(&_a_pk).unwrap(),
-                                );
-                            } else {
-                                write_file(
-                                    Path::new(&_pka_file),
-                                    ser_enc(_a_pk, PKA_BEGIN, PKA_END)
-                                );
-                            }
+                            write_file(
+                                Path::new(&_pka_file),
+                                ser_enc(_a_pk, PKA_BEGIN, PKA_END)
+                            );
                         },
                         Err(e) => return Err(e)
                     }
                 }
                 Scheme::BDABE => {
-                    let mut _pk: bdabe::BdabePublicKey;
-                    let mut _ska: bdabe::BdabeSecretAuthorityKey;
-                    if _json {
-                        _pk = serde_json::from_str(&read_file(Path::new(&_pk_file))).unwrap();
-                        _ska = serde_json::from_str(&read_file(Path::new(&_au_sk_file))).unwrap();
-                    } else {
-                        _pk = match ser_dec(&_pk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                        _ska = match ser_dec(&_au_sk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let  _pk: bdabe::BdabePublicKey = match ser_dec(&_pk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
+                    let  _ska: bdabe::BdabeSecretAuthorityKey = match ser_dec(&_au_sk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     match bdabe::request_attribute_pk(&_pk, &_ska, &_attributes[0]) {
                         Ok(_a_pk) => {
-                            if _json {
-                                write_file(
-                                    Path::new(&_pka_file),
-                                    serde_json::to_string_pretty(&_a_pk).unwrap(),
-                                );
-                            } else {
-                                write_file(
-                                    Path::new(&_pka_file),
-                                    ser_enc(_a_pk, PKA_BEGIN, PKA_END)
-                                );
-                            }
+                            write_file(
+                                Path::new(&_pka_file),
+                                ser_enc(_a_pk, PKA_BEGIN, PKA_END)
+                            );
                         },
                         Err(e) => return Err(e)
                     }
@@ -2125,7 +1519,6 @@ fn main() {
         arguments: &ArgMatches,
         _scheme: Scheme,
         _lang: PolicyLanguage,
-        _json: bool,
     ) -> Result<(), RabeError> {
         let mut _sk_file = String::from("");
         let mut _ask_file = String::from("");
@@ -2169,89 +1562,47 @@ fn main() {
         if _attributes.len() == 1 {
             match _scheme {
                 Scheme::MKE08 => {
-                    let mut _usk: mke08::Mke08UserKey;
-                    let mut _ska: mke08::Mke08SecretAttributeKey;
-                    let mut _skau: mke08::Mke08SecretAuthorityKey;
-                    if _json {
-                        _usk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                        _skau = serde_json::from_str(&read_file(Path::new(&_au_sk_file))).unwrap();
-                    } else {
-                        _usk = match ser_dec(&_sk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                        _skau = match ser_dec(&_au_sk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _usk: mke08::Mke08UserKey = match ser_dec(&_sk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
+                    let _skau: mke08::Mke08SecretAuthorityKey = match ser_dec(&_au_sk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     match mke08::request_authority_sk(
                         &_attributes[0],
                         &_skau,
                         &_usk._pk_u,
                     ) {
                         Ok(_a_sk) => {
-                            if _json {
-                                write_file(
-                                    Path::new(&_ask_file),
-                                    serde_json::to_string_pretty(&_a_sk).unwrap(),
-                                );
-                            } else {
-                                write_file(
-                                    Path::new(&_ask_file),
-                                    ser_enc(_a_sk, SKA_BEGIN, SKA_END),
-                                );
-                            }
+                            write_file(
+                                Path::new(&_ask_file),
+                                ser_enc(_a_sk, SKA_BEGIN, SKA_END),
+                            );
                         },
                         Err(e) => return Err(e)
                     }
                 }
                 Scheme::BDABE => {
-                    let mut _usk: bdabe::BdabeUserKey;
-                    let mut _ska: bdabe::BdabeSecretAttributeKey;
-                    let mut _skau: bdabe::BdabeSecretAuthorityKey;
-                    if _json {
-                        _usk = serde_json::from_str(&read_file(Path::new(&_sk_file))).unwrap();
-                        _skau = serde_json::from_str(&read_file(Path::new(&_au_sk_file))).unwrap();
-                    } else {
-                        _usk = match ser_dec(&_sk_file) {
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                        _skau = match ser_dec(&_au_sk_file){
-                            Ok(parsed) => match from_slice(&parsed) {
-                                Ok(parsed_res) => parsed_res,
-                                Err(e) => return Err(RabeError::new(e.to_string().as_str()))
-                            },
-                            Err(e) => return Err(e)
-                        };
-                    }
+                    let _usk: bdabe::BdabeUserKey = match ser_dec(&_sk_file) {
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
+                    let _skau: bdabe::BdabeSecretAuthorityKey = match ser_dec(&_au_sk_file){
+                        Ok(parsed) => parsed,
+                        Err(e) => return Err(e)
+                    };
                     match bdabe::request_attribute_sk(
                         &_usk._pk,
                         &_skau,
                         &_attributes[0],
                     ) {
                         Ok(_a_sk) => {
-                            if _json {
-                                write_file(
-                                    Path::new(&_ask_file),
-                                    serde_json::to_string_pretty(&_a_sk).unwrap(),
-                                );
-                            } else {
-                                write_file(
-                                    Path::new(&_ask_file),
-                                    ser_enc(_a_sk, SKA_BEGIN, SKA_END)
-                                );
-                            }
+                            write_file(
+                                Path::new(&_ask_file),
+                                ser_enc(_a_sk, SKA_BEGIN, SKA_END)
+                            );
                         },
                         Err(e) => println!("Error: {}", e.to_string())
                     }
@@ -2271,34 +1622,63 @@ fn main() {
     }
 }
 
+#[cfg(feature = "borsh")]
+fn ser_enc<T: BorshSerialize>(input: T, head: &str, tail: &str) -> String {
+    use deflate::deflate_bytes;
+    [
+        head.to_string(),
+        deflate_bytes(
+                &input.try_to_vec().unwrap()
+        ).to_hex(),
+        tail.to_string()
+    ].concat()
+}
+
+#[cfg(not(feature = "borsh"))]
 fn ser_enc<T: Serialize>(input: T, head: &str, tail: &str) -> String {
     use deflate::deflate_bytes;
     [
-        head,
-        &encode(
-            &deflate_bytes(
-                &to_vec_packed(&input).unwrap()
-            )
-        ),
-        tail
+        head.to_string(),
+        deflate_bytes(
+            &to_vec_packed(&input).unwrap()
+        )
+            .to_hex(),
+        tail.to_string()
     ].concat()
 }
-fn ser_dec(file_name: &String) -> Result<Vec<u8>, RabeError> {
+
+#[cfg(feature = "borsh")]
+fn ser_dec<T: BorshDeserialize>(file_name: &String) -> Result<T, RabeError> {
+    match ser_dec_bin(file_name) {
+        Ok(parsed_bin) => match T::try_from_slice(&parsed_bin) {
+            Ok(parsed) => Ok(parsed),
+            Err(e) => return Err(RabeError::new(&format!("try_from_slice: {}", e.to_string().as_str())))
+        },
+        Err(e) => return Err(RabeError::new(&format!("ser_dec_bin: {}", e.to_string().as_str())))
+    }
+}
+
+#[cfg(not(feature = "borsh"))]
+fn ser_dec<T: DeserializeOwned>(file_name: &String) -> Result<T, RabeError> {
+    match ser_dec_bin(file_name) {
+        Ok(parsed_bin) => match from_slice(&parsed_bin) {
+            Ok(parsed_res) => Ok(parsed_res),
+            Err(e) => return Err(RabeError::new(&format!("from_slice: {}", e.to_string().as_str())))
+        },
+        Err(e) => return Err(RabeError::new(&format!("ser_dec_bin: {}", e.to_string().as_str())))
+    }
+}
+
+fn ser_dec_bin(file_name: &String) -> Result<Vec<u8>, RabeError> {
     use inflate::inflate_bytes;
-    match decode(
-        &read_raw(
-            &read_file(
-                Path::new(file_name)
-            )
-        )
-    ) {
-        Ok(base64) => {
-            match inflate_bytes(&base64) {
+    let string = read_raw(&read_file(Path::new(file_name)));
+    match string.from_hex::<Vec<u8>>() {
+        Ok(byte_slice) => {
+            match inflate_bytes(&byte_slice) {
                 Ok(bytes) => Ok(bytes),
-                Err(e) => Err(RabeError::new(e.to_string().as_str()))
+                Err(e) => return Err(RabeError::new(&format!("inflate_bytes: {}", e.to_string().as_str())))
             }
         },
-        Err(e) => Err(RabeError::new(e.to_string().as_str()))
+        Err(e) => return Err(RabeError::new(&format!("read_raw: {}", e.to_string().as_str())))
     }
-
 }

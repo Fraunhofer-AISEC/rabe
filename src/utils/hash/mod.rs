@@ -1,32 +1,27 @@
 use rabe_bn::Fr;
 use sha3::{
     Digest,
-    Sha3_512
+    Sha3_256
 };
-use RabeError;
+use crate::error::RabeError;
 use std::ops::Mul;
-use std::convert::TryInto;
 
-/// hash a String to an element of G using Sha3_256 and generator g
+/// Hash to a &String to [`rabe-bn::G1`] or [`rabe-bn::G2`] using Base g
 pub fn sha3_hash<T: Mul<Fr, Output = T>>(g: T, data: &String) -> Result<T, RabeError> {
-    let mut hasher = Sha3_512::new();
+    let mut hasher = Sha3_256::new();
     hasher.update(data.as_bytes());
-    let vec = hasher.finalize().to_vec();
-    assert_eq!(vec.len(), 64);
-    match vec.as_slice().try_into() {
-        Ok(res) => Ok(g * Fr::interpret(res)),
+    match Fr::from_slice(&hasher.finalize()) {
+        Ok(fr) => Ok(g * fr),
         Err(e) => Err(e.into())
     }
 }
 
-/// hash a String to Fr using blake2b
+/// Hash to a &String to [`rabe-bn::Fr`]
 pub fn sha3_hash_fr(data: &String) -> Result<Fr, RabeError> {
-    let mut hasher = Sha3_512::new();
+    let mut hasher = Sha3_256::new();
     hasher.update(data.as_bytes());
-    let vec = hasher.finalize().to_vec();
-    assert_eq!(vec.len(), 64);
-    match vec.as_slice().try_into() {
-        Ok(res) => Ok(Fr::interpret(res)),
+    match Fr::from_slice(&hasher.finalize()) {
+        Ok(fr) => Ok(fr),
         Err(e) => Err(e.into())
     }
 }

@@ -5,9 +5,10 @@
 
 # Rabe
 
-rabe is a rust library implementing several Attribute Based Encryption (ABE) schemes using a modified version of the `bn` library of zcash (type-3 pairing / Baretto Naering curve). The modification of `bn` brings in `serde` instead of the deprecated `rustc_serialize`.
+rabe is a rust library implementing several Attribute Based Encryption (ABE) schemes using a modified version of the `bn` library of zcash (type-3 pairing / Baretto Naering curve). The modification of `bn` brings in `serde` or `borsh` instead of the deprecated `rustc_serialize`.
+The standard serialization library is `serde`. If you want to use `borsh`, you need to specify it as feature.
 
-This is a rust crate and comes with C bindings. For integration in distributed applications contact [us](mailto:info@aisec.fraunhofer.de).
+For integration in distributed applications contact [us](mailto:info@aisec.fraunhofer.de).
 
 # Implemented Ciphertext Policy Schemes (CP-ABE)
 
@@ -53,17 +54,10 @@ In order to compile and test:
 - install rust nightly
 - git clone library 
 - install build-essential
-- and then run `cargo build --release && RUST_BACKTRACE=1 cargo test -- --nocapture`
+- and then run `cargo build --release && RUST_BACKTRACE=1 cargo test -- --nocapture` 
+- rabe is also available with borsh serialization. just add `--features borsh` to build command
 
 # Building rabe console app
 
-In order to compile and test:
-- install rust nightly
-- git clone library
-- install build-essential
-- and then run `cargo run -p rabe-console`
+See [README.md](./rabe-console/README.md)
 
-For example, in order to create msk and pk of an AC17 KP-ABE scheme run:
-```bash
-$ cargo run -p rabe-console -- --scheme AC17KP setup
-```

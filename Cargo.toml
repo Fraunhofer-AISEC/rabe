@@ -1,6 +1,6 @@
 [package]
 name = "rabe"
-version = "0.2.7"
+version = "0.3.0"
 description = "ABE Schemes implemented in rust."
 authors = [
     "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
@@ -14,6 +14,11 @@ homepage = "https://github.com/Fraunhofer-AISEC/rabe"
 repository = "https://github.com/Fraunhofer-AISEC/rabe"
 documentation = "https://docs.rs/rabe"
 
+[features]
+default = ["serde"]
+borsh = ["borsh/std", "rabe-bn/borsh"]
+serde = ["serde/std", "rabe-bn/serde"]
+
 [lib]
 name="rabe"
 crate-type=["rlib", "cdylib"]
@@ -21,14 +26,14 @@ path = "src/lib.rs"
 
 [dependencies]
 aes = "0.7.0"
+borsh = { version = "0.9.3", optional = true, default-features = false }
 eax = "0.4.1"
 pest = "2.0"
 pest_derive = "2.0"
 permutation = "0.4.0"
-rabe-bn = "0.4.18"
+rabe-bn = { version = "0.4.20", optional = true, default-features = false }
 rand = "0.8.5"
-serde = "1.0.136"
-serde_derive = "1.0.136"
+serde = { version = "1.0", features = ["derive"], optional = true }
 sha3 = "0.9.1"
 
 [workspace]
@@ -38,7 +43,7 @@ members = [
 ]
 
 [dev-dependencies]
-criterion = { version = "0.3", feaures = ["html_reports"]}
+criterion = { version = "0.3", features = ["html_reports"]}
 rand = "0.8.5"
 
 [[bench]]

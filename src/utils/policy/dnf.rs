@@ -1,7 +1,7 @@
 use std::string::String;
 use rabe_bn::{Group, Gt, G1, G2};
 use crate::{
-    RabeError,
+    error::RabeError,
     schemes::{
         mke08::*,
         bdabe::*
@@ -105,7 +105,7 @@ pub fn dnf<K: PublicAttributeKey>(
     _pks: &Vec<K>,
     _p: &PolicyValue,
     _i: usize,
-    _parent: Option<PolicyType>
+    _parent: Option<&PolicyType>
 ) -> bool {
     let mut ret = true;
     // inner node
@@ -139,13 +139,13 @@ pub fn dnf<K: PublicAttributeKey>(
             return match _parent {
                 Some(PolicyType::And) => {
                     for child in children {
-                        ret = ret && dnf(_dnfp, _pks, &child, _i, Some(PolicyType::And))
+                        ret = ret && dnf(_dnfp, _pks, &child, _i, Some(&PolicyType::And))
                     }
                     ret
                 },
                 Some(PolicyType::Or) => {
                     for (i, child) in children.iter().enumerate() {
-                        ret = ret && dnf(_dnfp, _pks, &child, i + _i, Some(PolicyType::Or))
+                        ret = ret && dnf(_dnfp, _pks, &child, i + _i, Some(&PolicyType::Or))
                     }
                     ret
                 },
@@ -154,17 +154,17 @@ pub fn dnf<K: PublicAttributeKey>(
         },
         PolicyValue::Object(obj) => {
             return match _parent {
-                None => dnf(_dnfp, _pks, &obj.1, _i, Some(obj.0.clone())),
-                Some(PolicyType::Leaf) => dnf(_dnfp, _pks, &obj.1, _i, Some(PolicyType::Leaf)),
+                None => dnf(_dnfp, _pks, &obj.1, _i, Some(&obj.0)),
+                Some(PolicyType::Leaf) => dnf(_dnfp, _pks, &obj.1, _i, Some(&PolicyType::Leaf)),
                 Some(PolicyType::Or) => {
                     match &obj.0 {
-                        PolicyType::And => dnf(_dnfp, _pks, &obj.1, _i, Some(PolicyType::And)),
+                        PolicyType::And => dnf(_dnfp, _pks, &obj.1, _i, Some(&PolicyType::And)),
                         _ => false,
                     }
                 }
                 Some(PolicyType::And) => {
                     match &obj.0 {
-                        PolicyType::Leaf => dnf(_dnfp, _pks, &obj.1, _i, Some(PolicyType::Leaf)),
+                        PolicyType::Leaf => dnf(_dnfp, _pks, &obj.1, _i, Some(&PolicyType::Leaf)),
                         _ => false,
                     }
                 }

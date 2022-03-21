@@ -1,8 +1,8 @@
-//! This is the documentation for the `LSW` scheme:
+//! `LSW` scheme by Allison Lewko, Amit Sahai and Brent Waters.
 //!
 //! * Developped by Allison Lewko, Amit Sahai and Brent Waters, "Revocation Systems with Very Small Private Keys"
 //! * Published in Security and Privacy, 2010. SP'10. IEEE Symposium on. IEEE
-//! * Available from http://eprint.iacr.org/2008/309.pdf
+//! * Available from <http://eprint.iacr.org/2008/309.pdf>
 //! * Type: encryption (key-policy attribute-based)
 //! * Setting: bilinear groups (asymmetric)
 //! * Authors: Georg Bramm
@@ -30,10 +30,16 @@ use utils::{
 };
 use rand::Rng;
 use utils::policy::pest::{PolicyLanguage, parse};
-use RabeError;
+use crate::error::RabeError;
+#[cfg(not(feature = "borsh"))]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "borsh")]
+use borsh::{BorshSerialize, BorshDeserialize};
 
 /// A LSW Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct KpAbePublicKey {
     _g_g1: G1,
     _g_g2: G2,
@@ -44,7 +50,9 @@ pub struct KpAbePublicKey {
 }
 
 /// A LSW Master Key (MSK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct KpAbeMasterKey {
     _alpha1: Fr,
     _alpha2: Fr,
@@ -54,14 +62,18 @@ pub struct KpAbeMasterKey {
 }
 
 /// A LSW Secret User Key (SK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct KpAbeSecretKey {
     _policy: (String, PolicyLanguage),
     _dj: Vec<(String, G1, G2, G1, G1, G1)>,
 }
 
 /// A LSW Ciphertext (CT)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct KpAbeCiphertext {
     _e1: Gt,
     _e2: G2,

@@ -1,8 +1,8 @@
-//! This is the documentation for the `BDABE` scheme.
+//! `BDABE` scheme by Bramm, Gall, Schuette.
 //!
-//! * Developped by Bramm, Gall, Schuette , "Blockchain based Distributed Attribute-based Encryption"
-//! * Published in not yet
-//! * Available from not yet
+//! * Developped by Bramm, Gall, Schuette, "Blockchain based Distributed Attribute-based Encryption"
+//! * Published in ICETE 2018
+//! * Available from <https://www.semanticscholar.org/paper/BDABE-Blockchain-based-Distributed-Attribute-based-Bramm-Gall/3451ea120d5eac9a3ec09b24123add69150fa0fd>
 //! * Type:	encryption (attribute-based)
 //! * Setting: bilinear groups (asymmetric)
 //! * Authors: Georg Bramm
@@ -36,11 +36,17 @@ use utils::{
     hash::sha3_hash_fr
 };
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
-use RabeError;
+use crate::error::RabeError;
 use utils::policy::dnf::policy_in_dnf;
+#[cfg(not(feature = "borsh"))]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "borsh")]
+use borsh::{BorshSerialize, BorshDeserialize};
 
 /// A BDABE Public Key (PK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabePublicKey {
     pub _g1: G1,
     pub _g2: G2,
@@ -50,13 +56,17 @@ pub struct BdabePublicKey {
 }
 
 /// A BDABE Master Key (MK)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeMasterKey {
     pub _y: Fr,
 }
 
 /// A BDABE User Key (PKu, SKu and SKa's)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeUserKey {
     pub _sk: BdabeSecretUserKey,
     pub _pk: BdabePublicUserKey,
@@ -64,7 +74,9 @@ pub struct BdabeUserKey {
 }
 
 /// A BDABE Public User Key (PKu)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabePublicUserKey {
     pub _u: String,
     pub _u1: G1,
@@ -72,14 +84,18 @@ pub struct BdabePublicUserKey {
 }
 
 /// A BDABE Secret User Key (SKu)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeSecretUserKey {
     pub _u1: G1,
     pub _u2: G2,
 }
 
 /// A BDABE Secret Attribute Key (SKa)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeSecretAttributeKey {
     pub _str: String,
     pub _au1: G1,
@@ -87,7 +103,9 @@ pub struct BdabeSecretAttributeKey {
 }
 
 /// A BDABE Public Attribute Key (PKa)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabePublicAttributeKey {
     pub _str: String,
     pub _a1: G1,
@@ -96,7 +114,9 @@ pub struct BdabePublicAttributeKey {
 }
 
 /// A BDABE Secret Authority Key (SKauth)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeSecretAuthorityKey {
     pub _a1: G1,
     pub _a2: G2,
@@ -105,7 +125,9 @@ pub struct BdabeSecretAuthorityKey {
 }
 
 /// A Ciphertext Tuple representing a conjunction in a CT
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeCiphertextTuple {
     pub _str: Vec<String>,
     pub _e1: Gt,
@@ -116,7 +138,9 @@ pub struct BdabeCiphertextTuple {
 }
 
 /// A BDABE Ciphertext (CT)
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeCiphertext {
     pub _policy: (String, PolicyLanguage),
     pub _j: Vec<BdabeCiphertextTuple>,

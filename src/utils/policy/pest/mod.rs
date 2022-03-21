@@ -1,32 +1,42 @@
 use pest::Parser;
 use std::string::String;
-use RabeError;
+use crate::error::RabeError;
+use self::human::HumanPolicyParser;
+use self::json::JSONPolicyParser;
+#[cfg(not(feature = "borsh"))]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "borsh")]
+use borsh::{BorshSerialize, BorshDeserialize};
 
 pub(crate) mod json;
 pub(crate) mod human;
-use self::human::HumanPolicyParser;
-use self::json::JSONPolicyParser;
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Copy)]
+/// Policy Language Type. Currently two types are available:
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 pub enum PolicyLanguage {
+    /// A JSON policy language
     JsonPolicy,
+    /// A natural human language
     HumanPolicy,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+/// Internally there are only three types of nodes: AND, OR and LEAF nodes
 pub enum PolicyType {
     And,
     Or,
     Leaf
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+/// The value of a node may either be a String, and Array of values oder a child with value
 pub enum PolicyValue<'a> {
     Object((PolicyType, Box<PolicyValue<'a>>)),
     Array(Vec<PolicyValue<'a>>),
     String(&'a str),
 }
 
+/// Parses a &str in a give [PolicyLanguage]
 pub fn parse(policy: &str, language: PolicyLanguage) -> Result<PolicyValue, RabeError> {
     match language {
         PolicyLanguage::JsonPolicy => {
@@ -45,7 +55,7 @@ pub fn parse(policy: &str, language: PolicyLanguage) -> Result<PolicyValue, Rabe
         }
     }
 }
-
+/// Serializes a [PolicyValue] to a specific [PolicyLanguage]
 pub fn serialize_policy(val: &PolicyValue, language: PolicyLanguage, parent: Option<PolicyType>) -> String {
     use self::PolicyValue::*;
     match language {
