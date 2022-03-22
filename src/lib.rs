@@ -20,6 +20,8 @@ extern crate sha3;
 #[macro_use]
 extern crate pest_derive;
 
+extern crate gmorph;
+
 /// rabe schemes
 pub mod schemes;
 /// rabe library utilities
