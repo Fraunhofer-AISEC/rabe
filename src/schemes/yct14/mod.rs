@@ -10,7 +10,7 @@
 //!
 //! WARNING !
 //! The YCT14 scheme was broken in [1] and a 'fixed' version was again broken in [2].
-//! We have demonstrated how the attack can be implemented in practice in https://www.blackhat.com/eu-21/briefings/schedule/index.html#practical-attacks-against-attribute-based-encryption-25058.
+//! Demonstration how the attack can be implemented in practice in https://www.blackhat.com/eu-21/briefings/schedule/index.html#practical-attacks-against-attribute-based-encryption-25058.
 //! 
 //! [1] https://ieeexplore.ieee.org/document/8651482
 //! [2] https://ieeexplore.ieee.org/document/9291064
