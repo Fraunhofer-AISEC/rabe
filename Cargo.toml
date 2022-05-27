@@ -26,15 +26,19 @@ path = "src/lib.rs"
 
 [dependencies]
 aes = "0.7.0"
+bit-vec = { version = "0.6", features = ["serde"] }
 borsh = { version = "0.9.3", optional = true, default-features = false }
-gmorph = { git = "https://github.com/georgbramm/gmorph" }
 eax = "0.4.1"
+gmorph = { git = "https://github.com/georgbramm/gmorph" }
+nalgebra = { version = "0.20", features = ["serde-serialize"] }
 pest = "2.0"
 pest_derive = "2.0"
 permutation = "0.4.0"
 rabe-bn = { version = "0.4.20", optional = true, default-features = false }
 rand = "0.8.5"
+num-bigint = { version = "0.4", features = ["rand"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = "1"
 sha3 = "0.9.1"
 
 [workspace]

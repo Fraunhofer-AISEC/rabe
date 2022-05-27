@@ -26,7 +26,7 @@ use std::string::String;
 use rand::Rng;
 use rabe_bn::{Fr, G1, G2, Gt, pairing};
 use utils::{
-    secretsharing::{
+    secretsharing::ecc::{
         calc_coefficients,
         calc_pruned
     },
@@ -36,7 +36,7 @@ use utils::{
     hash::sha3_hash
 };
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
-use utils::secretsharing::gen_shares_policy;
+use utils::secretsharing::ecc::gen_shares_policy;
 use crate::error::RabeError;
 #[cfg(not(feature = "borsh"))]
 use serde::{Serialize, Deserialize};

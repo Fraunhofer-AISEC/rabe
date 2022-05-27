@@ -60,6 +60,7 @@ use crate::error::RabeError;
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
+use utils::secretsharing::ecc::calc_pruned;
 
 /// An AC17 Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]

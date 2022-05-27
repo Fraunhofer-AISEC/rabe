@@ -31,7 +31,7 @@
 //! ```
 use rabe_bn::{Fr, Gt};
 use utils::{
-    secretsharing::{gen_shares_policy, calc_coefficients, calc_pruned},
+    secretsharing::ecc::{gen_shares_policy, calc_coefficients, calc_pruned},
     aes::*
 };
 use rand::Rng;

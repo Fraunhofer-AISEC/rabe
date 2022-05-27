@@ -23,7 +23,7 @@
 use rabe_bn::{Fr, G1, G2, Gt, pairing};
 use rand::Rng;
 use utils::{
-    secretsharing::{gen_shares_policy, calc_pruned, calc_coefficients},
+    secretsharing::ecc::{gen_shares_policy, calc_pruned, calc_coefficients},
     tools::*,
     aes::*,
     hash::*

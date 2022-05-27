@@ -24,7 +24,7 @@ use rabe_bn::{Group, Fr, G1, G2, Gt, pairing};
 use std::ops::Neg;
 use utils::{
     tools::*,
-    secretsharing::{gen_shares_policy, calc_coefficients, calc_pruned},
+    secretsharing::ecc::{gen_shares_policy, calc_coefficients, calc_pruned},
     aes::*,
     hash::{sha3_hash_fr, sha3_hash}
 };
