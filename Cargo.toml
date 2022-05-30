@@ -1,6 +1,6 @@
 [package]
 name = "rabe"
-version = "0.3.0"
+version = "0.3.1"
 description = "ABE Schemes implemented in rust."
 authors = [
     "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
@@ -25,10 +25,8 @@ crate-type=["rlib", "cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-aes = "0.7.0"
+aes-gcm = "0.9.4"
 borsh = { version = "0.9.3", optional = true, default-features = false }
-gmorph = { git = "https://github.com/georgbramm/gmorph" }
-eax = "0.4.1"
 pest = "2.0"
 pest_derive = "2.0"
 permutation = "0.4.0"

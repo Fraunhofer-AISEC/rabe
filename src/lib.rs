@@ -14,13 +14,10 @@ extern crate serde;
 extern crate rabe_bn;
 extern crate rand;
 extern crate pest;
-extern crate eax;
-extern crate aes;
+extern crate aes_gcm;
 extern crate sha3;
 #[macro_use]
 extern crate pest_derive;
-
-extern crate gmorph;
 
 /// rabe schemes
 pub mod schemes;

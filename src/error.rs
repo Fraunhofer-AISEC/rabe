@@ -6,7 +6,6 @@ use std::{fmt::{
 use pest::error::{Error as PestError, LineColLocation};
 use utils::policy::pest::json::Rule as jsonRule;
 use utils::policy::pest::human::Rule as humanRule;
-use eax::aead;
 use std::array::TryFromSliceError;
 use rabe_bn::FieldError;
 #[cfg(not(feature = "borsh"))]
@@ -68,14 +67,6 @@ impl From<FieldError> for RabeError {
             FieldError::InvalidU512Encoding => RabeError::new("FieldError::InvalidU512Encoding"),
             FieldError::NotMember => RabeError::new("FieldError::NotMember"),
         }
-    }
-}
-
-
-impl From<aead::Error> for RabeError {
-    fn from(_error: aead::Error) -> Self {
-        // Aead's error is intentionally opaque, there is no more information in here
-        RabeError::new("Error during symmetric encryption or decryption!")
     }
 }
 

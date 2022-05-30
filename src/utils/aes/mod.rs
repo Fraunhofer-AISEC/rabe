@@ -1,22 +1,24 @@
-use eax::Eax;
-use eax::aead::{Aead, NewAead, generic_array::GenericArray};
+use aes_gcm::{Aes256Gcm, Key, Nonce}; // Or `Aes128Gcm`
+use aes_gcm::aead::{Aead, NewAead};
+
 use crate::error::RabeError;
 use std::convert::TryInto;
 use rand::thread_rng;
 use rand::Rng;
-use aes::Aes256;
 
 /// Key Encapsulation Mechanism (AES-256 Encryption Function)
 pub fn encrypt_symmetric<G: std::convert::Into<Vec<u8>>>(_msg: G, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut rng = thread_rng();
-    let key = kdf(_msg);
-    let key_ga = GenericArray::from_slice(key.as_slice());
-    let cipher = Eax::<Aes256>::new(key_ga);
-    let nonce_vec: Vec<u8> = (0..16).into_iter().map(|_| rng.gen()).collect(); // 16*u8 = 128 Bit
-    let nonce = GenericArray::from_slice(nonce_vec.as_ref());
+    // 256bit key hashed/derived from _msg G
+    let kdf = kdf(_msg);
+    let key = Key::from_slice(kdf.as_slice());
+    let cipher = Aes256Gcm::new(key);
+    // 96bit random noise
+    let nonce_vec: Vec<u8> = (0..12).into_iter().map(|_| rng.gen()).collect(); // 12*u8 = 96 Bit
+    let nonce = Nonce::from_slice(nonce_vec.as_ref());
     match cipher.encrypt(nonce, _plaintext.as_ref()) {
         Ok(mut ct) => {
-            ct.splice(0..0, nonce.iter().cloned()); // first 16 bytes are nonce i.e. [nonce|ciphertext]
+            ct.splice(0..0, nonce.iter().cloned()); // first 12 bytes are nonce i.e. [nonce|ciphertext]
             Ok(ct)
         }
         Err(e) => Err(RabeError::new(&format!("encryption error: {:?}", e.to_string())))
@@ -25,15 +27,16 @@ pub fn encrypt_symmetric<G: std::convert::Into<Vec<u8>>>(_msg: G, _plaintext: &V
 
 /// Key Encapsulation Mechanism (AES-256 Decryption Function)
 pub fn decrypt_symmetric<G: std::convert::Into<Vec<u8>>>(_msg: G, _nonce_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
-    let ciphertext = _nonce_ct.clone().split_off(16); // 16*u8 = 128 Bit
-    let nonce: [u8; 16] = match _nonce_ct[..16].try_into() { // first 16 bytes are nonce i.e. [nonce|ciphertext]
+    let ciphertext = _nonce_ct.clone().split_off(12); // 12*u8 = 96 Bit
+    let nonce_vec: [u8; 12] = match _nonce_ct[..12].try_into() { // first 12 bytes are nonce i.e. [nonce|ciphertext]
         Ok(iv) => iv,
         Err(_) => return Err(RabeError::new("Error extracting IV from ciphertext: Expected an IV of 16 bytes")), // this REALLY shouldn't happen.
     };
-    let key = kdf(_msg);
-    let key_ga = GenericArray::from_slice(key.as_slice());
-    let cipher = Eax::<Aes256>::new(key_ga);
-    let nonce = GenericArray::from_slice(nonce.as_ref());
+    // 256bit key hashed/derived from _msg G
+    let kdf = kdf(_msg);
+    let key = Key::from_slice(kdf.as_slice());
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::from_slice(nonce_vec.as_ref());
     match cipher.decrypt(nonce, ciphertext.as_ref()) {
         Ok(data) => Ok(data),
         Err(e) => Err(RabeError::new(&format!("decryption error: {:?}", e.to_string())))
