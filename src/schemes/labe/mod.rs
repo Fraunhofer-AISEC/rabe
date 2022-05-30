@@ -22,7 +22,7 @@ use std::convert::TryInto;
 use std::ops::{Add, Mul, MulAssign};
 use bit_vec::BitVec;
 use eax::aead::Key;
-use gmorph::{Enc, Encrypt, KeyPair};
+use gmorph::{Decrypt, Enc, Encrypt, KeyPair, algebra::Q231};
 #[cfg(not(feature = "borsh"))]
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "borsh")]
@@ -43,7 +43,7 @@ pub struct LabePublicKey {
     pub zero: Vec<Enc>,
     pub one: Vec<Enc>,
     pub base: [Enc; 4],
-    pub attributes: Vec<LabeAttributePublic>
+    pub attributes: Vec<LabeAttributePublic>,
 }
 
 /// (MSK)
@@ -51,8 +51,9 @@ pub struct LabePublicKey {
 #[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct LabeMasterKey {
-    pub key_pair: KeyPair,
-    pub secret_base: [u32; 4]
+    pub attributes: Vec<LabeAttributeSecret>,
+    pub secret_base: [u32; 4],
+    pub private: KeyPair,
 }
 
 /// A LSW Secret User Key (SK)
@@ -61,14 +62,16 @@ pub struct LabeMasterKey {
 #[derive(Debug)]
 pub struct LabeSecretKey {
     pub policy: (String, PolicyLanguage),
-    pub parts: Vec<LabeAttributePublic>
+    pub parts: Vec<LabeAttributeSecret>,
+    pub attributes: Vec<LabeAttributeSecret>,
+    pub private: KeyPair,
 }
-impl Default for LabeSecretKey {
-    fn default() -> Self {
-        LabeSecretKey {
-            policy: ("".to_string(), PolicyLanguage::HumanPolicy),
-            parts: vec![]
-        }
+impl LabeSecretKey {
+    pub fn get_part(&self, name: &String) -> Option<LabeAttributeSecret> {
+        self.parts.iter().filter(|i| &i.name == name).nth(0).cloned()
+    }
+    pub fn get_attribute(&self, name: &String) -> Option<LabeAttributeSecret> {
+        self.attributes.iter().filter(|i| &i.name == name).nth(0).cloned()
     }
 }
 /// A LSW Ciphertext (CT)
@@ -113,7 +116,7 @@ impl LabeAttributePublic {
 /// (Attribute secret)
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 #[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LabeAttributeSecret {
     pub name: String,
     pub value: [u32; 4],
@@ -136,11 +139,15 @@ pub enum LabeAttribute {
 }
 
 impl LabeMasterKey {
-    pub fn new(key_pair: KeyPair, secret_base: [u32; 4]) -> LabeMasterKey {
+    pub fn new(attributes: Vec<LabeAttributeSecret>, private: &KeyPair, secret_base: [u32; 4]) -> LabeMasterKey {
         LabeMasterKey {
-            key_pair,
+            private: private.clone(),
+            attributes,
             secret_base
         }
+    }
+    pub fn get_attribute(&self, name: &String) -> Option<&LabeAttributeSecret> {
+        self.attributes.iter().filter(|i| &i.name == name).nth(0)
     }
 }
 
@@ -186,7 +193,6 @@ impl LabePublicKey {
         let mut ret = vec![];
         for factor in factors.into_iter() {
             let mut blinding = self.get_zero().clone();
-            println!("current: {:?}", factor);
             for c in BitVec::from_bytes(&factor.to_be_bytes()) {
                 blinding = blinding.add(blinding);
                 if c { blinding = blinding.add(self.get_one().clone()) }
@@ -216,19 +222,6 @@ impl LabePublicKey {
         }
     }
 }
-
-impl LabeSecretKey {
-    pub fn get_private(&self, attribute: &String) -> Result<[Enc; 4], RabeError> {
-        self.parts
-            .clone()
-            .into_iter()
-            .filter(|a| a.name.as_str() == attribute)
-            .map(|a| a.value )
-            .nth(0)
-            .ok_or(RabeError::new(&format!("no private key found for {}", attribute)))
-    }
-}
-
 impl LabeCiphertext {
     pub fn get_public(&self, attribute: &String) -> Result<&[Enc; 4], RabeError> {
         self.attributes
@@ -248,14 +241,14 @@ impl LabeCiphertext {
 impl LabeAttributeSecret {
     pub fn new(name: String, value: [u32; 4]) -> LabeAttributeSecret {
         LabeAttributeSecret {
-            name,
-            value
+            name: name.to_string(),
+            value: hash_to_smallnum(name, value)
         }
     }
-    pub fn derive_from(name: String, secret_base: [u32; 4]) -> LabeAttributeSecret {
+    pub fn derive_from(input: (String, [u32; 4])) -> LabeAttributeSecret {
         LabeAttributeSecret {
-            name: name.to_string(),
-            value: hash_to_smallnum(name.to_string(), secret_base)
+            name: input.0.to_string(),
+            value: input.1
         }
     }
 }
@@ -289,11 +282,13 @@ pub fn setup(
     attributes: Vec<String>
 ) -> (LabePublicKey, LabeMasterKey) {
     let key_pair = KeyPair::new();
-    let secret_base: [u32; 4] = rand::thread_rng().gen();
+    //let secret_base: [u32; 4] = rand::thread_rng().gen();
+    let secret_base: [u32; 4] = [4, 3, 2, 1];
+    println!("pk.base {:?}", &secret_base);
     let attr = derive_attributes(&key_pair, secret_base, attributes);
-    let msk = LabeMasterKey::new(key_pair, secret_base);
+    let msk = LabeMasterKey::new(attr.1, &key_pair, secret_base);
     (
-        LabePublicKey::new(attr.0, &msk.key_pair, &msk.secret_base),
+        LabePublicKey::new(attr.0, &key_pair, &msk.secret_base),
         msk
 
     )
@@ -306,21 +301,21 @@ pub fn keygen(
 ) -> Result<LabeSecretKey, RabeError> {
     match parse(policy, language) {
         Ok(pol) => {
+            let parts: Vec<LabeAttributeSecret> = match gen_shares_policy(msk.secret_base, &pol, None) {
+                Some(shares) => shares.into_iter().map(|share| {
+                    let attr = msk.get_attribute(&share.0);
+                    println!("share {} : {}", share.0.to_string(), &serde_json::to_string(&share.1).unwrap());
+                    LabeAttributeSecret::derive_from(share)
+                } ).collect(),
+                None => panic!("cloud not generate shares !")
+            };
+            let attributes = parts.iter().map(|a| msk.get_attribute(&a.name).unwrap().clone()).collect();
             Ok(
                 LabeSecretKey {
                     policy: (policy.to_string(), language),
-                    parts: match gen_shares_policy(msk.secret_base, &pol, None) {
-                        Some(shares) => shares.into_iter().map(|share| {
-                            let encrypted_share: [Enc; 4] = [
-                                Enc::encrypt(&msk.key_pair, share.1[0]),
-                                Enc::encrypt(&msk.key_pair, share.1[1]),
-                                Enc::encrypt(&msk.key_pair, share.1[2]),
-                                Enc::encrypt(&msk.key_pair, share.1[3])
-                            ];
-                            LabeAttributePublic::encrypted(&share.0, encrypted_share)
-                        } ).collect(),
-                        None => panic!("cloud not generate shares !")
-                    }
+                    parts,
+                    private: msk.private.clone(),
+                    attributes
                 }
             )
         },
@@ -343,15 +338,17 @@ pub fn encrypt(
         // attribute vector
         let mut blinded: Vec<LabeAttributePublic> = Vec::new();
         let mut rng = rand::thread_rng();
-        let mut secret: Vec<u32> = (0..4).into_iter().map(|_| rng.gen()).collect();
-        println!("secret {:?}", &secret);
-        let mut encrypted_secrets: Vec<Enc> = pk.double_and_add(&secret);
+        //let secret: Vec<u32> = (0..4).into_iter().map(|_| rng.gen()).collect();
+        let secret = vec![u32::MAX/2-4, 5, u32::MAX/2-16, 5];
+        println!("encryption secret {:?}", &secret);
+        let encrypted_secrets: Vec<Enc> = pk.double_and_add(&secret);
+        // secret = secret + base
+        let shifted_secrets = encrypted_secrets.iter().enumerate().map(|item| item.1.clone().add(pk.base[item.0])).collect::<Vec<Enc>>();
         attributes.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
         for (i, attr) in attributes.into_iter().enumerate() {
-            match pk.attribute_blinding(attr, encrypted_secrets.iter().enumerate().map(|item| item.1.clone()+pk.base[item.0]).collect::<Vec<Enc>>().as_slice()) {
-                Some(apk) => {
-                    blinded.push(apk);
-                },
+            // attr = attr.secret + (secret + base)
+            match pk.attribute_blinding(attr, shifted_secrets.as_slice()) {
+                Some(apk) => blinded.push(apk),
                 None => panic!("attribute {} not found in public key!", attr)
             }
         }
@@ -366,8 +363,8 @@ pub fn encrypt(
 }
 
 pub fn decrypt(
-    sk: &LabeSecretKey,
     pk: &LabePublicKey,
+    sk: &LabeSecretKey,
     ct: &LabeCiphertext
 ) -> Result<Vec<u8>, RabeError> {
     let _attrs_str = ct.get_attributes();
@@ -376,21 +373,36 @@ pub fn decrypt(
             return match calc_pruned(&_attrs_str, &pol, None) {
                 Ok((_match, _list)) => {
                     if _match {
-                        let mut _prod_t = vec![0u32, 0u32, 0u32, 0u32];
-                        let _coeffs: Vec<(String, i32)> = calc_coefficients(&pol, 1, None).unwrap();
-                        println!("coeffs: {:?}", &_coeffs);
-                        for _attr in _list.into_iter() {
-                            match ct.get_public(&_attr) {
-                                Ok(z) => {
-                                    let sk_attr = sk.get_private(&_attr).unwrap();
-                                    println!("sk_attr: {:?}", &sk_attr);
-
-                                },
-                                Err(e) => panic!("Attribute {} not found: {}", &_attr, e.to_string())
+                        let _coeff: Vec<(String, i32)> = calc_coefficients(&pol, 1, None).unwrap();
+                        let mut _secret = [0i32, 0i32, 0i32, 0i32];
+                        for (i, val) in sk.parts.iter().enumerate() {
+                            for j in 0..4 {
+                                let term = _coeff[i].1.wrapping_mul(val.value[j] as i32);
+                                _secret[j] = _secret[j].wrapping_add(term);
                             }
                         }
-                        //println!("decrypt: _s {}", _prod_t);
-                        decrypt_symmetric("_prod_t".to_string().as_bytes(), &ct.data)
+                        let _secret = _secret.map(|i| i.wrapping_div(_list.len() as i32));
+                        let _attrs_dec = ct.attributes
+                            .iter()
+                            .map(|a| {
+                                a
+                                    .value
+                                    .iter()
+                                    .map(|val| (a.name.to_string(), val.decrypt(&sk.private) ))
+                                    .collect::<Vec<(String, u32)>>()
+                            })
+                            .collect::<Vec<Vec<(String, u32)>>>()
+                            .iter()
+                            .map(|u| u.iter().enumerate().map(|(i, v)| {
+                                v.1
+                                    .wrapping_sub(sk.get_attribute(&v.0).unwrap().value[i])
+                                    .wrapping_sub(_secret[i] as u32)
+                            } ).collect())
+                            .collect::<Vec<Vec<u32>>>();
+                        let first = _attrs_dec[0].clone();
+                        assert!(_attrs_dec.iter().all(|item| item == &first));
+                        println!("_attrs_dec: {:?}", &_attrs_dec[0]);
+                        decrypt_symmetric("".to_string().as_bytes(), &ct.data)
                     } else {
                         Err(RabeError::new("attributes do not match policy =("))
                     }
@@ -410,8 +422,11 @@ fn derive_attributes(
     let mut pubk: Vec<LabeAttributePublic> = vec![];
     let mut seck: Vec<LabeAttributeSecret> = vec![];
     for current in attributes {
-        let secret = LabeAttributeSecret::derive_from(current, secret_base);
-        pubk.push(LabeAttributePublic::new(key_pair, &secret));
+        let secret = LabeAttributeSecret::new(current.to_string(), secret_base);
+        println!("attribute {} secret {}", current.to_string(), &serde_json::to_string(&secret).unwrap());
+        let public = LabeAttributePublic::new(key_pair, &secret);
+        println!("attribute {} public {}", current, &serde_json::to_string(&public).unwrap());
+        pubk.push(public);
         seck.push(secret);
     }
     (pubk, seck)
@@ -430,10 +445,11 @@ mod tests {
         attributes.push(String::from("A"));
         attributes.push(String::from("B"));
         attributes.push(String::from("C"));
+        attributes.push(String::from("D"));
         // setup scheme
         setup(attributes.clone())
     }
-
+/*
     #[test]
     fn blinding_factor_test() {
         let (pk, msk) = setup_test();
@@ -446,18 +462,18 @@ mod tests {
         }
         assert_eq!(bits_pt, bits_pt)
     }
+ */
     #[test]
     fn test_setup() {
         let (pk, msk) = setup_test();
         let mut attributes: Vec<String> = Vec::new();
-        attributes.push(String::from("A"));
+        attributes.push(String::from("B"));
         attributes.push(String::from("C"));
-        let sk1= keygen(&msk, &String::from(r#"("A" and "B") or ("A" and "C")"#), PolicyLanguage::HumanPolicy).unwrap_or_default();
-        println!("msk: {}", &serde_json::to_string(&msk).unwrap());
-        println!("pk: {}", &serde_json::to_string(&pk).unwrap());
-        println!("sk: {}", &serde_json::to_string(&sk1).unwrap());
+        attributes.push(String::from("D"));
+        let sk= keygen(&msk, &String::from(r#"("A" and "B") or ("A" and "C") or ("C" and "B" and "D")"#), PolicyLanguage::HumanPolicy).unwrap();
+        println!("sk1: {}", &serde_json::to_string(&sk).unwrap());
         let ct= encrypt(&pk, &mut attributes, String::from("griaseng").as_bytes()).unwrap();
-        let pt= decrypt(&sk1, &pk, &ct);
+        let pt= decrypt(&pk,&sk, &ct);
         println!("ct: {}", &serde_json::to_string(&ct).unwrap());
         println!("pt: {}", &serde_json::to_string(&pt).unwrap());
     }

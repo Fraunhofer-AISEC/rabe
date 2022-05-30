@@ -1,5 +1,7 @@
+use gmorph::Enc;
 use rabe_bn::*;
 use rand::Rng;
+use schemes::labe::LabePublicKey;
 use utils::{
     tools::{contains, usize_to_fr, get_value},
     policy::pest::{PolicyValue, PolicyLanguage, parse, PolicyType}
@@ -23,9 +25,7 @@ pub fn calc_coefficients(_json: &PolicyValue, _fr: i32, _type: Option<PolicyType
             match _type.unwrap() {
                 PolicyType::And => {
                     let vec : Vec<i32> = (1i32..(children.len() + 1) as i32).collect();
-                    println!("vec {:?}", &vec);
                     let _this_coeff = recover_coefficients(vec);
-                    println!("_this_coeff {:?}", &_this_coeff);
                     for (i, child) in children.iter().enumerate() {
                         match calc_coefficients(&child, (_fr as f64 * _this_coeff[i]) as i32, None) {
                             None => return None,
@@ -38,7 +38,6 @@ pub fn calc_coefficients(_json: &PolicyValue, _fr: i32, _type: Option<PolicyType
                 },
                 PolicyType::Or => {
                     let _this_coeff = recover_coefficients(vec![1i32]);
-                    println!("_this_coeff {:?}", &_this_coeff);
                     for child in children.iter() {
                         match calc_coefficients(&child, (_fr as f64 * _this_coeff[0]) as i32, None) {
                             None => return None,

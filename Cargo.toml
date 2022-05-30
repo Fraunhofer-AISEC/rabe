@@ -29,7 +29,7 @@ aes = "0.7.0"
 bit-vec = { version = "0.6", features = ["serde"] }
 borsh = { version = "0.9.3", optional = true, default-features = false }
 eax = "0.4.1"
-gmorph = { git = "https://github.com/georgbramm/gmorph" }
+gmorph = { path = "../gmorph" }
 nalgebra = { version = "0.20", features = ["serde-serialize"] }
 pest = "2.0"
 pest_derive = "2.0"
