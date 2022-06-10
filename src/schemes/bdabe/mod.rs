@@ -38,15 +38,15 @@ use utils::{
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use crate::error::RabeError;
 use utils::policy::dnf::policy_in_dnf;
-#[cfg(not(feature = "borsh"))]
+#[cfg(not(feature = "use-borsh"))]
 use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")]
+#[cfg(feature = "use-borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
 
 /// A BDABE Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabePublicKey {
     pub _g1: G1,
     pub _g2: G2,
@@ -57,16 +57,16 @@ pub struct BdabePublicKey {
 
 /// A BDABE Master Key (MK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeMasterKey {
     pub _y: Fr,
 }
 
 /// A BDABE User Key (PKu, SKu and SKa's)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeUserKey {
     pub _sk: BdabeSecretUserKey,
     pub _pk: BdabePublicUserKey,
@@ -75,8 +75,8 @@ pub struct BdabeUserKey {
 
 /// A BDABE Public User Key (PKu)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabePublicUserKey {
     pub _u: String,
     pub _u1: G1,
@@ -85,8 +85,8 @@ pub struct BdabePublicUserKey {
 
 /// A BDABE Secret User Key (SKu)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeSecretUserKey {
     pub _u1: G1,
     pub _u2: G2,
@@ -94,8 +94,8 @@ pub struct BdabeSecretUserKey {
 
 /// A BDABE Secret Attribute Key (SKa)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeSecretAttributeKey {
     pub _str: String,
     pub _au1: G1,
@@ -104,8 +104,8 @@ pub struct BdabeSecretAttributeKey {
 
 /// A BDABE Public Attribute Key (PKa)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabePublicAttributeKey {
     pub _str: String,
     pub _a1: G1,
@@ -115,8 +115,8 @@ pub struct BdabePublicAttributeKey {
 
 /// A BDABE Secret Authority Key (SKauth)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeSecretAuthorityKey {
     pub _a1: G1,
     pub _a2: G2,
@@ -126,8 +126,8 @@ pub struct BdabeSecretAuthorityKey {
 
 /// A Ciphertext Tuple representing a conjunction in a CT
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeCiphertextTuple {
     pub _str: Vec<String>,
     pub _e1: Gt,
@@ -139,8 +139,8 @@ pub struct BdabeCiphertextTuple {
 
 /// A BDABE Ciphertext (CT)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct BdabeCiphertext {
     pub _policy: (String, PolicyLanguage),
     pub _j: Vec<BdabeCiphertextTuple>,

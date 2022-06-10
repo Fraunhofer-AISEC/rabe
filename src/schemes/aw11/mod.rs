@@ -38,15 +38,15 @@ use utils::{
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use utils::secretsharing::ecc::gen_shares_policy;
 use crate::error::RabeError;
-#[cfg(not(feature = "borsh"))]
+#[cfg(not(feature = "use-borsh"))]
 use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")]
+#[cfg(feature = "use-borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
 
 /// An AW11 Global Parameters Key (GK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Aw11GlobalKey {
     pub _g1: G1,
     pub _g2: G2,
@@ -54,24 +54,24 @@ pub struct Aw11GlobalKey {
 
 /// An AW11 Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Aw11PublicKey {
     pub _attr: Vec<(String, Gt, G2)>,
 }
 
 /// An AW11 Master Key (MK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Aw11MasterKey {
     pub _attr: Vec<(String, Fr, Fr)>,
 }
 
 /// An AW11 Ciphertext (CT)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Aw11Ciphertext {
     pub _policy: (String, PolicyLanguage),
     pub _c_0: Gt,
@@ -81,8 +81,8 @@ pub struct Aw11Ciphertext {
 
 /// An AW11 Secret Key (SK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Aw11SecretKey {
     pub _gid: String,
     pub _attr: Vec<(String, G1)>,
@@ -90,8 +90,8 @@ pub struct Aw11SecretKey {
 
 /// A global Context for an AW11 Global Parameters Key (GP)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Aw11GlobalContext {
     pub _gk: Aw11GlobalKey,
 }

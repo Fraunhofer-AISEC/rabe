@@ -1,6 +1,6 @@
 [package]
 name = "rabe"
-version = "0.3.0"
+version = "0.3.1"
 description = "ABE Schemes implemented in rust."
 authors = [
     "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
@@ -15,9 +15,9 @@ repository = "https://github.com/Fraunhofer-AISEC/rabe"
 documentation = "https://docs.rs/rabe"
 
 [features]
-default = ["serde"]
-borsh = ["borsh/std", "rabe-bn/borsh"]
-serde = ["serde/std", "rabe-bn/serde"]
+default = ["use-serde"]
+use-borsh = ["borsh/std", "rabe-bn/borsh"]
+use-serde = ["serde/std", "rabe-bn/serde"]
 
 [lib]
 name="rabe"
@@ -25,18 +25,17 @@ crate-type=["rlib", "cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-aes = "0.7.0"
+aes-gcm = "0.9.4"
 bit-vec = { version = "0.6", features = ["serde"] }
 borsh = { version = "0.9.3", optional = true, default-features = false }
-eax = "0.4.1"
 gmorph = { path = "../gmorph" }
-nalgebra = { version = "0.20", features = ["serde-serialize"] }
+num-traits = "0.2"
 pest = "2.0"
 pest_derive = "2.0"
 permutation = "0.4.0"
 rabe-bn = { version = "0.4.20", optional = true, default-features = false }
 rand = "0.8.5"
-num-bigint = { version = "0.4", features = ["rand"] }
+nalgebra = { version = "0.20", features = ["serde-serialize"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = "1"
 sha3 = "0.9.1"

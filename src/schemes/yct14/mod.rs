@@ -38,24 +38,24 @@ use rand::Rng;
 use utils::policy::pest::{PolicyLanguage, parse};
 use crate::error::RabeError;
 use std::ops::Mul;
-#[cfg(not(feature = "borsh"))]
+#[cfg(not(feature = "use-borsh"))]
 use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")]
+#[cfg(feature = "use-borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
 
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Yct14Attribute {
     name: String,
-    #[cfg_attr(feature = "borsh", borsh_skip)]
-    #[cfg_attr(not(feature = "borsh"), serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "use-borsh", borsh_skip)]
+    #[cfg_attr(not(feature = "use-borsh"), serde(skip_serializing_if = "Option::is_none"))]
     node: Option<Yct14Type>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub enum Yct14Type {
     Public(Gt),
     Private(Fr),
@@ -135,8 +135,8 @@ impl Yct14Attribute {
 
 /// A Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Yct14AbePublicKey {
     g: Gt,
     attributes: Vec<Yct14Attribute>
@@ -144,8 +144,8 @@ pub struct Yct14AbePublicKey {
 
 /// A Master Key (MSK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Yct14AbeMasterKey {
     s: Fr,
     attributes: Vec<Yct14Attribute>
@@ -168,8 +168,8 @@ impl Yct14AbeMasterKey {
 
 /// A Secret User Key (SK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Yct14AbeSecretKey {
     policy: (String, PolicyLanguage),
     du: Vec<Yct14Attribute>,
@@ -192,8 +192,8 @@ impl Yct14AbeSecretKey {
 
 /// A Ciphertext (CT)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Yct14AbeCiphertext {
     attributes: Vec<Yct14Attribute>,
     ct: Vec<u8>,

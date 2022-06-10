@@ -56,16 +56,16 @@ use utils::{
 };
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use crate::error::RabeError;
-#[cfg(not(feature = "borsh"))]
+#[cfg(not(feature = "use-borsh"))]
 use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")]
+#[cfg(feature = "use-borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
 use utils::secretsharing::ecc::calc_pruned;
 
 /// An AC17 Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Ac17PublicKey {
     pub _g: G1,
     pub _h_a: Vec<G2>,
@@ -74,8 +74,8 @@ pub struct Ac17PublicKey {
 
 /// An AC17 Public Key (MK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Ac17MasterKey {
     pub _g: G1,
     pub _h: G2,
@@ -86,8 +86,8 @@ pub struct Ac17MasterKey {
 
 /// An AC17 Ciphertext (CT)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Ac17Ciphertext {
     pub _c_0: Vec<G2>,
     pub _c: Vec<(String, Vec<G1>)>,
@@ -97,8 +97,8 @@ pub struct Ac17Ciphertext {
 
 /// An AC17 CP-ABE Ciphertext (CT), composed of a policy and an Ac17Ciphertext.
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Ac17CpCiphertext {
     pub _policy: (String, PolicyLanguage),
     pub _ct: Ac17Ciphertext,
@@ -106,8 +106,8 @@ pub struct Ac17CpCiphertext {
 
 /// An AC17 KP-ABE Ciphertext (CT), composed of a set of attributes and an Ac17Ciphertext.
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Ac17KpCiphertext {
     pub _attr: Vec<String>,
     pub _ct: Ac17Ciphertext,
@@ -115,8 +115,8 @@ pub struct Ac17KpCiphertext {
 
 /// An AC17 Secret Key (SK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Ac17SecretKey {
     pub _k_0: Vec<G2>,
     pub _k: Vec<(String, Vec<G1>)>,
@@ -125,8 +125,8 @@ pub struct Ac17SecretKey {
 
 /// An AC17 KP-ABE Secret Key (SK), composed of a policy and an Ac17Ciphertext.
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Ac17KpSecretKey {
     pub _policy: (String, PolicyLanguage),
     pub _sk: Ac17SecretKey,
@@ -134,8 +134,8 @@ pub struct Ac17KpSecretKey {
 
 /// An AC17 CP-ABE Secret Key (SK), composed of a set of attributes and an Ac17Ciphertext.
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Ac17CpSecretKey {
     pub _attr: Vec<String>,
     pub _sk: Ac17SecretKey,

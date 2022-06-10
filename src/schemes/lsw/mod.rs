@@ -31,15 +31,15 @@ use utils::{
 use rand::Rng;
 use utils::policy::pest::{PolicyLanguage, parse};
 use crate::error::RabeError;
-#[cfg(not(feature = "borsh"))]
+#[cfg(not(feature = "use-borsh"))]
 use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")]
+#[cfg(feature = "use-borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
 
 /// A LSW Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct KpAbePublicKey {
     _g_g1: G1,
     _g_g2: G2,
@@ -51,8 +51,8 @@ pub struct KpAbePublicKey {
 
 /// A LSW Master Key (MSK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct KpAbeMasterKey {
     _alpha1: Fr,
     _alpha2: Fr,
@@ -63,8 +63,8 @@ pub struct KpAbeMasterKey {
 
 /// A LSW Secret User Key (SK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct KpAbeSecretKey {
     _policy: (String, PolicyLanguage),
     _dj: Vec<(String, G1, G2, G1, G1, G1)>,
@@ -72,8 +72,8 @@ pub struct KpAbeSecretKey {
 
 /// A LSW Ciphertext (CT)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct KpAbeCiphertext {
     _e1: Gt,
     _e2: G2,

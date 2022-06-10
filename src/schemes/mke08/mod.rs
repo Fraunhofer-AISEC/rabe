@@ -40,15 +40,15 @@ use utils::{
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use utils::policy::dnf::policy_in_dnf;
 use crate::error::RabeError;
-#[cfg(not(feature = "borsh"))]
+#[cfg(not(feature = "use-borsh"))]
 use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")]
+#[cfg(feature = "use-borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
 
 /// A MKE08 Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08PublicKey {
     pub _g1: G1,
     pub _g2: G2,
@@ -60,8 +60,8 @@ pub struct Mke08PublicKey {
 
 /// A MKE08 Master Key (MK)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08MasterKey {
     pub _g1_y: G1,
     pub _g2_y: G2,
@@ -69,8 +69,8 @@ pub struct Mke08MasterKey {
 
 /// A MKE08 User Key (SK), consisting of a Secret User Key (SKu), a Public User Key (PKu) and a Vector of Secret Attribute Keys (SKau)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08UserKey {
     pub _sk_u: Mke08SecretUserKey,
     pub _pk_u: Mke08PublicUserKey,
@@ -79,8 +79,8 @@ pub struct Mke08UserKey {
 
 /// A MKE08 Public User Key (PKu)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08PublicUserKey {
     pub _u: String,
     pub _pk_g1: G1,
@@ -89,8 +89,8 @@ pub struct Mke08PublicUserKey {
 
 /// A MKE08 Secret User Key (SKu)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08SecretUserKey {
     pub _sk_g1: G1,
     pub _sk_g2: G2,
@@ -98,8 +98,8 @@ pub struct Mke08SecretUserKey {
 
 /// A MKE08 Secret Authrotiy Key (SKauth)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08SecretAuthorityKey {
     pub _a: String,
     pub _r: Fr,
@@ -107,8 +107,8 @@ pub struct Mke08SecretAuthorityKey {
 
 /// A MKE08 Public Attribute Key (PKa)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08PublicAttributeKey {
     pub _str: String,
     pub _g1: G1,
@@ -119,8 +119,8 @@ pub struct Mke08PublicAttributeKey {
 
 /// A MKE08 Secret Attribute Key (SKa)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08SecretAttributeKey {
     pub _str: String,
     pub _g1: G1,
@@ -129,8 +129,8 @@ pub struct Mke08SecretAttributeKey {
 
 /// A MKE08 Ciphertext (CT) consisting of the AES encrypted data as well as a Vector of all Conjunctions of the access policy
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08Ciphertext {
     pub _policy: (String, PolicyLanguage),
     pub _e: Vec<Mke08CTConjunction>,
@@ -139,8 +139,8 @@ pub struct Mke08Ciphertext {
 
 /// A MKE08 Ciphertext Conjunction (CTcon)
 #[derive(Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use-borsh", derive(BorshSerialize, BorshDeserialize))]
+#[cfg_attr(not(feature = "use-borsh"), derive(Serialize, Deserialize))]
 pub struct Mke08CTConjunction {
     pub _str: Vec<String>,
     pub _j1: Gt,

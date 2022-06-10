@@ -7,23 +7,23 @@
 ///! * Developped by Bramm, Schanzenbach, Schuette
 #[allow(dead_code)]
 
-#[cfg(feature = "borsh")]
+#[cfg(feature = "use-borsh")]
 extern crate borsh;
-#[cfg(not(feature = "borsh"))]
+#[cfg(not(feature = "use-borsh"))]
 extern crate serde;
 extern crate serde_json;
 extern crate bit_vec;
 extern crate rabe_bn;
 extern crate rand;
 extern crate pest;
-extern crate eax;
-extern crate aes;
+extern crate aes_gcm;
 extern crate sha3;
 #[macro_use]
 extern crate pest_derive;
-extern crate nalgebra;
 extern crate gmorph;
-extern crate num_bigint;
+extern crate nalgebra;
+extern crate core;
+extern crate num_traits;
 
 /// rabe schemes
 pub mod schemes;
