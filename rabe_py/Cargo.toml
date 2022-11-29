@@ -1,0 +1,14 @@
+[package]
+name = "rabe_py"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rabe_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.17.3", features = ["extension-module"] }
+rabe = { git = "https://github.com/ivario123/rabe.git" }
+serde = { version = "1.0.130", features = ["derive"] }
