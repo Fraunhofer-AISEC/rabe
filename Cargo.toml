@@ -38,7 +38,7 @@ sha3 = "0.9.1"
 [workspace]
 
 members = [
-    "rabe-console"
+    "rabe-console", "rabe_py"
 ]
 
 [dev-dependencies]
