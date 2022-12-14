@@ -9,3 +9,7 @@ target
 .project
 rabe.iml
 Cargo.lock
+*.env
+
+.vscode/
+*.vscode
