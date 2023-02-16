@@ -13,3 +13,4 @@ pyo3 = { version = "0.17.3", features = ["extension-module"] }
 rabe = { git = "https://github.com/ivario123/rabe.git" }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = {version = "1.0.89"}
+paste = "1.0.10"
