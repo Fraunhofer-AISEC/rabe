@@ -123,8 +123,8 @@ fn main() {
     arg_enum! {
         #[derive(Debug)]
         enum Lang {
-            Human,
-            Json,
+            HUMAN,
+            JSON,
         }
     }
     // Default file names
@@ -330,6 +330,18 @@ fn main() {
                     "encrypts a file using attributes (kp-schemes) or a policy (cp-schemes).",
                 )
                 .arg(
+                    Arg::with_name(FILE)
+                        .required(true)
+                        .takes_value(true)
+                        .help("the file to encrypt."),
+                )
+                .arg(
+                    Arg::with_name(POLICY)
+                        .required(false)
+                        .takes_value(true)
+                        .help("the policy to use."),
+                )
+                .arg(
                     Arg::with_name(GP_FILE)
                         .required(false)
                         .takes_value(true)
@@ -340,7 +352,7 @@ fn main() {
                     Arg::with_name(PK_FILE)
                         .required(false)
                         .takes_value(true)
-                        .multiple(true)
+                        //.multiple(true)
                         .default_value(&_pk_default)
                         .help("public key file(s)."),
                 )
@@ -350,24 +362,18 @@ fn main() {
                         .takes_value(true)
                         .multiple(true)
                         .help("the attribute(s) to use."),
-                )
-                .arg(
-                    Arg::with_name(POLICY)
-                        .required(false)
-                        .takes_value(true)
-                        .help("the policy to use."),
-                )
-                .arg(
-                    Arg::with_name(FILE)
-                        .required(true)
-                        .takes_value(true)
-                        .help("the file to encrypt."),
                 ),
         )
         .subcommand(
             // Decrypt
             SubCommand::with_name(CMD_DECRYPT)
                 .about("decrypts a file using a key.")
+                .arg(
+                    Arg::with_name(FILE)
+                        .required(true)
+                        .takes_value(true)
+                        .help("file to use."),
+                )
                 .arg(
                     Arg::with_name(GP_FILE)
                         .required(false)
@@ -388,12 +394,6 @@ fn main() {
                         .takes_value(true)
                         .default_value(&_sk_default)
                         .help("user key file."),
-                )
-                .arg(
-                    Arg::with_name(FILE)
-                        .required(true)
-                        .takes_value(true)
-                        .help("file to use."),
                 ),
         )
         .subcommand(
@@ -487,7 +487,7 @@ fn main() {
             let mut _lang;
             if let Some(_l) = argument_matches.value_of(LANG) {
                 _lang = match _l {
-                    "json" => PolicyLanguage::JsonPolicy,
+                    "JSON" => PolicyLanguage::JsonPolicy,
                     _ => PolicyLanguage::HumanPolicy,
                 };
             } else {
@@ -1118,11 +1118,15 @@ fn main() {
                         Ok(parsed) => parsed,
                         Err(e) => return Err(e)
                     };
-                    let _ct = ac17::cp_encrypt(&_pk, &_policy, &buffer, _lang);
-                    write_file(
-                        Path::new(&_ct_file),
-                        ser_enc(_ct, CT_BEGIN, CT_END)
-                    );
+                    match ac17::cp_encrypt(&_pk, &_policy, &buffer, _lang){
+                        Ok(_ct) => {
+                            write_file(
+                                Path::new(&_ct_file),
+                                ser_enc(_ct, CT_BEGIN, CT_END)
+                            );
+                        },
+                        Err(e) => return Err(e)
+                    }
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the AC17CP Scheme with zero or multiple PKs is not possible. ",
@@ -1136,11 +1140,15 @@ fn main() {
                         Ok(parsed) => parsed,
                         Err(e) => return Err(e)
                     };
-                    let _ct = ac17::kp_encrypt(&_pk, &_attributes, &buffer);
-                    write_file(
-                        Path::new(&_ct_file),
-                        ser_enc(_ct, CT_BEGIN, CT_END)
-                    );
+                    match ac17::kp_encrypt(&_pk, &_attributes, &buffer) {
+                        Ok(_ct) => {
+                            write_file(
+                                Path::new(&_ct_file),
+                                ser_enc(_ct, CT_BEGIN, CT_END)
+                            );
+                        },
+                        Err(e) => return Err(e)
+                    }
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the AC17KP Scheme with zero or multiple PKs is not possible. ",
@@ -1154,11 +1162,15 @@ fn main() {
                         Ok(parsed) => parsed,
                         Err(e) => return Err(e)
                     };
-                    let _ct = bsw::encrypt(&_pk, &_policy, &buffer, _lang);
-                    write_file(
-                        Path::new(&_ct_file),
-                        ser_enc(_ct, CT_BEGIN, CT_END)
-                    );
+                    match bsw::encrypt(&_pk, &_policy, &buffer, _lang) {
+                        Ok(_ct) => {
+                            write_file(
+                                Path::new(&_ct_file),
+                                ser_enc(_ct, CT_BEGIN, CT_END)
+                            );
+                        },
+                        Err(e) => return Err(e)
+                    }
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the BSW Scheme with zero or multiple PKs is not possible. ",
@@ -1196,11 +1208,15 @@ fn main() {
                     };
                     _pks.push(_pka);
                 }
-                let _ct = aw11::encrypt(&_gp, &_pks, &_policy, _lang, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    ser_enc(_ct, CT_BEGIN, CT_END)
-                );
+                match aw11::encrypt(&_gp, &_pks, &_policy, _lang, &buffer) {
+                    Ok(_ct) => {
+                        write_file(
+                            Path::new(&_ct_file),
+                            ser_enc(_ct, CT_BEGIN, CT_END)
+                        );
+                    },
+                    Err(e) => return Err(e)
+                }
             }
             Scheme::BDABE => {
                 let _pk: bdabe::BdabePublicKey = match ser_dec(&_pk_file) {
@@ -1215,11 +1231,15 @@ fn main() {
                     };
                     _attr_vec.push(_pka);
                 }
-                let _ct = bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer, _lang);
-                write_file(
-                    Path::new(&_ct_file),
-                    ser_enc(_ct, CT_BEGIN, CT_END)
-                );
+                match bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer, _lang) {
+                    Ok(_ct) => {
+                        write_file(
+                            Path::new(&_ct_file),
+                            ser_enc(_ct, CT_BEGIN, CT_END)
+                        );
+                    },
+                    Err(e) => return Err(e)
+                }
             }
             Scheme::MKE08 => {
                 let _pk: mke08::Mke08PublicKey = match ser_dec(&_pk_file) {
@@ -1234,11 +1254,15 @@ fn main() {
                     };
                     _attr_vec.push(_pka);
                 }
-                let _ct = mke08::encrypt(&_pk, &_attr_vec, &_policy, _lang, &buffer);
-                write_file(
-                    Path::new(&_ct_file),
-                    ser_enc(_ct, CT_BEGIN, CT_END)
-                );
+                match mke08::encrypt(&_pk, &_attr_vec, &_policy, _lang, &buffer) {
+                    Ok(_ct) => {
+                        write_file(
+                            Path::new(&_ct_file),
+                            ser_enc(_ct, CT_BEGIN, CT_END)
+                        );
+                    },
+                    Err(e) => return Err(e)
+                }
             }
             Scheme::YCT14 => {
                 if _pk_files.len() == 1 {
@@ -1246,11 +1270,15 @@ fn main() {
                         Ok(parsed) => parsed,
                         Err(e) => return Err(e)
                     };
-                    let _ct = yct14::encrypt(&_pk, &_attributes, &buffer);
-                    write_file(
-                        Path::new(&_ct_file),
-                        ser_enc(_ct, CT_BEGIN, CT_END)
-                    );
+                    match yct14::encrypt(&_pk, &_attributes, &buffer) {
+                        Ok(_ct) => {
+                            write_file(
+                                Path::new(&_ct_file),
+                                ser_enc(_ct, CT_BEGIN, CT_END)
+                            );
+                        },
+                        Err(e) => return Err(e)
+                    }
                 } else {
                     return Err(RabeError::new(
                         "sorry, encryption using the LSW Scheme with zero or multiple PKs is not possible. ",
@@ -1300,10 +1328,11 @@ fn main() {
             None => {}
             Some(x) => _file = x.to_string(),
         }
-        match arguments.value_of(POLICY) {
-            None => {}
-            Some(x) => _policy = x.to_string(),
-        }
+        // never used
+        // match arguments.value_of(POLICY) {
+        //     None => {}
+        //     Some(x) => _policy = x.to_string(),
+        // }
         match _scheme {
             Scheme::AC17CP => {
                 let _sk: ac17::Ac17CpSecretKey = match ser_dec(&_sk_file) {
@@ -1411,7 +1440,12 @@ fn main() {
                 return Err(e);
             }
             Ok(_pt_u) => {
-                write_from_vec(Path::new(&_file), &_pt_u);
+                let mut out_file = _file.clone();
+                out_file.pop();
+                out_file.pop();
+                out_file.pop();
+
+                write_from_vec(Path::new(&out_file), &_pt_u);
             }
         }
         Ok(())
