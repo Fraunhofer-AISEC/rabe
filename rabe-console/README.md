@@ -27,9 +27,11 @@ In order to compile and test:
     $ rabe --s AC17CP keygen --a 'A and B'
     ```
   * This generates a new key with **attributes** "A" and "B" and saves it to sk.key
-- Encrypt a message with the HUMAN language **policy** "A" and "B"
+- Encrypt a message with the HUMAN or JSON language **policy** "A" and "B"
   * ```bash
     $ rabe --s AC17CP --l HUMAN encrypt message.txt '"A" and "B"'
+    OR
+    rabe --s AC17CP --l JSON encrypt message.txt '{"name":"and","children":[{"name":"B"},{"name":"A"}]}'
     ```
   * This generates a ciphertext and saves it to message.txt.ct
 
