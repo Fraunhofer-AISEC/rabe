@@ -44,7 +44,7 @@ pub fn read_to_vec(_path: &Path) -> Vec<u8> {
 
 pub fn write_from_vec(_path: &Path, _data: &Vec<u8>) {
     let display = _path.display();
-    let mut file = match File::open(_path) {
+    let mut file = match File::create(_path) {
         Err(why) => panic!("sorry, couldn't open {}: {}", display, why.to_string()),
         Ok(file) => file,
     };

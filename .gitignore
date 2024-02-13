@@ -9,3 +9,4 @@ target
 .project
 rabe.iml
 Cargo.lock
+**/.DS_Store
