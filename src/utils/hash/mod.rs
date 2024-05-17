@@ -7,7 +7,7 @@ use crate::error::RabeError;
 use std::ops::Mul;
 
 /// Hash to a &String to [`rabe-bn::G1`] or [`rabe-bn::G2`] using Base g
-pub fn sha3_hash<T: Mul<Fr, Output = T>>(g: T, data: &String) -> Result<T, RabeError> {
+pub fn sha3_hash<T: Mul<Fr, Output = T>>(g: T, data: &str) -> Result<T, RabeError> {
     let mut hasher = Sha3_256::new();
     hasher.update(data.as_bytes());
     match Fr::from_slice(&hasher.finalize()) {

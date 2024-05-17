@@ -20,7 +20,7 @@ pub fn contains(data: &Vec<String>, value: &String) -> bool {
 }
 
 // used to check if a set of attributes is a subset of another
-pub fn is_subset(_subset: &Vec<String>, _attr: &Vec<String>) -> bool {
+pub fn is_subset(_subset: &[&str], _attr: &[&str]) -> bool {
     let super_set: HashSet<_> = _attr.iter().cloned().collect();
     let sub_set: HashSet<_> = _subset.iter().cloned().collect();
     return sub_set.is_subset(&super_set);
@@ -29,7 +29,7 @@ pub fn is_subset(_subset: &Vec<String>, _attr: &Vec<String>) -> bool {
 // used to traverse / check policy tree
 pub fn traverse_policy(_attr: &Vec<String>, _json: &PolicyValue, _type: PolicyType) -> bool {
     return (_attr.len() > 0) && match _json {
-        PolicyValue::String(val) => (&_attr).into_iter().any(|x| x == val),
+        PolicyValue::String(node) => (&_attr).into_iter().any(|x| x == node.0),
         PolicyValue::Object(obj) => {
             return match obj.0 {
                 PolicyType::And => traverse_policy(_attr, &obj.1.as_ref(), PolicyType::And),
@@ -61,7 +61,7 @@ pub fn traverse_policy(_attr: &Vec<String>, _json: &PolicyValue, _type: PolicyTy
 
 pub fn get_value(_json: &PolicyValue) -> String {
     return match _json {
-        PolicyValue::String(val) => val.to_string(),
+        PolicyValue::String(node) => node.0.to_string(),
         _ => "".to_string()
     }
 }

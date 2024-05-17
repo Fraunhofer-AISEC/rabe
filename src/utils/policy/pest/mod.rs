@@ -29,11 +29,11 @@ pub enum PolicyType {
     Leaf
 }
 
-/// The value of a node may either be a String, and Array of values oder a child with value
+/// The value of a node may either be a String (with a position stored in a u8), and Array of values oder a child with value
 pub enum PolicyValue<'a> {
     Object((PolicyType, Box<PolicyValue<'a>>)),
     Array(Vec<PolicyValue<'a>>),
-    String(&'a str),
+    String((&'a str, usize)),
 }
 
 /// Parses a &str in a give [PolicyLanguage]
@@ -72,7 +72,7 @@ pub fn serialize_policy(val: &PolicyValue, language: PolicyLanguage, parent: Opt
                     let contents: Vec<_> = a.iter().map(|val| serialize_policy(val, language, None)).collect();
                     format!("\"children\": [{}]", contents.join(", "))
                 }
-                String(s) => format!("{{\"name\": \"{}\"}}", s),
+                String(s) => format!("{{\"name\": \"{}\"}}", s.0),
             }
         },
         PolicyLanguage::HumanPolicy => {
@@ -92,7 +92,7 @@ pub fn serialize_policy(val: &PolicyValue, language: PolicyLanguage, parent: Opt
                         _ => panic!("children without parent")
                     }
                 }
-                String(s) => format!("{}", s),
+                String(s) => format!("{}", s.0),
             }
         }
     }

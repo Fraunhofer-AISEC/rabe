@@ -7,16 +7,16 @@ use rand::thread_rng;
 use rand::Rng;
 
 /// Key Encapsulation Mechanism (AES-256 Encryption Function)
-pub fn encrypt_symmetric<G: std::convert::Into<Vec<u8>>>(_msg: G, _plaintext: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
+pub fn encrypt_symmetric<G: std::convert::Into<Vec<u8>>>(msg: G, data: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let mut rng = thread_rng();
     // 256bit key hashed/derived from _msg G
-    let kdf = kdf(_msg);
+    let kdf = kdf(msg);
     let key = Key::from_slice(kdf.as_slice());
     let cipher = Aes256Gcm::new(key);
     // 96bit random noise
     let nonce_vec: Vec<u8> = (0..12).into_iter().map(|_| rng.gen()).collect(); // 12*u8 = 96 Bit
     let nonce = Nonce::from_slice(nonce_vec.as_ref());
-    match cipher.encrypt(nonce, _plaintext.as_ref()) {
+    match cipher.encrypt(nonce, data.as_ref()) {
         Ok(mut ct) => {
             ct.splice(0..0, nonce.iter().cloned()); // first 12 bytes are nonce i.e. [nonce|ciphertext]
             Ok(ct)

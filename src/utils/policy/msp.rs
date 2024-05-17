@@ -99,7 +99,7 @@ fn lw(msp: &mut AbePolicy, p: &PolicyValue, v: &Vec<i8>, _parent: Option<PolicyT
     return match p {
         PolicyValue::String(attr) => {
             msp._m.insert(0, v_tmp_right);
-            msp._pi.insert(0, attr.to_string());
+            msp._pi.insert(0, attr.0.to_string());
             true
         },
         PolicyValue::Object(obj) => {

@@ -112,7 +112,7 @@ pub fn dnf<K: PublicAttributeKey>(
     return match _p {
         PolicyValue::String(_s) => {
             for pak in _pks.iter() {
-                if pak._str() == *_s {
+                if pak._str() == *_s.0 {
                     if _dnfp._terms.len() > _i {
                         _dnfp._terms[_i].0.push(pak._str().to_string());
                         _dnfp._terms[_i] = (

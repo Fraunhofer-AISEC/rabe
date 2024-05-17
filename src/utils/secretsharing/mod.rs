@@ -54,8 +54,8 @@ pub fn calc_coefficients(_json: &PolicyValue, _fr: Option<Fr>, _type: Option<Pol
                 _ => None
             }
         }
-        PolicyValue::String(str) => {
-            _result.push((str.to_string(), _coeff));
+        PolicyValue::String(node) => {
+            _result.push((node.0.to_string(), _coeff));
             return Some(_result);
         }
     };
@@ -76,25 +76,25 @@ pub fn recover_coefficients(_list: Vec<Fr>) -> Vec<Fr> {
     return _coeff;
 }
 
-pub fn gen_shares_policy(_secret: Fr, _json: &PolicyValue, _type: Option<PolicyType>) -> Option<Vec<(String, Fr)>> {
+pub fn gen_shares_policy(secret: Fr, policy_value: &PolicyValue, policy_type: Option<PolicyType>) -> Option<Vec<(String, Fr)>> {
     let mut _result: Vec<(String, Fr)> = Vec::new();
     let mut _k = 0;
     let mut _n = 0;
-    match _json {
-        PolicyValue::String(str) => {
-            _result.push((str.to_string(), _secret));
+    match policy_value {
+        PolicyValue::String(node) => {
+            _result.push((node.0.to_string(), secret));
             Some(_result)
         },
         PolicyValue::Object(obj) => {
             match obj.0 {
-                PolicyType::And => gen_shares_policy(_secret, &obj.1.as_ref(), Some(PolicyType::And)),
-                PolicyType::Or => gen_shares_policy(_secret, &obj.1.as_ref(), Some(PolicyType::Or)),
-                _ => gen_shares_policy(_secret, &obj.1.as_ref(), Some(PolicyType::Leaf)),
+                PolicyType::And => gen_shares_policy(secret, &obj.1.as_ref(), Some(PolicyType::And)),
+                PolicyType::Or => gen_shares_policy(secret, &obj.1.as_ref(), Some(PolicyType::Or)),
+                _ => gen_shares_policy(secret, &obj.1.as_ref(), Some(PolicyType::Leaf)),
             }
         },
         PolicyValue::Array(children) => {
             _n = children.len();
-            match _type {
+            match policy_type {
                 Some(PolicyType::And) => {
                     _k = _n;
                 },
@@ -104,7 +104,7 @@ pub fn gen_shares_policy(_secret: Fr, _json: &PolicyValue, _type: Option<PolicyT
                 None => panic!("this should not happen =( Array is always AND or OR."),
                 _ => panic!("this should not happen =( Array is always AND or OR.")
             }
-            let shares = gen_shares(_secret, _k, _n);
+            let shares = gen_shares(secret, _k, _n);
             for _i in 0.._n {
                 match gen_shares_policy(shares[_i + 1], &children[_i], None) {
                     None => panic!("Error in gen_shares_policy: Returned None."),
@@ -125,12 +125,9 @@ pub fn gen_shares(_secret: Fr, _k: usize, _n: usize) -> Vec<Fr> {
         let mut _rng = rand::thread_rng();
         // polynomial coefficients
         let mut _a: Vec<Fr> = Vec::new();
-        for _i in 0.._k {
-            if _i == 0 {
-                _a.push(_secret);
-            } else {
-                _a.push(_rng.gen())
-            }
+        _a.push(_secret);
+        for _i in 1.._k {
+            _a.push(_rng.gen())
         }
         for _i in 0..(_n + 1) {
             let _polynom = polynomial(_a.clone(), usize_to_fr(_i));
@@ -191,9 +188,9 @@ pub fn calc_pruned(_attr: &Vec<String>, _json: &PolicyValue, _type: Option<Polic
 
             }
         },
-        PolicyValue::String(str) => {
-            if contains(_attr, &str.to_string()) {
-                Ok((true, vec![str.to_string()]))
+        PolicyValue::String(node) => {
+            if contains(_attr, &node.0.to_string()) {
+                Ok((true, vec![node.0.to_string()]))
             } else {
                 Ok((false, _emtpy_list))
             }
