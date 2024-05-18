@@ -1573,7 +1573,7 @@ fn main() {
                     match mke08::request_authority_sk(
                         &_attributes[0],
                         &_skau,
-                        &_usk._pk_u,
+                        &_usk.pk,
                     ) {
                         Ok(_a_sk) => {
                             write_file(
@@ -1594,7 +1594,7 @@ fn main() {
                         Err(e) => return Err(e)
                     };
                     match bdabe::request_attribute_sk(
-                        &_usk._pk,
+                        &_usk.pk,
                         &_skau,
                         &_attributes[0],
                     ) {

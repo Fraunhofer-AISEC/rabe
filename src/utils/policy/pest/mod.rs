@@ -36,8 +36,11 @@ pub enum PolicyValue<'a> {
     String((&'a str, usize)),
 }
 
-/// Parses a &str in a give [PolicyLanguage]
-pub fn parse(policy: &str, language: PolicyLanguage) -> Result<PolicyValue, RabeError> {
+/// Parses a &str in a give [PolicyLanguage] to a PolicyValue tree
+pub fn parse(
+    policy: &str,
+    language: PolicyLanguage
+) -> Result<PolicyValue, RabeError> {
     match language {
         PolicyLanguage::JsonPolicy => {
             use utils::policy::pest::json::Rule;
@@ -55,8 +58,12 @@ pub fn parse(policy: &str, language: PolicyLanguage) -> Result<PolicyValue, Rabe
         }
     }
 }
-/// Serializes a [PolicyValue] to a specific [PolicyLanguage]
-pub fn serialize_policy(val: &PolicyValue, language: PolicyLanguage, parent: Option<PolicyType>) -> String {
+/// Serializes a [PolicyValue] to a String in a specific [PolicyLanguage]
+pub fn serialize_policy(
+    val: &PolicyValue,
+    language: PolicyLanguage,
+    parent: Option<PolicyType>
+) -> String {
     use self::PolicyValue::*;
     match language {
         PolicyLanguage::JsonPolicy => {

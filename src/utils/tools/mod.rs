@@ -1,14 +1,15 @@
 use rabe_bn::*;
 use std::collections::HashSet;
 use utils::policy::pest::{PolicyValue, PolicyType};
+use utils::secretsharing::node_index;
 
-pub fn is_negative(_attr: &String) -> bool {
-    let first_char = &_attr[..1];
+pub fn is_negative(attr: &String) -> bool {
+    let first_char = &attr[..1];
     return first_char == '!'.to_string();
 }
 
-pub fn usize_to_fr(_i: usize) -> Fr {
-    return Fr::from_str(&_i.to_string()).unwrap();
+pub fn usize_to_fr(i: usize) -> Fr {
+    return Fr::from_str(&i.to_string()).unwrap();
 }
 
 pub fn contains(data: &Vec<String>, value: &String) -> bool {
@@ -20,36 +21,36 @@ pub fn contains(data: &Vec<String>, value: &String) -> bool {
 }
 
 // used to check if a set of attributes is a subset of another
-pub fn is_subset(_subset: &[&str], _attr: &[&str]) -> bool {
-    let super_set: HashSet<_> = _attr.iter().cloned().collect();
-    let sub_set: HashSet<_> = _subset.iter().cloned().collect();
+pub fn is_subset(subset: &[&str], attr: &[&str]) -> bool {
+    let super_set: HashSet<_> = attr.iter().cloned().collect();
+    let sub_set: HashSet<_> = subset.iter().cloned().collect();
     return sub_set.is_subset(&super_set);
 }
 
 // used to traverse / check policy tree
-pub fn traverse_policy(_attr: &Vec<String>, _json: &PolicyValue, _type: PolicyType) -> bool {
-    return (_attr.len() > 0) && match _json {
-        PolicyValue::String(node) => (&_attr).into_iter().any(|x| x == node.0),
+pub fn traverse_policy(attr: &Vec<String>, policy_value: &PolicyValue, policy_type: PolicyType) -> bool {
+    return (attr.len() > 0) && match policy_value {
+        PolicyValue::String(node) => (&attr).into_iter().any(|x| x == node.0),
         PolicyValue::Object(obj) => {
             return match obj.0 {
-                PolicyType::And => traverse_policy(_attr, &obj.1.as_ref(), PolicyType::And),
-                PolicyType::Or => traverse_policy(_attr, &obj.1.as_ref(), PolicyType::Or),
+                PolicyType::And => traverse_policy(attr, &obj.1.as_ref(), PolicyType::And),
+                PolicyType::Or => traverse_policy(attr, &obj.1.as_ref(), PolicyType::Or),
                 _ => true,
             }
         },
         PolicyValue::Array(arrayref) => {
-            return match _type {
+            return match policy_type {
                 PolicyType::And => {
                     let mut ret = true;
                     for obj in arrayref.iter() {
-                        ret &= traverse_policy(_attr, obj, PolicyType::Leaf)
+                        ret &= traverse_policy(attr, obj, PolicyType::Leaf)
                     }
                     ret
                 },
                 PolicyType::Or => {
                     let mut ret = false;
                     for obj in arrayref.iter() {
-                        ret |= traverse_policy(_attr, obj, PolicyType::Leaf)
+                        ret |= traverse_policy(attr, obj, PolicyType::Leaf)
                     }
                     ret
                 }
@@ -61,7 +62,7 @@ pub fn traverse_policy(_attr: &Vec<String>, _json: &PolicyValue, _type: PolicyTy
 
 pub fn get_value(_json: &PolicyValue) -> String {
     return match _json {
-        PolicyValue::String(node) => node.0.to_string(),
+        PolicyValue::String(node) => node_index(node),
         _ => "".to_string()
     }
 }
@@ -74,12 +75,10 @@ mod tests {
 
     #[test]
     fn test_traverse() {
-        let policy_false = String::from(r#"joking-around?"#);
+        let policy_false = String::from(r#"what-the-heck?"#);
         let policy1 = String::from(r#"{"name": "and", "children": [{"name": "A"}, {"name": "B"}]}"#);
         let policy2 = String::from(r#"{"name": "or", "children": [{"name": "A"}, {"name": "B"}]}"#);
-        let policy3 = String::from(
-            r#"{"name": "and", "children": [{"or": [{"name": "C"}, {"name": "D"}]}, {"name": "B"}]}"#,
-        );
+        let policy3 = String::from(r#"{"name": "and", "children": [{"name":"or", "children": [{"name": "C"}, {"name": "D"}]}, {"name": "B"}]}"#);
         let mut _set0: Vec<String> = Vec::new();
         _set0.push(String::from("X"));
         _set0.push(String::from("Y"));

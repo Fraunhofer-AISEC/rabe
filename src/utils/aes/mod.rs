@@ -26,14 +26,14 @@ pub fn encrypt_symmetric<G: std::convert::Into<Vec<u8>>>(msg: G, data: &Vec<u8>)
 }
 
 /// Key Encapsulation Mechanism (AES-256 Decryption Function)
-pub fn decrypt_symmetric<G: std::convert::Into<Vec<u8>>>(_msg: G, _nonce_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
+pub fn decrypt_symmetric<G: std::convert::Into<Vec<u8>>>(msg: G, _nonce_ct: &Vec<u8>) -> Result<Vec<u8>, RabeError> {
     let ciphertext = _nonce_ct.clone().split_off(12); // 12*u8 = 96 Bit
     let nonce_vec: [u8; 12] = match _nonce_ct[..12].try_into() { // first 12 bytes are nonce i.e. [nonce|ciphertext]
         Ok(iv) => iv,
         Err(_) => return Err(RabeError::new("Error extracting IV from ciphertext: Expected an IV of 16 bytes")), // this REALLY shouldn't happen.
     };
     // 256bit key hashed/derived from _msg G
-    let kdf = kdf(_msg);
+    let kdf = kdf(msg);
     let key = Key::from_slice(kdf.as_slice());
     let cipher = Aes256Gcm::new(key);
     let nonce = Nonce::from_slice(nonce_vec.as_ref());
@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn correctness_test1() {
         use crate::utils::aes::{encrypt_symmetric, decrypt_symmetric};
-        let key = "7h15 15 4 v3ry 53cr37 k3ysdfsfsdfsdfdsfdsf1";
+        let key = "7h15 15 4 v3ry 53cr37 k3ysdfsfsdfsdfdsfdsf1896957848";
         let plaintext =
             String::from("dance like no one's watching, encrypt like everyone is!");
         let ciphertext = encrypt_symmetric(key, &plaintext.clone().into_bytes()).unwrap();

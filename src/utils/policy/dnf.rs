@@ -11,7 +11,7 @@ use utils::policy::pest::{PolicyLanguage, PolicyValue, parse, PolicyType};
 
 /// A DNF policy for the MKE08 scheme and the BDABE scheme
 pub struct DnfPolicy {
-    pub _terms: Vec<(Vec<String>, Gt, Gt, G1, G2)>,
+    pub terms: Vec<(Vec<String>, Gt, Gt, G1, G2)>,
 }
 
 #[allow(dead_code)]
@@ -22,113 +22,113 @@ impl DnfPolicy {
     ///
     /// * `policy` - A policy in JSON format as String describing the policy
     pub fn new() -> DnfPolicy {
-        DnfPolicy { _terms: Vec::new() }
+        DnfPolicy { terms: Vec::new() }
     }
 
     pub fn from_string<K: PublicAttributeKey>(
-        _policy: &String,
-        _pks: &Vec<K>,
-        _language: PolicyLanguage
+        policy: &str,
+        pks: &[&K],
+        language: PolicyLanguage
     ) -> Result<DnfPolicy, RabeError> {
-        return match parse(_policy, _language) {
+        return match parse(policy, language) {
             Err(e) => Err(e),
             Ok(_pol) => {
-                json_to_dnf(&_pol, _pks)
+                json_to_dnf(&_pol, pks)
             }
         }
     }
 
     pub fn from_policy<K: PublicAttributeKey>(
-        _json: &PolicyValue,
-        _pks: &Vec<K>,
+        json: &PolicyValue,
+        pks: &[&K],
     ) -> Result<DnfPolicy, RabeError> {
-        json_to_dnf(_json, _pks)
+        json_to_dnf(json, pks)
     }
 }
 
 /// A generic Public Attribute Key (PKA) for the MKE08 scheme and the BDABE scheme
 pub trait PublicAttributeKey {
     // Instance method signatures; these will return a string.
-    fn _str(&self) -> String {
+    fn attr(&self) -> String {
         String::from("undefined")
     }
-    fn _g1(&self) -> G1 {
+    fn g1(&self) -> G1 {
         G1::one()
     }
-    fn _g2(&self) -> G2 {
+    fn g2(&self) -> G2 {
         G2::one()
     }
-    fn _gt1(&self) -> Gt {
+    fn gt1(&self) -> Gt {
         Gt::one()
     }
-    fn _gt2(&self) -> Gt {
+    fn gt2(&self) -> Gt {
         Gt::one()
     }
 }
 
 impl PublicAttributeKey for Mke08PublicAttributeKey {
-    fn _str(&self) -> String {
-        self._str.clone()
+    fn attr(&self) -> String {
+        self.attr.clone()
     }
-    fn _g1(&self) -> G1 {
-        self._g1
+    fn g1(&self) -> G1 {
+        self.g1
     }
-    fn _g2(&self) -> G2 {
-        self._g2
+    fn g2(&self) -> G2 {
+        self.g2
     }
-    fn _gt1(&self) -> Gt {
-        self._gt1
+    fn gt1(&self) -> Gt {
+        self.gt1
     }
-    fn _gt2(&self) -> Gt {
-        self._gt2
+    fn gt2(&self) -> Gt {
+        self.gt2
     }
 }
 
 impl PublicAttributeKey for BdabePublicAttributeKey {
-    fn _str(&self) -> String {
-        self._str.clone()
+    fn attr(&self) -> String {
+        self.attr.clone()
     }
-    fn _g1(&self) -> G1 {
-        self._a1
+    fn g1(&self) -> G1 {
+        self.a1
     }
-    fn _g2(&self) -> G2 {
-        self._a2
+    fn g2(&self) -> G2 {
+        self.a2
     }
-    fn _gt1(&self) -> Gt {
-        self._a3
+    fn gt1(&self) -> Gt {
+        self.a3
     }
 }
 
 // this calcluates the sum's of all AND terms in a Bdabe DNF policy
 pub fn dnf<K: PublicAttributeKey>(
-    _dnfp: &mut DnfPolicy,
-    _pks: &Vec<K>,
-    _p: &PolicyValue,
-    _i: usize,
-    _parent: Option<&PolicyType>
+    dnf_policy: &mut DnfPolicy,
+    pks: &[&K],
+    policy_value: &PolicyValue,
+    i: usize,
+    parent: Option<&PolicyType>
 ) -> bool {
     let mut ret = true;
     // inner node
-    return match _p {
+    return match policy_value {
         PolicyValue::String(_s) => {
-            for pak in _pks.iter() {
-                if pak._str() == *_s.0 {
-                    if _dnfp._terms.len() > _i {
-                        _dnfp._terms[_i].0.push(pak._str().to_string());
-                        _dnfp._terms[_i] = (
-                            _dnfp._terms[_i].0.clone(),
-                            _dnfp._terms[_i].1 * pak._gt1(),
-                            _dnfp._terms[_i].2 * pak._gt2(),
-                            _dnfp._terms[_i].3 + pak._g1(),
-                            _dnfp._terms[_i].4 + pak._g2(),
+            for pak in pks.iter() {
+                if pak.attr() == *_s.0 {
+                    if dnf_policy.terms.len() > i.clone() {
+                        dnf_policy.terms[i.clone()].0.push(pak.attr().to_string());
+                        dnf_policy.terms[i.clone()] = (
+                            dnf_policy.terms[i.clone()].0.clone(),
+                            dnf_policy.terms[i.clone()].1 * pak.gt1(),
+                            dnf_policy.terms[i.clone()].2 * pak.gt2(),
+                            dnf_policy.terms[i.clone()].3 + pak.g1(),
+                            dnf_policy.terms[i.clone()].4 + pak.g2(),
                         );
                     } else {
-                        _dnfp._terms.push((
-                            vec![pak._str().to_string()],
-                            pak._gt1(),
-                            pak._gt2(),
-                            pak._g1(),
-                            pak._g2(),
+                        dnf_policy.terms.push((
+                            vec![pak.attr().to_string()],
+                            pak.gt1(),
+                            pak.gt2(),
+                            pak.g1(),
+                            pak.g2(),
                         ));
                     }
                 }
@@ -136,16 +136,16 @@ pub fn dnf<K: PublicAttributeKey>(
             true
         },
         PolicyValue::Array(children) => {
-            return match _parent {
+            return match parent {
                 Some(PolicyType::And) => {
                     for child in children {
-                        ret = ret && dnf(_dnfp, _pks, &child, _i, Some(&PolicyType::And))
+                        ret = ret && dnf(dnf_policy, pks, &child, i.clone(), Some(&PolicyType::And))
                     }
                     ret
                 },
                 Some(PolicyType::Or) => {
                     for (i, child) in children.iter().enumerate() {
-                        ret = ret && dnf(_dnfp, _pks, &child, i + _i, Some(&PolicyType::Or))
+                        ret = ret && dnf(dnf_policy, pks, &child, i.clone() + i.clone(), Some(&PolicyType::Or))
                     }
                     ret
                 },
@@ -153,18 +153,18 @@ pub fn dnf<K: PublicAttributeKey>(
             }
         },
         PolicyValue::Object(obj) => {
-            return match _parent {
-                None => dnf(_dnfp, _pks, &obj.1, _i, Some(&obj.0)),
-                Some(PolicyType::Leaf) => dnf(_dnfp, _pks, &obj.1, _i, Some(&PolicyType::Leaf)),
+            return match parent {
+                None => dnf(dnf_policy, pks, &obj.1, i, Some(&obj.0)),
+                Some(PolicyType::Leaf) => dnf(dnf_policy, pks, &obj.1, i, Some(&PolicyType::Leaf)),
                 Some(PolicyType::Or) => {
                     match &obj.0 {
-                        PolicyType::And => dnf(_dnfp, _pks, &obj.1, _i, Some(&PolicyType::And)),
+                        PolicyType::And => dnf(dnf_policy, pks, &obj.1, i, Some(&PolicyType::And)),
                         _ => false,
                     }
                 }
                 Some(PolicyType::And) => {
                     match &obj.0 {
-                        PolicyType::Leaf => dnf(_dnfp, _pks, &obj.1, _i, Some(&PolicyType::Leaf)),
+                        PolicyType::Leaf => dnf(dnf_policy, pks, &obj.1, i, Some(&PolicyType::Leaf)),
                         _ => false,
                     }
                 }
@@ -175,12 +175,12 @@ pub fn dnf<K: PublicAttributeKey>(
 
 // this calcluates the sum's of all conjunction terms in a Bdabe DNF policy ( see fn dnf() )
 pub fn json_to_dnf<K: PublicAttributeKey>(
-    _p: &PolicyValue,
-    _pks: &Vec<K>,
+    policy_value: &PolicyValue,
+    pks: &[&K],
 ) -> Result<DnfPolicy, RabeError> {
     let mut dnfp = DnfPolicy::new();
-    if dnf(&mut dnfp, _pks, _p, 0, None) {
-        dnfp._terms.sort_by(|a, b| a.0.len().cmp(&b.0.len()));
+    if dnf(&mut dnfp, pks, policy_value, 0, None) {
+        dnfp.terms.sort_by(|a, b| a.0.len().cmp(&b.0.len()));
         Ok(dnfp)
     }
     else {
@@ -188,8 +188,12 @@ pub fn json_to_dnf<K: PublicAttributeKey>(
     }
 }
 
-pub fn policy_in_dnf(pol: &PolicyValue, conjunction: bool, parent: Option<PolicyType>) -> bool {
-    return match pol {
+pub fn policy_in_dnf(
+    policy_value: &PolicyValue,
+    conjunction: bool,
+    parent: Option<PolicyType>
+) -> bool {
+    return match policy_value {
         PolicyValue::Object(obj) => {
             match obj.0 {
                 PolicyType::And=> policy_in_dnf(&obj.1.as_ref(), true, Some(PolicyType::And)),
@@ -262,38 +266,42 @@ mod tests {
         }
 
         let pk_a = BdabePublicAttributeKey {
-            _str: String::from("A"),
-            _a1: G1::one(),
-            _a2: G2::one(),
-            _a3: Gt::one(),
+            attr: String::from("A"),
+            a1: G1::one(),
+            a2: G2::one(),
+            a3: Gt::one(),
         };
 
         let pk_b = BdabePublicAttributeKey {
-            _str: String::from("B"),
-            _a1: G1::one(),
-            _a2: G2::one(),
-            _a3: Gt::one(),
+            attr: String::from("B"),
+            a1: G1::one(),
+            a2: G2::one(),
+            a3: Gt::one(),
         };
 
         let pk_c = BdabePublicAttributeKey {
-            _str: String::from("C"),
-            _a1: G1::one(),
-            _a2: G2::one(),
-            _a3: Gt::one(),
+            attr: String::from("C"),
+            a1: G1::one(),
+            a2: G2::one(),
+            a3: Gt::one(),
         };
 
-        let mut pks: Vec<BdabePublicAttributeKey> = Vec::new();
-        pks.push(pk_a);
-        pks.push(pk_b);
-        pks.push(pk_c);
+        let pk_d = BdabePublicAttributeKey {
+            attr: String::from("D"),
+            a1: G1::one(),
+            a2: G2::one(),
+            a3: Gt::one(),
+        };
 
-        let policy1: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf1, &pks, PolicyLanguage::JsonPolicy).unwrap();
-        let policy2: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf2, &pks, PolicyLanguage::JsonPolicy).unwrap();
-        let policy3: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf3, &pks, PolicyLanguage::JsonPolicy).unwrap();
+        let pks: Vec<&BdabePublicAttributeKey> = vec![&pk_a, &pk_b, &pk_c, &pk_d];
 
-        assert_eq!(policy1._terms.len(), 2);
-        assert_eq!(policy2._terms.len(), 1);
-        assert_eq!(policy3._terms.len(), 3);
+        let policy1: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf1, &pks.as_slice(), PolicyLanguage::JsonPolicy).unwrap();
+        let policy2: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf2, &pks.as_slice(), PolicyLanguage::JsonPolicy).unwrap();
+        let policy3: DnfPolicy = DnfPolicy::from_string(&policy_in_dnf3, &pks.as_slice(), PolicyLanguage::JsonPolicy).unwrap();
+
+        assert_eq!(policy1.terms.len(), 3);
+        assert_eq!(policy2.terms.len(), 1);
+        assert_eq!(policy3.terms.len(), 5);
     }
 
 }

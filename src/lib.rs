@@ -18,6 +18,7 @@ extern crate aes_gcm;
 extern crate sha3;
 #[macro_use]
 extern crate pest_derive;
+extern crate core;
 
 /// rabe schemes
 pub mod schemes;
