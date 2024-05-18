@@ -6,15 +6,16 @@ extern crate deflate;
 extern crate inflate;
 #[cfg(feature = "borsh")]
 extern crate borsh;
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 extern crate serde;
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 extern crate serde_cbor;
 
 extern crate rustc_hex as hex;
 
 #[macro_use]
 extern crate clap;
+extern crate core;
 
 use hex::{FromHex, ToHex};
 use clap::{App, Arg, ArgMatches, SubCommand};
@@ -34,7 +35,7 @@ use crate::rabe::{
         file::{write_file, read_file, read_raw, write_from_vec, read_to_vec}
     }
 };
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 use serde::{
     de::DeserializeOwned,
     Serialize
@@ -46,11 +47,12 @@ use std::{
     process,
     path::Path
 };
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 use serde_cbor::{
     ser::to_vec_packed,
     from_slice
 };
+use rabe::schemes::mke08::Mke08PublicAttributeKey;
 
 // File extensions
 const CT_EXTENSION: &'static str = "ct";
@@ -602,20 +604,15 @@ fn main() {
                 );
             },
             Scheme::YCT14 => {
-                let mut _attributes: Vec<String> = Vec::new();
+                let mut attributes: Vec<&str> = Vec::new();
                 match arguments.values_of(ATTRIBUTES) {
                     None => {}
                     Some(_attr) => {
-                        let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
-                        for _a in _b {
-                            for _at in _a.split_whitespace() {
-                                _attributes.push(_at.to_string());
-                            }
-                        }
+                        attributes = _attr.collect()
                     }
                 }
-                if _attributes.len() > 0 {
-                    let (_pk, _msk) = yct14::setup(_attributes);
+                if attributes.len() > 0 {
+                    let (_pk, _msk) = yct14::setup(attributes);
                     write_file(
                         Path::new(&_msk_file),
                         ser_enc(_msk, MSK_BEGIN, MSK_END)
@@ -639,7 +636,7 @@ fn main() {
         _lang: PolicyLanguage,
     ) -> Result<(), RabeError> {
         let mut _policy: String = String::new();
-        let mut _attributes: Vec<String> = Vec::new();
+        let mut _attributes: Vec<&str> = Vec::new();
         let mut _name: String = String::from("");
         let mut _msk_file = String::from("");
         let mut _pk_file = String::from("");
@@ -672,12 +669,7 @@ fn main() {
         match arguments.values_of(ATTRIBUTES) {
             None => {}
             Some(_attr) => {
-                let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
-                for _a in _b {
-                    for _at in _a.split_whitespace() {
-                        _attributes.push(_at.to_string());
-                    }
-                }
+                _attributes = _attr.collect()
             }
         }
         match arguments.value_of(POLICY) {
@@ -765,7 +757,7 @@ fn main() {
         let mut _name = String::from("");
         let mut _name_file = String::new();
         let mut _policy: String = String::new();
-        let mut _attributes: Vec<String> = Vec::new();
+        let mut _attributes: Vec<&str> = Vec::new();
         let mut _msk_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _gp_file = String::from("");
@@ -814,12 +806,7 @@ fn main() {
         match arguments.values_of(ATTRIBUTES) {
             None => {}
             Some(_attr) => {
-                let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
-                for _a in _b {
-                    for _at in _a.split_whitespace() {
-                        _attributes.push(_at.to_string());
-                    }
-                }
+                _attributes = _attr.collect()
             }
         }
         match arguments.value_of(POLICY) {
@@ -959,7 +946,7 @@ fn main() {
                     Ok(parsed) => parsed,
                     Err(e) => return Err(e)
                 };
-                let _sk: yct14::Yct14AbeSecretKey = yct14::keygen(&_pk, &_msk, &_policy, _lang).unwrap();
+                let _sk: yct14::Yct14AbeSecretKey = yct14::keygen(&_msk, &_policy, _lang).unwrap();
                 write_file(
                     Path::new(&_sk_file),
                     ser_enc(_sk, SK_BEGIN, SK_END)
@@ -978,7 +965,7 @@ fn main() {
         let mut _dg_file = String::from("");
         let mut _pk_file = String::from("");
         let mut _policy: String = String::new();
-        let mut _attributes: Vec<String> = Vec::new();
+        let mut _attributes: Vec<&str> = Vec::new();
         match arguments.value_of(PK_FILE) {
             None => {
                 _pk_file.push_str(&PK_FILE);
@@ -1003,12 +990,7 @@ fn main() {
         match arguments.values_of(ATTRIBUTES) {
             None => {}
             Some(_attr) => {
-                let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
-                for _a in _b {
-                    for _at in _a.split_whitespace() {
-                        _attributes.push(_at.to_string());
-                    }
-                }
+                _attributes = _attr.collect()
             }
         }
         match arguments.value_of(POLICY) {
@@ -1061,7 +1043,7 @@ fn main() {
         let mut _ct_file: String = String::new();
         let mut _pt_file: String = String::new();
         let mut _policy: String = String::new();
-        let mut _attributes: Vec<String> = Vec::new();
+        let mut _attributes: Vec<&str> = Vec::new();
         match arguments.value_of(PK_FILE) {
             None => {
                 _pk_file.push_str(&PK_FILE);
@@ -1087,12 +1069,7 @@ fn main() {
         match arguments.values_of(ATTRIBUTES) {
             None => {}
             Some(_attr) => {
-                let _b: Vec<String> = _attr.map(|s| s.to_string()).collect();
-                for _a in _b {
-                    for _at in _a.split_whitespace() {
-                        _attributes.push(_at.to_string());
-                    }
-                }
+                _attributes = _attr.collect()
             }
         }
         match arguments.value_of(POLICY) {
@@ -1154,7 +1131,7 @@ fn main() {
                         Ok(parsed) => parsed,
                         Err(e) => return Err(e)
                     };
-                    let _ct = bsw::encrypt(&_pk, &_policy, &buffer, _lang);
+                    let _ct = bsw::encrypt(&_pk, &_policy, _lang, &buffer);
                     write_file(
                         Path::new(&_ct_file),
                         ser_enc(_ct, CT_BEGIN, CT_END)
@@ -1196,7 +1173,8 @@ fn main() {
                     };
                     _pks.push(_pka);
                 }
-                let _ct = aw11::encrypt(&_gp, &_pks, &_policy, _lang, &buffer);
+                let pks: Vec<&aw11::Aw11PublicKey> = _pks.iter().map(|a| a).collect();
+                let _ct = aw11::encrypt(&_gp, pks.as_slice(), &_policy, _lang, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     ser_enc(_ct, CT_BEGIN, CT_END)
@@ -1215,7 +1193,8 @@ fn main() {
                     };
                     _attr_vec.push(_pka);
                 }
-                let _ct = bdabe::encrypt(&_pk, &_attr_vec, &_policy, &buffer, _lang);
+                let attr_pks: Vec<&bdabe::BdabePublicAttributeKey> = _attr_vec.iter().map(|a| a).collect();
+                let _ct = bdabe::encrypt(&_pk, attr_pks.as_slice(), &_policy, _lang, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     ser_enc(_ct, CT_BEGIN, CT_END)
@@ -1234,7 +1213,8 @@ fn main() {
                     };
                     _attr_vec.push(_pka);
                 }
-                let _ct = mke08::encrypt(&_pk, &_attr_vec, &_policy, _lang, &buffer);
+                let attr_v: Vec<&Mke08PublicAttributeKey> = _attr_vec.iter().map(|a| a ).collect();
+                let _ct = mke08::encrypt(&_pk, &attr_v, &_policy, _lang, &buffer);
                 write_file(
                     Path::new(&_ct_file),
                     ser_enc(_ct, CT_BEGIN, CT_END)
@@ -1377,7 +1357,7 @@ fn main() {
                     Ok(parsed) => parsed,
                     Err(e) => return Err(e)
                 };
-                _pt_option = bdabe::decrypt(&_pk, &_sk, &_ct);
+                _pt_option = bdabe::decrypt(&_sk, &_ct);
             }
             Scheme::MKE08 => {
                 let _pk: mke08::Mke08PublicKey = match ser_dec(&_gp_file) {
@@ -1392,7 +1372,7 @@ fn main() {
                     Ok(parsed) => parsed,
                     Err(e) => return Err(e)
                 };
-                _pt_option = mke08::decrypt(&_pk, &_sk, &_ct);
+                _pt_option = mke08::decrypt(&_sk, &_ct);
             }
             Scheme::YCT14 => {
                 let _sk: yct14::Yct14AbeSecretKey = match ser_dec(&_sk_file) {
@@ -1571,9 +1551,9 @@ fn main() {
                         Err(e) => return Err(e)
                     };
                     match mke08::request_authority_sk(
+                        &_usk.pk,
                         &_attributes[0],
                         &_skau,
-                        &_usk.pk,
                     ) {
                         Ok(_a_sk) => {
                             write_file(
