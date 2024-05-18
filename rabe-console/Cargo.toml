@@ -1,6 +1,6 @@
 [package]
 name = "rabe-console"
-version = "0.4.0"
+version = "0.4.1"
 description = "Console App for the ABE Schemes implemented in rabe."
 authors = [
     "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",

@@ -46,14 +46,20 @@ pub fn parse(
             use utils::policy::pest::json::Rule;
             match JSONPolicyParser::parse(Rule::content, policy) {
                 Ok(mut result) => Ok(json::parse(result.next().unwrap())),
-                Err(e) => Err(e.into())
+                Err(e) => {
+                    println!("error Json Parse: {}", e);
+                    Err(e.into())
+                }
             }
         },
         PolicyLanguage::HumanPolicy => {
             use utils::policy::pest::human::Rule;
             match HumanPolicyParser::parse(Rule::content, policy) {
                 Ok(mut result) => Ok(human::parse(result.next().unwrap())),
-                Err(e) => Err(e.into())
+                Err(e) => {
+                    println!("error Human Parse: {}", e);
+                    Err(e.into())
+                }
             }
         }
     }
