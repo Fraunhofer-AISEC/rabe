@@ -3,7 +3,7 @@ use std::string::String;
 use crate::error::RabeError;
 use self::human::HumanPolicyParser;
 use self::json::JSONPolicyParser;
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
@@ -14,7 +14,7 @@ pub(crate) mod human;
 /// Policy Language Type. Currently two types are available:
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum PolicyLanguage {
     /// A JSON policy language
     JsonPolicy,
