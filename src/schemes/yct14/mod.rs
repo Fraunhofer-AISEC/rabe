@@ -38,15 +38,16 @@ use rand::Rng;
 use utils::policy::pest::{PolicyLanguage, parse};
 use crate::error::RabeError;
 use std::ops::Mul;
-#[cfg(not(feature = "borsh"))]
+use utils::secretsharing::remove_index;
+#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
-use utils::secretsharing::remove_index;
 
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Yct14Attribute {
     name: String,
     #[cfg_attr(feature = "borsh", borsh_skip)]

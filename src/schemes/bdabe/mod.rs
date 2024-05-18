@@ -37,8 +37,10 @@ use utils::{
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use crate::error::RabeError;
 use utils::policy::dnf::policy_in_dnf;
-#[cfg(not(feature = "borsh"))] use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")] use borsh::{BorshSerialize, BorshDeserialize};
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "borsh")]
+use borsh::{BorshSerialize, BorshDeserialize};
 
 /// A BDABE Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]

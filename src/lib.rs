@@ -8,7 +8,7 @@
 
 #[cfg(feature = "borsh")]
 extern crate borsh;
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 extern crate serde;
 
 extern crate rabe_bn;

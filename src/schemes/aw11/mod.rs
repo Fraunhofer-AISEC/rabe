@@ -38,8 +38,10 @@ use utils::{
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use utils::secretsharing::{gen_shares_policy, remove_index};
 use crate::error::RabeError;
-#[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")] use borsh::{BorshSerialize, BorshDeserialize};
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "borsh")]
+use borsh::{BorshSerialize, BorshDeserialize};
 
 /// An AW11 Global Parameters Key (GK)
 #[derive(Clone, PartialEq, Debug)]

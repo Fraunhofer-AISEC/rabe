@@ -31,8 +31,10 @@ use utils::{
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use crate::error::RabeError;
 use utils::secretsharing::remove_index;
-#[cfg(feature = "borsh")] use borsh::{BorshSerialize, BorshDeserialize};
-#[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
+#[cfg(feature = "borsh")]
+use borsh::{BorshSerialize, BorshDeserialize};
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
 
 /// A BSW Public Key (PK)
 #[derive(Clone, PartialEq, Debug)]

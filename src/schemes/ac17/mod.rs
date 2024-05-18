@@ -50,7 +50,7 @@ use utils::{
 };
 use utils::policy::pest::{PolicyLanguage, parse, PolicyType};
 use crate::error::RabeError;
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
