@@ -8,16 +8,14 @@ use utils::policy::pest::json::Rule as jsonRule;
 use utils::policy::pest::human::Rule as humanRule;
 use std::array::TryFromSliceError;
 use rabe_bn::FieldError;
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
-
 #[cfg(feature = "borsh")]
 use borsh::{BorshSerialize, BorshDeserialize};
 
-/// Simple, generic Error that is compose of a String
 #[derive(Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[cfg_attr(not(feature = "borsh"), derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RabeError {
     details: String,
 }

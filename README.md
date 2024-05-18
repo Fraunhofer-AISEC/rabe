@@ -46,7 +46,11 @@ Allison Lewko, Amit Sahai and Brent Waters, "Revocation Systems with Very Small 
 ## YCT14 KP-ABE
 
 Xuanxia Yao, Zhi Chen, Ye Tian, "A lightweight attribute-based encryption scheme for the Internet of things". In Future Generation Computer Systems. Available from http://www.sciencedirect.com/science/article/pii/S0167739X14002039
-
+# WARNING !
+The YCT14 scheme was broken in [1] and a 'fixed' version was again broken in [2].
+Demonstration how the attack can be implemented in practice in https://www.blackhat.com/eu-21/briefings/schedule/index.html#practical-attacks-against-attribute-based-encryption-25058.
+[1] https://ieeexplore.ieee.org/document/8651482
+[2] https://ieeexplore.ieee.org/document/9291064
 
 # Building rabe lib
 
@@ -55,7 +59,7 @@ In order to compile and test:
 - git clone library 
 - install build-essential
 - and then run `cargo build --release && RUST_BACKTRACE=1 cargo test -- --nocapture` 
-- rabe is also available with borsh serialization. just add `--features borsh` to build command
+- rabe is also available with borsh serialization. just add `--no-default-features --features borsh` to the build command
 
 # Building rabe console app
 

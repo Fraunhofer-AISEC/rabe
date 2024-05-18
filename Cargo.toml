@@ -1,6 +1,6 @@
 [package]
 name = "rabe"
-version = "0.4.0"
+version = "0.4.1"
 description = "ABE Schemes implemented in rust."
 authors = [
     "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
@@ -25,12 +25,12 @@ crate-type=["rlib", "cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-aes-gcm = "0.9.4"
-borsh = { version = "0.9.3", optional = true, default-features = false }
+aes-gcm = "0.10.3"
+borsh = { version = "1.5.0", features = ["derive"], optional = true, default-features = false }
 pest = "2.0"
 pest_derive = "2.0"
 permutation = "0.4.0"
-rabe-bn = { version = "0.4.20", optional = true, default-features = false }
+rabe-bn = { version = "0.4.22", optional = true, default-features = false }
 rand = "0.8.5"
 serde = { version = "1.0", features = ["derive"] }
 sha3 = "0.9.1"

@@ -1,5 +1,5 @@
-use aes_gcm::{Aes256Gcm, Key, Nonce}; // Or `Aes128Gcm`
-use aes_gcm::aead::{Aead, NewAead};
+use aes_gcm::{Aes256Gcm, Key, Nonce, KeyInit}; // Or `Aes128Gcm`
+use aes_gcm::aead::Aead;
 
 use crate::error::RabeError;
 use std::convert::TryInto;
@@ -11,7 +11,7 @@ pub fn encrypt_symmetric<G: std::convert::Into<Vec<u8>>>(msg: G, data: &Vec<u8>)
     let mut rng = thread_rng();
     // 256bit key hashed/derived from _msg G
     let kdf = kdf(msg);
-    let key = Key::from_slice(kdf.as_slice());
+    let key = Key::<Aes256Gcm>::from_slice(kdf.as_slice());
     let cipher = Aes256Gcm::new(key);
     // 96bit random noise
     let nonce_vec: Vec<u8> = (0..12).into_iter().map(|_| rng.gen()).collect(); // 12*u8 = 96 Bit
@@ -34,7 +34,7 @@ pub fn decrypt_symmetric<G: std::convert::Into<Vec<u8>>>(msg: G, _nonce_ct: &Vec
     };
     // 256bit key hashed/derived from _msg G
     let kdf = kdf(msg);
-    let key = Key::from_slice(kdf.as_slice());
+    let key = Key::<Aes256Gcm>::from_slice(kdf.as_slice());
     let cipher = Aes256Gcm::new(key);
     let nonce = Nonce::from_slice(nonce_vec.as_ref());
     match cipher.decrypt(nonce, ciphertext.as_ref()) {
