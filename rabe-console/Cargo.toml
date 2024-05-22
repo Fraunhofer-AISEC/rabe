@@ -15,24 +15,24 @@ repository = "https://github.com/Fraunhofer-AISEC/rabe"
 documentation = "https://docs.rs/rabe"
 
 [features]
-default = ["serde"]
+default = ["borsh"]
 std = []
 borsh = ["borsh/std", "rabe/borsh"]
-serde = ["serde/std", "serde_cbor/std", "rabe/serde"]
+serde = ["serde/serde_derive", "serde_cbor/std", "rabe/serde"]
 
 [[bin]]
 name = "rabe"
 path = "src/mod.rs"
 
 [dependencies]
-borsh = { version = "1.5.0", features = ["derive"], optional = true, default-features = false }
+borsh = { version = "1.5.0", optional = true, default-features = false, features = ["derive"] }
 rustc-hex = "2.1.0"
 deflate = "1.0.0"
 inflate = "0.4.5"
 clap = "2.33.3"
 rand = "0.8.5"
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", optional = true, default-features = false }
 serde_cbor = { version = "0.11.2", optional = true, default-features = false }
 pest = "2.7.10"
 pest_derive = "2.7.10"
-rabe = { path = "..", optional = true, default-features = false }
+rabe = { path = "..", default-features = false, features = ["borsh"]  }

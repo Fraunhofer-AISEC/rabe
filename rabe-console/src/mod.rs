@@ -1623,16 +1623,18 @@ fn main() {
 #[cfg(feature = "borsh")]
 fn ser_enc<T: BorshSerialize>(input: T, head: &str, tail: &str) -> String {
     use deflate::deflate_bytes;
+    let mut buffer: Vec<u8> = Vec::new();
+    input.serialize(&mut buffer).unwrap();
     [
         head.to_string(),
         deflate_bytes(
-                &input.try_to_vec().unwrap()
+                &buffer
         ).to_hex(),
         tail.to_string()
     ].concat()
 }
 
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 fn ser_enc<T: Serialize>(input: T, head: &str, tail: &str) -> String {
     use deflate::deflate_bytes;
     [
@@ -1656,7 +1658,7 @@ fn ser_dec<T: BorshDeserialize>(file_name: &String) -> Result<T, RabeError> {
     }
 }
 
-#[cfg(not(feature = "borsh"))]
+#[cfg(feature = "serde")]
 fn ser_dec<T: DeserializeOwned>(file_name: &String) -> Result<T, RabeError> {
     match ser_dec_bin(file_name) {
         Ok(parsed_bin) => match from_slice(&parsed_bin) {
