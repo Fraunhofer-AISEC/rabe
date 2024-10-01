@@ -26,4 +26,4 @@ pub mod schemes;
 pub mod utils;
 /// rabe error, that is used in the library
 pub mod error;
-
+pub mod ffi;

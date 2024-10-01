@@ -1,15 +1,15 @@
-use libc::*;
+extern crate libc;
+
+use self::libc::*;
 use schemes::bsw::*;
 use utils::policy::pest::PolicyLanguage;
-use serde_json;
+use serde::{Deserialize, Serialize};
 use std::ffi::CStr;
 use std::mem;
 use std::mem::transmute;
 use std::ops::Deref;
 use std::string::String;
 use std::{ptr, slice};
-
-extern crate libc;
 
 
 /// A BSW ABE Context
@@ -42,18 +42,14 @@ pub extern "C" fn rabe_bsw_keygen(
     ctx: *mut CpAbeContext,
     attributes: *const c_char,
 ) -> *mut CpAbeSecretKey {
-    //let _attr = unsafe { &mut *attributes };
     let _cstr = unsafe { CStr::from_ptr(attributes).to_str().unwrap() };
-    let mut _attrs = _cstr.split(",");
-    let mut _attr_vec = Vec::new();
-    for _a in _attrs {
-        _attr_vec.push(String::from(_a));
-    }
-    //let attr_vec: Vec<_> = _attr.iter().map(|arg| arg.to_string()).collect();
+    let mut _attr_vec: Vec<&str> = _cstr.split(",").collect();
+    let attrs_vec: &[&str] = &_attr_vec;
+
     let _ctx = unsafe { &*ctx };
     let _sk = unsafe {
         transmute(Box::new(
-            keygen(&(_ctx._pk), &(_ctx._msk), &_attr_vec).unwrap(),
+            keygen(&(_ctx._pk), &(_ctx._msk), &attrs_vec).unwrap(),
         ))
     };
     _sk
@@ -72,7 +68,8 @@ pub extern "C" fn rabe_bsw_delegate(
     attributes: *mut Vec<String>,
 ) -> *mut CpAbeSecretKey {
     let _attr = unsafe { &mut *attributes };
-    let attr_vec: Vec<_> = _attr.iter().map(|arg| arg.to_string()).collect();
+    let attr_vec: Vec<_> = _attr.iter().map(|arg| arg.as_str()).collect();
+
     let _ctx = unsafe { &*ctx };
     let _sk = unsafe { &*sk };
     let _dsk = unsafe { transmute(Box::new(delegate(&_ctx._pk, &_sk, &attr_vec).unwrap())) };
@@ -100,16 +97,32 @@ pub extern "C" fn rabe_bsw_encrypt(
     let _slice = unsafe { slice::from_raw_parts(pt, pt_len as usize) };
     let mut _data_vec = Vec::new();
     _data_vec.extend_from_slice(_slice);
-    let _res = encrypt(&(_ctx._pk), &pol_tmp, &_data_vec, PolicyLanguage::JsonPolicy);
+    /*
+    let _res = encrypt(&(_ctx._pk), &pol_tmp, PolicyLanguage::JsonPolicy, &_data_vec);
+
     if let None = _res {
         return -1;
     }
     let _ct = _res.unwrap();
+    */
+    let _ct = match encrypt(&(_ctx._pk), &pol_tmp, PolicyLanguage::JsonPolicy, &_data_vec) {
+        Ok(ct) => ct,
+        Err(_) => return -1,
+    };
+
+    let _ct_str = match serde_json::to_string(&_ct) {
+        Ok(ser_str) => ser_str,
+        Err(_) => return -1,
+    };
+
+    /*
     let _ct_ser_str = serde_json::to_string(&_ct);
     if let Err(_) = _ct_ser_str {
         return -1;
     }
     let _ct_str = _ct_ser_str.unwrap();
+    */
+
     unsafe {
         let _size = (_ct_str.len() + 1) as u32;
         *ct_buf = libc::malloc(_size as usize) as *mut u8;
@@ -124,7 +137,7 @@ pub extern "C" fn rabe_bsw_encrypt(
 #[no_mangle]
 pub extern "C" fn rabe_bsw_decrypt_get_size(ct: *mut CpAbeCiphertext) -> u32 {
     let _ct = unsafe { &mut *ct };
-    (_ct._ct.len() as u32) - 16
+    (_ct.data.len() as u32) - 16
 }
 
 #[no_mangle]
@@ -148,16 +161,17 @@ pub extern "C" fn rabe_bsw_decrypt(
         return -1;
     }
     let _ct: CpAbeCiphertext = _serde_res.unwrap();
+
     match decrypt(_sk, &_ct) {
-        None => return -1,
-        Some(_pt) => {
+        Ok(_pt) => {
             unsafe {
-                let _size = (_ct._ct.len() as u32) - 16;
+                let _size = (_ct.data.len() as u32) - 16;
                 *pt_buf = libc::malloc(_size as usize) as *mut u8;
                 ptr::copy_nonoverlapping(&_pt.as_slice()[0], *pt_buf, _size as usize);
                 ptr::copy_nonoverlapping(&_size, pt_buf_len, mem::size_of::<u32>());
             }
             return 0;
         }
+        Err(_) => return -1,
     }
 }
