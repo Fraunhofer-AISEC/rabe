@@ -5,36 +5,74 @@ use schemes::bsw::*;
 use utils::policy::pest::PolicyLanguage;
 use serde::{Deserialize, Serialize};
 use std::ffi::CStr;
-use std::mem;
 use std::mem::transmute;
-use std::ops::Deref;
 use std::string::String;
-use std::{ptr, slice};
+use std::slice;
+
+// TODO: Delete me
+use std::mem;
+use std::fs::File;
+use std::io::{Write, Result};
 
 
 /// A BSW ABE Context
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[repr(C)]
 pub struct CpAbeContext {
     pub _msk: CpAbeMasterKey,
     pub _pk: CpAbePublicKey,
 }
 
+/// The BufferFfi is heap-allocated in Rust and returned to the calling C/C++
+/// code. As a consequence, it is safer to wrap the heap pointer in a data
+/// structure that we can re-construct when we have to free it. Note that
+/// if you use this method you need to free the cipher text after:
+///
+/// ```cpp
+/// BufferFfi* cipherText = nullptr;
+///
+/// ...
+///
+/// rabe_bsw_free_ciphertext(cipherText);
+/// ```
+#[repr(C)]
+pub struct BufferFfi {
+    data: *mut u8,
+    len: usize,
+}
+
 #[no_mangle]
 pub extern "C" fn rabe_bsw_context_create() -> *mut CpAbeContext {
     let (_pk, _msk) = setup();
-    let _ctx = unsafe {
-        transmute(Box::new(CpAbeContext {
-            _pk: _pk,
-            _msk: _msk,
-        }))
+    let ctx = Box::new(CpAbeContext {
+            _pk,
+            _msk,
+    });
+
+    // Box::into_raw(ctx)
+
+    // TMP: dump box contents to a file to read them from a file in C++ to
+    // simulate fetching them from online
+    let ptr = Box::into_raw(ctx);
+
+    let mut file = File::create("/tmp/context").unwrap();
+    let byte_slice = unsafe {
+        std::slice::from_raw_parts(ptr as *const u8, mem::size_of::<CpAbeContext>())
     };
-    _ctx
+
+    file.write_all(byte_slice).unwrap();
+
+    ptr
 }
 
 #[no_mangle]
 pub extern "C" fn rabe_bsw_context_destroy(ctx: *mut CpAbeContext) {
-    let _ctx: Box<CpAbeContext> = unsafe { transmute(ctx) };
-    let _context = _ctx.deref();
+    if ctx.is_null() {
+        return;
+    }
+
+    let _ctx: Box<CpAbeContext> = unsafe { Box::from_raw(ctx) };
+    // Box will be de-allocated when it goes out of scope
 }
 
 #[no_mangle]
@@ -47,18 +85,19 @@ pub extern "C" fn rabe_bsw_keygen(
     let attrs_vec: &[&str] = &_attr_vec;
 
     let _ctx = unsafe { &*ctx };
-    let _sk = unsafe {
-        transmute(Box::new(
-            keygen(&(_ctx._pk), &(_ctx._msk), &attrs_vec).unwrap(),
-        ))
-    };
-    _sk
+    let sk = Box::new(keygen(&(_ctx._pk), &(_ctx._msk), &attrs_vec).unwrap());
+
+    Box::into_raw(sk)
 }
 
 #[no_mangle]
 pub extern "C" fn rabe_bsw_keygen_destroy(sk: *mut CpAbeSecretKey) {
-    let _sk: Box<CpAbeSecretKey> = unsafe { transmute(sk) };
-    let _sk = _sk.deref();
+    if sk.is_null() {
+        return;
+    }
+
+    let _sk: Box<CpAbeSecretKey> = unsafe { Box::from_raw(sk) };
+    // Box will be de-allocated when it goes out of scope
 }
 
 #[no_mangle]
@@ -78,34 +117,49 @@ pub extern "C" fn rabe_bsw_delegate(
 
 #[no_mangle]
 pub extern "C" fn rabe_bsw_encrypt(
-    ctx: *mut CpAbeContext,
+    ctx: *mut std::ffi::c_void,
     policy: *mut c_char,
-    pt: *mut u8,
-    pt_len: u32,
-    ct_buf: *mut *mut u8,
-    ct_buf_len: *mut u32,
+    policy_lang: *mut c_char,
+    pt: *const u8,
+    pt_len: usize,
+    ct: *mut *mut BufferFfi,
 ) -> i32 {
-    let p = unsafe { &mut *policy };
-    let mut _pol = unsafe { CStr::from_ptr(p) };
-    let mut pol_tmp = String::with_capacity(_pol.to_bytes().len());
-    let _pol_str = _pol.to_str();
-    if let Err(_) = _pol_str {
+    // Parse context
+    if ctx.is_null() {
         return -1;
     }
-    pol_tmp.insert_str(0, _pol_str.unwrap());
-    let _ctx = unsafe { &*ctx };
-    let _slice = unsafe { slice::from_raw_parts(pt, pt_len as usize) };
-    let mut _data_vec = Vec::new();
-    _data_vec.extend_from_slice(_slice);
-    /*
-    let _res = encrypt(&(_ctx._pk), &pol_tmp, PolicyLanguage::JsonPolicy, &_data_vec);
+    let _ctx = unsafe { &*(ctx as *mut CpAbeContext) };
 
-    if let None = _res {
+    // Parse policy string
+    let p = unsafe { &mut *policy };
+    let _pol = unsafe { CStr::from_ptr(p) };
+    let _pol_str = _pol.to_str();
+    if _pol_str.is_err() {
         return -1;
     }
-    let _ct = _res.unwrap();
-    */
-    let _ct = match encrypt(&(_ctx._pk), &pol_tmp, PolicyLanguage::JsonPolicy, &_data_vec) {
+    let pol_tmp = _pol_str.unwrap().to_string();
+
+    // Parse policy language
+    let p_lang = unsafe { &mut *policy_lang };
+    let mut _pol_lang = unsafe { CStr::from_ptr(p_lang) };
+    let mut pol_lang_tmp = String::with_capacity(_pol_lang.to_bytes().len());
+    let _pol_lang_str = match _pol_lang.to_str() {
+        Ok(p) => p,
+        Err(_) => return -1,
+    };
+    pol_lang_tmp.insert_str(0, _pol_lang_str);
+
+    let _pol_enum : PolicyLanguage = match pol_lang_tmp.parse() {
+        Ok(p) => p,
+        Err(_) => return -1,
+    };
+
+    // Parse plain-text
+    let _slice = unsafe { slice::from_raw_parts(pt, pt_len) };
+    let plaintext: Vec<u8> = _slice.to_vec();
+
+    // Encrypt plaintext
+    let _ct = match encrypt(&(_ctx._pk), &pol_tmp, _pol_enum, &plaintext) {
         Ok(ct) => ct,
         Err(_) => return -1,
     };
@@ -115,23 +169,39 @@ pub extern "C" fn rabe_bsw_encrypt(
         Err(_) => return -1,
     };
 
-    /*
-    let _ct_ser_str = serde_json::to_string(&_ct);
-    if let Err(_) = _ct_ser_str {
-        return -1;
-    }
-    let _ct_str = _ct_ser_str.unwrap();
-    */
+    // Copy the serialized cipher-text into a heap-allocated buffer that we
+    // pass to C/C++
+    let mut data_vec = Vec::with_capacity(_ct_str.len() + 1);
+    let size = _ct_str.len();
+    data_vec.extend_from_slice(_ct_str.as_bytes());
+    data_vec.push(0);
 
+    // Create the BufferFfi struct
+    let cipher_text = Box::new(BufferFfi {
+        data: data_vec.as_mut_ptr(),
+        len: size,
+    });
+
+    // Keep the Vec alive until we free it later
+    std::mem::forget(data_vec);
+
+    // Return the pointer to the struct
     unsafe {
-        let _size = (_ct_str.len() + 1) as u32;
-        *ct_buf = libc::malloc(_size as usize) as *mut u8;
-        ptr::write_bytes(*ct_buf, 0, _size as usize);
-        ptr::copy_nonoverlapping(_ct_str.as_ptr(), *ct_buf, _ct_str.len() as usize);
-
-        ptr::copy_nonoverlapping(&_size, ct_buf_len, mem::size_of::<u32>());
+        *ct = Box::into_raw(cipher_text);
     }
     0
+}
+
+#[no_mangle]
+pub extern "C" fn rabe_bsw_free_buffer_ffi(buf: *mut BufferFfi) {
+    if buf.is_null() {
+        return;
+    }
+
+    unsafe {
+        let cipher_text = Box::from_raw(buf);
+        libc::free(cipher_text.data as *mut libc::c_void);
+    }
 }
 
 #[no_mangle]
@@ -144,31 +214,56 @@ pub extern "C" fn rabe_bsw_decrypt_get_size(ct: *mut CpAbeCiphertext) -> u32 {
 pub extern "C" fn rabe_bsw_decrypt(
     sk: *mut CpAbeSecretKey,
     ct: *mut u8,
-    ct_len: u32,
-    pt_buf: *mut *mut u8,
-    pt_buf_len: *mut u32,
+    ct_len: usize,
+    pt: *mut *mut BufferFfi,
 ) -> i32 {
-    let _sk = unsafe { &mut *sk };
-
-    let mut _cstr = unsafe { CStr::from_ptr(ct as *mut c_char) };
-    let _cstr_str = _cstr.to_str();
-    if let Err(_) = _cstr_str {
+    if sk.is_null() {
         return -1;
     }
-    assert!(_cstr_str.unwrap().len() == (ct_len - 1) as usize);
-    let _serde_res = serde_json::from_str(_cstr_str.unwrap());
-    if let Err(_) = _serde_res {
+    let _sk = unsafe { &mut *sk };
+
+    // Parse cipher-text string
+    let _ct_str = unsafe { CStr::from_ptr(ct as *mut c_char) };
+    let ct_str = _ct_str.to_str();
+    if ct_str.is_err() {
+        // WARNING: we are failing here. cipher text is corrupted
+        println!("rabe: error: cannot parse cipher-text to string");
+        return -1;
+    }
+
+    // assert!(ct_str.unwrap().len() == ct_len);
+    let _serde_res = serde_json::from_str(ct_str.unwrap());
+    if _serde_res.is_err() {
+        println!("rabe: error: cannot parse cipher-text to struct");
         return -1;
     }
     let _ct: CpAbeCiphertext = _serde_res.unwrap();
 
     match decrypt(_sk, &_ct) {
         Ok(_pt) => {
+            // Copy the plain-text into a heap-allocated buffer that we pass
+            // to C/C++
+            let mut data_vec = _pt.clone();
+            let size = _pt.len();
+
+            // Create the CipherText struct
+            let plain_text = Box::new(BufferFfi {
+                data: data_vec.as_mut_ptr(),
+                len: size,
+            });
+
+            // Keep the Vec alive until we free it later
+            std::mem::forget(data_vec);
+
+            // Return the pointer to the struct
             unsafe {
+                /*
                 let _size = (_ct.data.len() as u32) - 16;
                 *pt_buf = libc::malloc(_size as usize) as *mut u8;
                 ptr::copy_nonoverlapping(&_pt.as_slice()[0], *pt_buf, _size as usize);
                 ptr::copy_nonoverlapping(&_size, pt_buf_len, mem::size_of::<u32>());
+                */
+                *pt = Box::into_raw(plain_text);
             }
             return 0;
         }

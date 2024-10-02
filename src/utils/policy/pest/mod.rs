@@ -1,4 +1,6 @@
 use pest::Parser;
+use std::fmt;
+use std::str::FromStr;
 use std::string::String;
 use crate::error::RabeError;
 use self::human::HumanPolicyParser;
@@ -20,6 +22,28 @@ pub enum PolicyLanguage {
     JsonPolicy,
     /// A natural human language
     HumanPolicy,
+}
+
+// Define an error type for invalid string inputs
+#[derive(Debug)]
+pub struct PolicyLanguageParseError;
+
+impl fmt::Display for PolicyLanguageParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Error parsing policy language as string")
+    }
+}
+
+impl FromStr for PolicyLanguage {
+    type Err = PolicyLanguageParseError;
+
+    fn from_str(policy: &str) -> Result<PolicyLanguage, Self::Err> {
+        match policy {
+            "JsonPolicy" => Ok(PolicyLanguage::JsonPolicy),
+            "HumanPolicy" => Ok(PolicyLanguage::HumanPolicy),
+            _ => Err(PolicyLanguageParseError),
+        }
+    }
 }
 
 /// Internally there are only three types of nodes: AND, OR and LEAF nodes
