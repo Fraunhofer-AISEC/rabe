@@ -181,8 +181,7 @@ pub extern "C" fn rabe_bsw_free_buffer_ffi(buf: *mut BufferFfi) {
     }
 
     unsafe {
-        let cipher_text = Box::from_raw(buf);
-        libc::free(cipher_text.data as *mut libc::c_void);
+        let _ = Box::from_raw(buf);
     }
 }
 
@@ -237,12 +236,6 @@ pub extern "C" fn rabe_bsw_decrypt(
 
             // Return the pointer to the struct
             unsafe {
-                /*
-                let _size = (_ct.data.len() as u32) - 16;
-                *pt_buf = libc::malloc(_size as usize) as *mut u8;
-                ptr::copy_nonoverlapping(&_pt.as_slice()[0], *pt_buf, _size as usize);
-                ptr::copy_nonoverlapping(&_size, pt_buf_len, mem::size_of::<u32>());
-                */
                 *pt = Box::into_raw(plain_text);
             }
             return 0;

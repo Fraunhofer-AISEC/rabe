@@ -21,7 +21,8 @@ serde = ["serde/derive", "rabe-bn/serde"]
 
 [lib]
 name="rabe"
-crate-type=["rlib", "cdylib"]
+# crate-type=["rlib", "cdylib"]
+crate-type=["rlib", "staticlib"]
 path = "src/lib.rs"
 
 [dependencies]
