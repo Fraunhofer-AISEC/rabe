@@ -45,21 +45,6 @@ pub extern "C" fn rabe_bsw_context_create() -> *mut CpAbeContext {
     });
 
     Box::into_raw(ctx)
-
-    // TMP: dump box contents to a file to read them from a file in C++ to
-    // simulate fetching them from online
-    /*
-    let ptr = Box::into_raw(ctx);
-
-    let mut file = File::create("/tmp/context").unwrap();
-    let byte_slice = unsafe {
-        std::slice::from_raw_parts(ptr as *const u8, mem::size_of::<CpAbeContext>())
-    };
-
-    file.write_all(byte_slice).unwrap();
-
-    ptr
-    */
 }
 
 #[no_mangle]
