@@ -34,8 +34,10 @@ extern "C" {
 
     int32_t rabe_bsw_decrypt(
         CpAbeSecretKey* secretKey,
+        // WARNING: cipherText must be null-terminated (consider treating it
+        // as a string on C++, make sure we understand why Rabe uses it like
+        // a string)
         const uint8_t* cipherText,
-        size_t cipherTextLen,
         BufferFfi** actualPlainText);
 }
 

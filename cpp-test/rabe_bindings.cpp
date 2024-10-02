@@ -1,15 +1,10 @@
-#include "test.hpp"
+#include "rabe_bindings.hpp"
 
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <vector>
-
-// API
-// encrypt
-// decrypt
-// keyGen
 
 namespace tless {
 static std::string join(const std::vector<std::string>& vec, const std::string& delimiter) {
@@ -34,7 +29,8 @@ void CpAbeContextWrapper::createKeys()
 // TODO: make this fetch from the internet instead
 bool CpAbeContextWrapper::fetchKeys()
 {
-    std::ifstream inputFile("/tmp/context", std::ios::binary | std::ios::ate);
+    // WARNING: we are using an INSECURE test context here
+    std::ifstream inputFile("./test_context.data", std::ios::binary | std::ios::ate);
 
     if (!inputFile) {
         std::cerr << "Failed to open file!" << std::endl;
@@ -114,7 +110,7 @@ std::vector<uint8_t> CpAbeContextWrapper::cpAbeDecrypt(
 
     // Decrypt ciphertext
     BufferFfi* plainText = nullptr;
-    int ret = rabe_bsw_decrypt(secretKey, cipherText.data(), cipherText.size(), &plainText);
+    int ret = rabe_bsw_decrypt(secretKey, cipherText.data(), &plainText);
     if (ret != 0 || plainText == nullptr) {
         if (plainText != nullptr) {
             std::cerr << "here?" << std::endl;
@@ -139,7 +135,6 @@ std::vector<uint8_t> CpAbeContextWrapper::cpAbeDecrypt(
 
 int main()
 {
-    // TODO: try get by calling setup instead of file
     auto& ctx = tless::CpAbeContextWrapper::get();
 
     // Prepare encryption
@@ -162,80 +157,3 @@ int main()
     std::cout << "Encryption worked!" << std::endl;
     return 0;
 }
-
-/*
-int main()
-{
-    // Create the context
-    CpAbeContext* ctx = rabe_bsw_context_create();
-
-    if (ctx == nullptr) {
-        std::cerr << "Failed to create context!" << std::endl;
-        return -1;
-    }
-
-    std::string plainText = "dance like no one's watching, encrypt like everyone is!";
-    std::string policy = "\"A\" and \"B\"";
-    std::string policyLanguage = "HumanPolicy";
-
-    BufferFfi* cipherText = nullptr;
-    int ret = rabe_bsw_encrypt(ctx,
-                               policy.c_str(),
-                               policyLanguage.c_str(),
-                               reinterpret_cast<const uint8_t*>(plainText.c_str()),
-                               plainText.size(),
-                               &cipherText);
-    if (ret != 0 || cipherText == nullptr) {
-        std::cerr << "Falied to encrypt cipher text!" << std::endl;
-        return -1;
-    }
-
-    std::cout << "Managed to encrypt cipher text!" << std::endl;
-
-    // Comma-separated list of attributes to generate our decryption key
-    std::string attributes = "A,B";
-    CpAbeSecretKey* secretKey = nullptr;
-    secretKey = rabe_bsw_keygen(ctx, attributes.c_str());
-
-    if (secretKey == nullptr) {
-        std::cerr << "Failed to generate decryption key" << std::endl;
-    }
-    std::cout << "Managed to generate decryption key" << std::endl;
-
-    // Decrypt ciphertext
-    BufferFfi* actualPlainText = nullptr;
-    ret = rabe_bsw_decrypt(secretKey, cipherText->data, cipherText->size, &actualPlainText);
-    if (ret != 0 || actualPlainText == nullptr) {
-        std::cerr << "Failed to decrypt cipher text" << std::endl;
-    }
-
-    std::cout << "Plain Text Size: " << plainText.size() << std::endl;
-    std::cout << "Actual Plain Text Size: " << actualPlainText->size << std::endl;
-
-    std::string actualPlainTextStr;
-    actualPlainTextStr.assign(reinterpret_cast<char*>(actualPlainText->data), actualPlainText->size);
-
-    std::cout << "Plain Text: " << plainText << std::endl;
-    std::cout << "Actual Plain Text: " << actualPlainTextStr << std::endl;
-
-    if (actualPlainTextStr == plainText) {
-        std::cout << "Decryption succeeded!!! YAS" << std::endl;
-    }
-
-    // Destroy the secret key
-    rabe_bsw_keygen_destroy(secretKey);
-
-    // Clean-up buffers
-    std::cout << "Cipher size: " << cipherText->size << std::endl;
-    rabe_bsw_free_buffer_ffi(cipherText);
-    std::cout << "Managed to free cipher-text" << std::endl;
-
-    rabe_bsw_free_buffer_ffi(actualPlainText);
-    std::cout << "Managed to free plain-text" << std::endl;
-
-    // Destroy the context
-    rabe_bsw_context_destroy(ctx);
-
-    return 0;
-}
-*/

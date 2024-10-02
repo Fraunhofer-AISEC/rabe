@@ -9,11 +9,6 @@ use std::mem::transmute;
 use std::string::String;
 use std::slice;
 
-// TODO: Delete me
-use std::mem;
-use std::fs::File;
-use std::io::{Write, Result};
-
 
 /// A BSW ABE Context
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -49,10 +44,11 @@ pub extern "C" fn rabe_bsw_context_create() -> *mut CpAbeContext {
             _msk,
     });
 
-    // Box::into_raw(ctx)
+    Box::into_raw(ctx)
 
     // TMP: dump box contents to a file to read them from a file in C++ to
     // simulate fetching them from online
+    /*
     let ptr = Box::into_raw(ctx);
 
     let mut file = File::create("/tmp/context").unwrap();
@@ -63,6 +59,7 @@ pub extern "C" fn rabe_bsw_context_create() -> *mut CpAbeContext {
     file.write_all(byte_slice).unwrap();
 
     ptr
+    */
 }
 
 #[no_mangle]
@@ -214,7 +211,6 @@ pub extern "C" fn rabe_bsw_decrypt_get_size(ct: *mut CpAbeCiphertext) -> u32 {
 pub extern "C" fn rabe_bsw_decrypt(
     sk: *mut CpAbeSecretKey,
     ct: *mut u8,
-    ct_len: usize,
     pt: *mut *mut BufferFfi,
 ) -> i32 {
     if sk.is_null() {
@@ -231,7 +227,6 @@ pub extern "C" fn rabe_bsw_decrypt(
         return -1;
     }
 
-    // assert!(ct_str.unwrap().len() == ct_len);
     let _serde_res = serde_json::from_str(ct_str.unwrap());
     if _serde_res.is_err() {
         println!("rabe: error: cannot parse cipher-text to struct");

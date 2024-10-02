@@ -38,7 +38,7 @@ pub fn decrypt_symmetric<G: std::convert::Into<Vec<u8>>>(msg: G, _nonce_ct: &Vec
     let cipher = Aes256Gcm::new(key);
     let nonce = Nonce::from_slice(nonce_vec.as_ref());
     match cipher.decrypt(nonce, ciphertext.as_ref()) {
-        Ok(data) => {println!("bar"); Ok(data)},
+        Ok(data) => Ok(data),
         Err(e) => Err(RabeError::new(&format!("decryption error: {:?}", e.to_string())))
     }
 }
