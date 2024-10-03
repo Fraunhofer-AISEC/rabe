@@ -6,7 +6,7 @@
 #include <sstream>
 #include <vector>
 
-namespace tless {
+namespace rabe {
 static std::string join(const std::vector<std::string>& vec, const std::string& delimiter) {
     std::ostringstream result;
     for (size_t i = 0; i < vec.size(); ++i) {
@@ -27,28 +27,30 @@ void CpAbeContextWrapper::createKeys()
 }
 
 // TODO: make this fetch from the internet instead
-bool CpAbeContextWrapper::fetchKeys()
+bool CpAbeContextWrapper::fetchKeys(const ContextFetchMode& fetchMode)
 {
-    // WARNING: we are using an INSECURE test context here
-    std::ifstream inputFile("./test_context.data", std::ios::binary | std::ios::ate);
+    if (fetchMode == ContextFetchMode::FromTmpFile) {
+        // WARNING: we are using an INSECURE test context here
+        std::ifstream inputFile("./test_context.data", std::ios::binary | std::ios::ate);
 
-    if (!inputFile) {
-        std::cerr << "Failed to open file!" << std::endl;
-        return false;
+        if (!inputFile) {
+            std::cerr << "Failed to open file!" << std::endl;
+            return false;
+        }
+
+        auto fileSize = inputFile.tellg();
+        inputFile.seekg(0, std::ios::beg);
+
+        uint8_t* buffer = (uint8_t*) malloc(fileSize);
+        if (!inputFile.read(reinterpret_cast<char*>(buffer), fileSize)) {
+            std::cerr << "Failed to read file!" << std::endl;
+            free(buffer);
+            return false;
+        }
+
+        _ctx = (CpAbeContext*) buffer;
+        this->externalContext = true;
     }
-
-    auto fileSize = inputFile.tellg();
-    inputFile.seekg(0, std::ios::beg);
-
-    uint8_t* buffer = (uint8_t*) malloc(fileSize);
-    if (!inputFile.read(reinterpret_cast<char*>(buffer), fileSize)) {
-        std::cerr << "Failed to read file!" << std::endl;
-        free(buffer);
-        return false;
-    }
-
-    _ctx = (CpAbeContext*) buffer;
-    this->externalContext = true;
 
     return true;
 }
@@ -133,9 +135,10 @@ std::vector<uint8_t> CpAbeContextWrapper::cpAbeDecrypt(
 }
 }
 
+/*
 int main()
 {
-    auto& ctx = tless::CpAbeContextWrapper::get();
+    auto& ctx = rabe::CpAbeContextWrapper::get(rabe::ContextFetchMode::Create);
 
     // Prepare encryption
     std::string plainText = "dance like no one's watching, encrypt like everyone is!";
@@ -157,3 +160,4 @@ int main()
     std::cout << "Encryption worked!" << std::endl;
     return 0;
 }
+*/

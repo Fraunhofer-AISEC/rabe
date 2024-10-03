@@ -10,3 +10,4 @@ target
 rabe.iml
 Cargo.lock
 **/.DS_Store
+build
