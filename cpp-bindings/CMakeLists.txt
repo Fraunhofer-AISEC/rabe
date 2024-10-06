@@ -16,7 +16,7 @@ set(CMAKE_EXE_LINKER_FLAGS
 )
 message(STATUS "Detected wasm build (sysroot=$ENV{FAASM_WASM_SYSROOT})")
 
-add_library(rabe-cpp rabe_bindings.cpp)
+add_library(rabe-cpp rabe_bindings.cpp tless_aes.cpp)
 
 # WARNING: this step requires rabe to be cross-compiled to WASM beforehand
 target_link_libraries(rabe-cpp PUBLIC rabe)
