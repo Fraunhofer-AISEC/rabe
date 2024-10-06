@@ -41,8 +41,7 @@ extern "C" {
         BufferFfi** actualPlainText);
 }
 
-namespace rabe {
-
+namespace tless::abe {
 enum ContextFetchMode {
     Create,
     FromTmpFile,

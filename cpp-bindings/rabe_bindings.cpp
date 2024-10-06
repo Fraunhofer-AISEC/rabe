@@ -6,7 +6,7 @@
 #include <sstream>
 #include <vector>
 
-namespace rabe {
+namespace tless::abe {
 static std::string join(const std::vector<std::string>& vec, const std::string& delimiter) {
     std::ostringstream result;
     for (size_t i = 0; i < vec.size(); ++i) {
@@ -138,7 +138,7 @@ std::vector<uint8_t> CpAbeContextWrapper::cpAbeDecrypt(
 /*
 int main()
 {
-    auto& ctx = rabe::CpAbeContextWrapper::get(rabe::ContextFetchMode::Create);
+    auto& ctx = tless::abe::CpAbeContextWrapper::get(tless::abe::ContextFetchMode::Create);
 
     // Prepare encryption
     std::string plainText = "dance like no one's watching, encrypt like everyone is!";
