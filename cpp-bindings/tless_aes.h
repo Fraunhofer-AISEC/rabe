@@ -7,7 +7,7 @@
 #include <vector>
 
 #define TLESS_AES256GCM_NONCE_SIZE 12
-#define TLESS_AES256GCM_AUTH_SIZE 12
+#define TLESS_AES256GCM_AUTH_SIZE 16
 
 extern "C" {
 void aes256gcm_encrypt(const uint8_t* keyPtr,
