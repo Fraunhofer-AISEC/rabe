@@ -28,6 +28,7 @@ std::vector<uint8_t> decrypt(std::vector<uint8_t> key,
                              std::vector<uint8_t> nonce,
                              std::vector<uint8_t> cipherText)
 {
+    std::cout << "here too" << std::endl;
     size_t plainTextSize = cipherText.size() - AUTH_SIZE - NONCE_SIZE;
     std::vector<uint8_t> plainText(plainTextSize);
 
