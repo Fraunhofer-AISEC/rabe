@@ -21,7 +21,7 @@ endif ()
 add_library(rabe-cpp rabe_bindings.cpp tless_aes.cpp)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "WASI")
-    target_compile_definitions(rabe-cpp __faasm)
+    target_compile_definitions(rabe-cpp PUBLIC __faasm)
     target_link_libraries(rabe-cpp PUBLIC rabe)
 else ()
     target_link_libraries(rabe-cpp PUBLIC /usr/local/lib/librabe.a)
