@@ -62,8 +62,9 @@ pub extern "C" fn aes256gcm_decrypt(
         slice::from_raw_parts(nonce_ptr, nonce_len)
     };
 
-    // Check CT size (we pre-allocate it to avoid heap-allocations cross FFI)
-    assert!(ciphertext_len == plaintext_len + nonce_len + 16);
+    // Check CT size (we pre-allocate it to avoid heap-allocations cross FFI,
+    // but we already separate CT and Nonce in the caller)
+    assert!(ciphertext_len == plaintext_len + 16);
     let ciphertext: &[u8] = unsafe {
         slice::from_raw_parts(ciphertext_ptr, ciphertext_len)
     };
