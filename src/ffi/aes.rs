@@ -71,9 +71,10 @@ pub extern "C" fn aes256gcm_decrypt(
         slice::from_raw_parts_mut(plaintext_ptr, plaintext_len)
     };
 
-    println!("hello: here with key size: {}, nonce size: {} and pt size: {}", key.len(), nonce.len(), ciphertext.len());
+    println!("hello: here with key size: {}, nonce size: {} and ct size: {}", key.len(), nonce.len(), ciphertext.len());
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
     let pt = cipher.decrypt(nonce.into(), ciphertext).unwrap();
+    println!("have: {} - expect: {plaintext_len}", pt.len());
     assert!(pt.len() == plaintext_len);
 
     // Copy into out buffer
