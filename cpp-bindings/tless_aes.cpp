@@ -3,6 +3,8 @@
 #define NONCE_SIZE 12
 #define AUTH_SIZE 16
 
+#include <iostream>
+
 namespace tless::aes256gcm {
 std::vector<uint8_t> encrypt(std::vector<uint8_t> key,
                              std::vector<uint8_t> nonce,
