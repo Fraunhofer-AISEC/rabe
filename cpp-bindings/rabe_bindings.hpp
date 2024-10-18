@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -44,6 +45,7 @@ extern "C" {
 namespace tless::abe {
 enum ContextFetchMode {
     Create,
+    FromBytes,
     FromTmpFile,
     FromS3,
 };
@@ -54,17 +56,29 @@ public:
     // our CP-ABE scheme
     void createKeys();
 
-    static CpAbeContextWrapper& get(const ContextFetchMode& fetchMode) {
+    static CpAbeContextWrapper& get(
+      const ContextFetchMode& fetchMode,
+      const std::vector<uint8_t>& bytes = std::vector<uint8_t>())
+    {
         static CpAbeContextWrapper ctx;
 
         if (fetchMode == ContextFetchMode::Create) {
             ctx.createKeys();
+        } else if (fetchMode == ContextFetchMode::FromBytes) {
+            if (bytes.empty()) {
+                throw std::runtime_error("Must provide bytes in this fetch mode");
+            }
+
+            ctx.loadKeys(bytes);
         } else {
             ctx.fetchKeys(fetchMode);
         }
 
         return ctx;
     }
+
+    // Load an external context from a byte array
+    void loadKeys(const std::vector<uint8_t>& ctxBytes);
 
     // Serialize the context into an array. This is useful to then upload it
     // to S3 or something (maybe not on C++ tho, Rust probs better for the CLI)

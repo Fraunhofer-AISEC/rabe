@@ -55,6 +55,17 @@ bool CpAbeContextWrapper::fetchKeys(const ContextFetchMode& fetchMode)
     return true;
 }
 
+// Load an external context from a byte array
+void CpAbeContextWrapper::loadKeys(const std::vector<uint8_t>& ctxBytes)
+{
+    // Take control over the bytes here for further user
+    uint8_t* buffer = (uint8_t*) malloc(ctxBytes.size());
+    std::memcpy(buffer, ctxBytes.data(), ctxBytes.size());
+
+    _ctx = (CpAbeContext*) buffer;
+    this->externalContext = true;
+}
+
 std::vector<uint8_t> CpAbeContextWrapper::cpAbeEncrypt(
     const std::string& policy,
     const std::string& plainText)
