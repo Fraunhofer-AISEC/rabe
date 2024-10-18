@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef __faasm
+#include <cstddef>
+#include <cstdint>
+#endif
 #include <vector>
 
 extern "C" {

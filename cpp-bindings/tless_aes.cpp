@@ -3,6 +3,8 @@
 #define NONCE_SIZE 12
 #define AUTH_SIZE 16
 
+#include <iostream>
+
 namespace tless::aes256gcm {
 std::vector<uint8_t> encrypt(std::vector<uint8_t> key,
                              std::vector<uint8_t> nonce,
@@ -28,7 +30,7 @@ std::vector<uint8_t> decrypt(std::vector<uint8_t> key,
                              std::vector<uint8_t> nonce,
                              std::vector<uint8_t> cipherText)
 {
-    size_t plainTextSize = cipherText.size() - AUTH_SIZE - NONCE_SIZE;
+    size_t plainTextSize = cipherText.size() - AUTH_SIZE;
     std::vector<uint8_t> plainText(plainTextSize);
 
     aes256gcm_decrypt(

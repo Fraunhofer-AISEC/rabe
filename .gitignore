@@ -10,4 +10,5 @@ target
 rabe.iml
 Cargo.lock
 **/.DS_Store
-build
+build-native
+build-wasm
