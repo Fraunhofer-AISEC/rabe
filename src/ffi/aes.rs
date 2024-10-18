@@ -31,6 +31,7 @@ pub extern "C" fn aes256gcm_encrypt(
         slice::from_raw_parts_mut(ciphertext_ptr, ciphertext_len)
     };
 
+    println!("hello: here with key size: {}, nonce size: {} and pt size: {}", key.len(), nonce.len(), plaintext.len());
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
     let ct = cipher.encrypt(nonce.into(), plaintext).unwrap();
     assert!(ct.len() == ciphertext_len - 12);
