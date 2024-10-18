@@ -52,6 +52,7 @@ pub extern "C" fn aes256gcm_decrypt(
     plaintext_ptr: *mut u8,
     plaintext_len: usize,
 ) {
+    println!("here at all?");
     assert!(key_len == 32);
     let key: &[u8] = unsafe {
         slice::from_raw_parts(key_ptr, key_len)
