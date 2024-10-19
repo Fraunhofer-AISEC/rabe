@@ -217,11 +217,12 @@ pub extern "C" fn rabe_bsw_decrypt(
         return -1;
     }
     let _ct: CpAbeCiphertext = _serde_res.unwrap();
-    println!("rabe: got this ciphertext! {:?}", _ct);
-    println!("rabe: got this secret key! {:?}", _sk);
+    println!("rabe: got this ciphertext! {:?}", _ct); // DELETE ME
+    println!("rabe: got this secret key! {:?}", _sk); //DELETE ME
 
     match decrypt(_sk, &_ct) {
         Ok(_pt) => {
+            println!("rabe: decryption succesful"); // DELETE ME
             // Copy the plain-text into a heap-allocated buffer that we pass
             // to C/C++
             let mut data_vec = _pt.clone();
@@ -242,6 +243,9 @@ pub extern "C" fn rabe_bsw_decrypt(
             }
             return 0;
         }
-        Err(_) => return -1,
+        Err(e) => {
+            println!("rabe: decryption error: {e}");
+            return -1;
+        }
     }
 }
