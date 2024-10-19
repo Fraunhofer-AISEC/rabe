@@ -217,6 +217,7 @@ pub extern "C" fn rabe_bsw_decrypt(
         return -1;
     }
     let _ct: CpAbeCiphertext = _serde_res.unwrap();
+    println!("rabe: got this ciphertext! {:?}", _ct);
 
     match decrypt(_sk, &_ct) {
         Ok(_pt) => {
