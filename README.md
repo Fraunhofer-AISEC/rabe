@@ -32,6 +32,11 @@ John Bethencourt, Amit Sahai, Brent Waters, "Ciphertext-Policy Attribute-Based E
 
 S Müller, S Katzenbeisser, C Eckert , "Distributed Attribute-based Encryption". Published in International Conference on Information Security and Cryptology, Heidelberg, 2008. Available from http://www2.seceng.informatik.tu-darmstadt.de/assets/mueller/icisc08.pdf
 
+## GHW11 CP-ABE
+
+Green, Hohenberger, Waters, "Outsourcing the Decryption of ABE Ciphertexts". Published in n 20th USENIX security symposium (USENIX Security 11). Available from https://www.usenix.org/legacy/event/sec11/tech/full_papers/Green.pdf
+
+
 
 # Implemented Key Policy Schemes (KP-ABE)
 
