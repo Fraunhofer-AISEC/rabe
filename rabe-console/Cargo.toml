@@ -1,16 +1,16 @@
 [package]
 name = "rabe-console"
 version = "0.4.0"
+edition = "2024"
 description = "Console App for the ABE Schemes implemented in rabe."
 authors = [
-    "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
-    "Bramm, Georg <georg.bramm@aisec.fraunhofer.de>",
-    "Schuette, Julian <julian.schuette@aisec.fraunhofer.de>"
+  "Schanzenbach, Martin <martin.schanzenbach@aisec.fraunhofer.de>",
+  "Bramm, Georg <georg.bramm@aisec.fraunhofer.de>",
+  "Schuette, Julian <julian.schuette@aisec.fraunhofer.de>",
 ]
-keywords = ["pairing","crypto","cryptography", "abe"]
+keywords = ["pairing", "crypto", "cryptography", "abe"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/Fraunhofer-AISEC/rabe"
 repository = "https://github.com/Fraunhofer-AISEC/rabe"
 documentation = "https://docs.rs/rabe"
 
@@ -25,14 +25,16 @@ name = "rabe"
 path = "src/mod.rs"
 
 [dependencies]
-borsh = { version = "1.5.0", optional = true, default-features = false, features = ["derive"] }
+borsh = { version = "1.5.0", optional = true, default-features = false, features = [
+  "derive",
+] }
 rustc-hex = "2.1.0"
 deflate = "1.0.0"
 inflate = "0.4.5"
-clap = "2.33.3"
+clap = "2.34.0"
 rand = "0.8.5"
 serde = { version = "1.0", optional = true, default-features = false }
 serde_cbor = { version = "0.11.2", optional = true, default-features = false }
 pest = "2.7.10"
 pest_derive = "2.7.10"
-rabe = { path = "..", default-features = false, features = ["borsh"]  }
+rabe = { path = "..", default-features = false, features = ["borsh"] }

@@ -1,17 +1,16 @@
-use std::{fmt::{
-    Display,
-    Result,
-    Formatter
-}, cmp};
+use crate::utils::policy::pest::human::Rule as humanRule;
+use crate::utils::policy::pest::json::Rule as jsonRule;
+#[cfg(feature = "borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 use pest::error::{Error as PestError, LineColLocation};
-use utils::policy::pest::json::Rule as jsonRule;
-use utils::policy::pest::human::Rule as humanRule;
-use std::array::TryFromSliceError;
 use rabe_bn::FieldError;
 #[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
-#[cfg(feature = "borsh")]
-use borsh::{BorshSerialize, BorshDeserialize};
+use serde::{Deserialize, Serialize};
+use std::array::TryFromSliceError;
+use std::{
+    cmp,
+    fmt::{Display, Formatter, Result},
+};
 
 #[derive(Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
@@ -23,7 +22,9 @@ pub struct RabeError {
 impl RabeError {
     /// Creates a new Error
     pub fn new(msg: &str) -> RabeError {
-        RabeError { details: msg.to_string() }
+        RabeError {
+            details: msg.to_string(),
+        }
     }
 }
 
@@ -33,16 +34,13 @@ impl Display for RabeError {
     }
 }
 
-
 impl From<PestError<jsonRule>> for RabeError {
     fn from(error: PestError<jsonRule>) -> Self {
         let line = match error.line_col.to_owned() {
             LineColLocation::Pos((line, _)) => line,
             LineColLocation::Span((start_line, _), (end_line, _)) => cmp::max(start_line, end_line),
         };
-        RabeError::new(
-            format!("Json Policy Error in line {}\n", line).as_ref()
-        )
+        RabeError::new(format!("Json Policy Error in line {}\n", line).as_ref())
     }
 }
 
@@ -52,9 +50,7 @@ impl From<PestError<humanRule>> for RabeError {
             LineColLocation::Pos((line, _)) => line,
             LineColLocation::Span((start_line, _), (end_line, _)) => cmp::max(start_line, end_line),
         };
-        RabeError::new(
-            format!("Json Policy Error in line {}\n", line).as_ref()
-        )
+        RabeError::new(format!("Json Policy Error in line {}\n", line).as_ref())
     }
 }
 impl From<FieldError> for RabeError {
