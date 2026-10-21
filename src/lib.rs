@@ -2,28 +2,25 @@
 /// The standard serialization library is `serde`. If you want to use `borsh`, you need to specify it as feature.
 ///
 /// For integration in distributed applications contact [us](mailto:info@aisec.fraunhofer.de).
-///!
-///! * Developped by Bramm, Schanzenbach, Schuette
-#[allow(dead_code)]
-
+///
+/// * Developped by Bramm, Schanzenbach, Schuette
 #[cfg(feature = "borsh")]
 extern crate borsh;
 #[cfg(feature = "serde")]
 extern crate serde;
 
+extern crate aes_gcm;
+extern crate pest;
 extern crate rabe_bn;
 extern crate rand;
-extern crate pest;
-extern crate aes_gcm;
 extern crate sha3;
 #[macro_use]
 extern crate pest_derive;
 extern crate core;
 
+/// rabe error, that is used in the library
+pub mod error;
 /// rabe schemes
 pub mod schemes;
 /// rabe library utilities
 pub mod utils;
-/// rabe error, that is used in the library
-pub mod error;
-
